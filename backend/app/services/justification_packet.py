@@ -124,10 +124,21 @@ def generate_client_packet_pdf(
 
     parts: List[Path] = []
 
-    # 1. Advice PDF (קיים בלבד – לא מופק אוטומטית כאן)
+    # 1. Advice PDF
     advice_path = _get_advice_pdf_path(client)
     if advice_path.is_file():
         parts.append(advice_path)
+    elif generate_missing:
+        # If the advice PDF is missing, try to (re)generate it now so that
+        # the packet always includes the latest advice document when
+        # requested via generate=1 or from the signing flow.
+        try:
+            justification_advice_service.save_advice_pdf_for_client(db, client)
+        except Exception:
+            pass
+
+        if advice_path.is_file():
+            parts.append(advice_path)
 
     # 2. B1 (edited/base) – לוקחים גרסה אחת בלבד לחבילה, אם קיימת
     b1_candidates = _get_b1_pdf_candidates(client)
