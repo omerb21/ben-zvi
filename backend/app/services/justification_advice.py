@@ -746,44 +746,6 @@ def save_advice_pdf_for_client(db: Session, client: Client) -> None:
             pass
         return
 
-    # Overlay the client's drawn signature image onto the advice PDF, if
-    # available. This ensures that the client signature appears in the
-    # advice document even if the HTML-to-PDF engine behaves differently
-    # across environments.
-    try:
-        client_sig_path = export_dir / "client_signature.png"
-        if client_sig_path.is_file():
-            try:
-                print("[advice] overlay: found client_signature.png at", client_sig_path)
-            except Exception:
-                pass
-            client_sig_bytes = client_sig_path.read_bytes()
-            client_sig_b64 = base64.b64encode(client_sig_bytes).decode("ascii")
-            client_sig_data_url = f"data:image/png;base64,{client_sig_b64}"
-            pdf_bytes = justification_forms_service.apply_overlay_to_pdf(
-                pdf_bytes,
-                free_text=None,
-                signature_image_data=client_sig_data_url,
-                signature_position="bottom_right",
-            )
-            try:
-                print("[advice] overlay: applied client signature overlay for client", client.id)
-            except Exception:
-                pass
-        else:
-            try:
-                print("[advice] overlay: client_signature.png not found at", client_sig_path)
-            except Exception:
-                pass
-    except Exception:
-        # If anything goes wrong with overlaying the signature, we still
-        # keep the base advice PDF without failing the whole flow.
-        try:
-            print("[advice] overlay: exception while applying client signature overlay for client", client.id)
-        except Exception:
-            pass
-        pass
-
     try:
         save_path.write_bytes(pdf_bytes)
     except Exception:
