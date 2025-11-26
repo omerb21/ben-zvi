@@ -624,6 +624,12 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
             break
 
     if not wkhtmltopdf_cmd:
+        # Debug log for environments (e.g. Render) where wkhtmltopdf is
+        # not available or not found in the expected locations.
+        try:
+            print("[advice] wkhtmltopdf not found; candidate_paths=", candidate_paths)
+        except Exception:
+            pass
         return None
 
     html_name = f"advice_{uuid4().hex}.html"
@@ -639,14 +645,43 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
             cmd.extend([f"--{key}", str(value)])
         cmd.extend([str(input_path), str(output_path)])
 
-        subprocess.run(cmd, cwd=str(runtime_dir), capture_output=True)
+        try:
+            print("[advice] running wkhtmltopdf:", cmd, "cwd=", runtime_dir)
+        except Exception:
+            pass
+
+        result = subprocess.run(
+            cmd,
+            cwd=str(runtime_dir),
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            try:
+                print("[advice] wkhtmltopdf failed, code=", result.returncode)
+                if result.stdout:
+                    print("[advice] stdout:", result.stdout[:4000])
+                if result.stderr:
+                    print("[advice] stderr:", result.stderr[:4000])
+            except Exception:
+                pass
+            return None
 
         if not output_path.is_file():
+            try:
+                print("[advice] wkhtmltopdf returned 0 but output PDF not found:", output_path)
+            except Exception:
+                pass
             return None
 
         pdf_bytes = output_path.read_bytes()
         return pdf_bytes
-    except Exception:
+    except Exception as exc:
+        try:
+            print("[advice] exception during wkhtmltopdf run:", repr(exc))
+        except Exception:
+            pass
         return None
     finally:
         try:
