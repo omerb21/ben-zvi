@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>מסמך הנמקה - אברהם אהרוני</title>
+  <style>
+    @page { 
+      size: A4; 
+      margin: 20mm; 
+    }
+    
+    /* Print button styles */
+    .print-button {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      padding: 10px 15px;
+      background-color: #0d6efd;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      z-index: 1000;
+    }
+    
+    .print-button:hover {
+      background-color: #0b5ed7;
+    }
+    
+    @media print {
+      .print-button {
+        display: none;
+      }
+    }
+    
+    .title-container { 
+      text-align: center;
+      margin: 10mm 0 15mm 0;
+      direction: rtl;
+    }
+    
+    .title-container h1 {
+      font-size: 20pt;
+      font-weight: bold;
+      margin: 0 0 5px 0;
+      padding: 0;
+    }
+    
+    .title-container h2 {
+      font-size: 16pt;
+      font-weight: bold;
+      margin: 0;
+      padding: 0;
+    }
+    
+    /* Client Attributes Section */
+    .page-section {
+      margin-bottom: 30px;
+      page-break-inside: avoid;
+    }
+    
+    .section-title {
+      font-size: 18pt;
+      font-weight: bold;
+      color: #2c3e50;
+      margin-bottom: 15px;
+      text-align: right;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 5px;
+    }
+    
+    .lead {
+      font-size: 12pt;
+      line-height: 1.6;
+      margin-bottom: 20px;
+      text-align: right;
+    }
+    
+    .client-attributes {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 11pt;
+    }
+    
+    .client-attributes td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: right;
+    }
+    
+    .client-attributes tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    
+    .client-attributes tr:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .client-attributes td:first-child {
+      font-weight: bold;
+      width: 40px;
+      text-align: center;
+    }
+    
+    .client-attributes td:nth-child(2) {
+      font-weight: bold;
+      width: 200px;
+    }
+    
+    .client-info, .advisor-info { 
+      margin: 2px 0; 
+      font-size: 10pt; 
+      display: inline-block;
+      vertical-align: top;
+      width: 48%;
+    }
+    
+    .advisor-info {
+      text-align: right;
+    }
+    
+    .date { 
+      font-size: 10pt; 
+      text-align: right; 
+      margin: 10px 0 20px 0;
+      direction: rtl;
+      width: 100%;
+    }
+    
+    .products { 
+      width: 100%; 
+      page-break-inside: avoid; 
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 9pt;
+    }
+    
+    .products th {
+      background-color: #4a90e2; /* Darker blue color */
+      color: #ffffff; /* White text for better contrast */
+      padding: 8px;
+      text-align: center;
+      border: 1px solid #3a7bc8; /* Darker border */
+      font-weight: bold;
+    }
+    
+    .products td {
+      padding: 6px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    
+    .products tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    
+    .signatures { 
+      margin-top: 20px;
+      page-break-inside: avoid;
+    }
+    
+    .signatures p { 
+      margin: 5px 0; 
+      font-size: 10pt; 
+    }
+    
+    .footer-note { 
+      font-size: 9pt; 
+      color: #666; 
+      text-align: center;
+      margin-top: 10px;
+    }
+    
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      margin: 0 -15px;
+    }
+    
+    .col-6 {
+      width: 50%;
+      padding: 0 15px;
+      box-sizing: border-box;
+    }
+    
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .mt-3 { margin-top: 1rem; }
+    .mt-5 { margin-top: 3rem; }
+    
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 15px;
+      width: 100%;
+      direction: rtl;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #000000;
+    }
+    
+    .logo-container {
+      text-align: right;
+      flex-shrink: 0;
+      margin-left: 40px; /* Add space between advisor info and logo */
+    }
+    
+    .logo {
+      max-height: 105px;
+      width: auto;
+      height: auto;
+    }
+    
+    .advisor-header {
+      text-align: right;
+      padding-top: 10px;
+      flex-grow: 1;
+    }
+    
+    .summary {
+      background-color: #f0f7ff !important;
+      font-weight: bold;
+    }
+    
+    .recommendation-row {
+      background-color: #f8f9fa !important;
+    }
+    
+    .recommendation-text {
+      font-size: 12pt;
+      line-height: 1.6;
+      text-align: right;
+      padding: 15px !important;
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      margin: 5px 0;
+    }
+    
+    .wrap {
+      word-wrap: break-word;
+    }
+    
+    .num {
+      text-align: left;
+      direction: ltr;
+    }
+    
+    .warning-section {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #fff9e6;
+      border-right: 4px solid #ffcc00;
+      display: flex;
+      flex-direction: row-reverse; /* This will reverse the order of flex items */
+      align-items: flex-start;
+      direction: rtl;
+    }
+    
+    .warning-icon {
+      color: #ffcc00;
+      font-size: 24px;
+      margin-left: 15px;
+      min-width: 30px;
+      text-align: center;
+    }
+    
+    .warning-text {
+      font-weight: bold;
+      margin: 0;
+      flex-grow: 1;
+    }
+    
+    /* Coverage table styles */
+    .coverage-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 9pt;
+    }
+    
+    .coverage-table th, 
+    .coverage-table td {
+      padding: 6px;
+      border: 1px solid #ddd;
+      text-align: right;
+      direction: rtl;
+    }
+    
+    .coverage-table th {
+      background-color: #4a90e2;
+      color: white;
+      font-weight: bold;
+    }
+    
+    .coverage-table tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+  </style>
+  <script>
+    function triggerPrint() {
+      window.print();
+    }
+  </script>
+</head>
+<body>
+  <button type="button" class="print-button" onclick="triggerPrint()">הדפסה</button>
+  <div class="header-container">
+    <div class="logo-container">
+      <img src="/static/logo.png" alt="Logo" class="logo">
+    </div>
+    <div class="advisor-header">
+      <p>שם הסוכן: עומר בן צבי</p>
+      <p>ת.ז. הסוכן: 034458497</p>
+    </div>
+  </div>
+  
+  <div class="client-info">
+    <p>לכבוד</p>
+    <p>שם: אברהם אהרוני</p>
+    <p>ת.ז.: 55579957</p>
+  </div>
+  
+  <div class="advisor-info text-right">
+    <!-- Advisor info moved to header -->
+  </div>
+  
+  <div class="clearfix"></div>
+  
+  <p class="date">תאריך: 24/11/2025</p>
+  
+  <div class="title-container">
+    <h1>נספח א':</h1>
+    <h2>מסמך ההנמקה - הסבר להמלצות על החיסכון הפנסיוני ללקוח</h2>
+  </div>
+
+  <h2 class="primary">לקוח יקר,</h2>
+            <p style="font-weight:bold;">זהו סיכום תהליך בחינת החיסכון הפנסיוני שלך אותו עברת עם סוכן ביטוח פנסיוני.</p>
+            <p style="font-weight:bold;">כאן מרוכז המידע שמסרת לסוכן ביטוח פנסיוני ומפורטים כל הנימוקים להמלצה של הסוכן ביטוח פנסיוני</p>
+  <p style="font-weight:bold;">  שים ♡ </p>
+
+<p style="font-weight:bold;">   חשוב שתקרא את המסמך ותבין את מערך השיקולים העומדים בבסיס ההמלצה כדי שאתה תבחר בחיסכון הפנסיוני הטוב ביותר עבורך .</p>
+
+  <p style="font-weight:bold;">רק לאחר שקראת והבנת – חתום.
+
+מומלץ לשמור מסמך זה ולבדוק אחת לכמה שנים ובעת שינוי במאפיינים האישיים האם החיסכון הפנסיוני,
+
+והכיסויים הביטוחיים עדיין מתאימים לצרכים שלך.</p>
+
+<div style="page-break-before: always;"></div>
+
+ <h2>חלק א' - ההמלצה</h2>
+        <h3>1. הרכב החיסכון הפנסיוני המומלץ עבורך</h3>
+        <p>למה? בטבלה זו מרוכזים כל המוצרים הפנסיוניים שבחנו במהלך הייעוץ/השיווק - מוצרים שכבר קיימים ברשותך מוצרים חדשים אם הומלצו לך.</p>
+        <p>המוצרים מרוכזים לפי קבוצות, כך שבכל קבוצה ימצאו מוצרים פנסיונים מאותה משפחה הנותנים מענה דומה,</p>
+        <p>למשל: קופת גמל, קרן פנסיה, ביטוח מנהלים.</p>
+        <p>חשוב שתקרא את עמודת "המלצה" ואת שורת "השיקולים העיקריים במתן ההמלצה" – בה מופיע הנימוק להמלצה.</p>
+    </div>
+
+  
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להצטרף</td>
+            <td>קופת השתלמות</td>
+            <td class="wrap">הפניקס פנסיה וגמל בע&#34;מ</td>
+            <td class="wrap">הפניקס השתלמות אג&#34;ח סחיר</td>
+            <td class="wrap">הפניקס השתלמות אג&#34;ח סחיר (15212)</td>
+            <td class="wrap">לא</td>
+            <td class="num">6.61%</td>
+            <td class="num">אין נתון</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num">לא רלוונטי ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 0 דמי ניהול של 0 ₪</td>
+          </tr>
+          
+        
+          
+          <tr class="recommendation-row">
+            <td colspan="12" class="recommendation-text">שיקולים לבחירת הקופה: 1. רמת שירות גבוהה של הגוף המוסדי. 2. רמת תפעול גבוהה של הגוף המוסדי. 3. רמת ניהול השקעות גבוהה של הגוף המוסדי.</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div style="page-break-after:always"></div>
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להשאיר</td>
+            <td>קופת גמל להשקעה</td>
+            <td class="wrap">אינפיניטי השתלמות, גמל ופנסיה בע&#34;מ</td>
+            <td class="wrap">אינפיניטי גמל להשקעה כללי (מס&#39; קופה: 216-107247-0)</td>
+            <td class="wrap">אינפיניטי גמל להשקעה כללי (מס&#39; קופה: 216-107247-0) (9638)</td>
+            <td class="wrap">לא</td>
+            <td class="num">14.83%</td>
+            <td class="num">40.42%</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num">25,910 ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 26,687₪ דמי ניהול של 0₪ ₪</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div style="page-break-after:always"></div>
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להשאיר</td>
+            <td>קופת גמל</td>
+            <td class="wrap">הפניקס פנסיה וגמל בע&#34;מ</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-196980 (6077380))</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-196980 (6077380)) (9529)</td>
+            <td class="wrap">לא</td>
+            <td class="num">15.86%</td>
+            <td class="num">39.83%</td>
+            <td class="num"></td>
+            <td class="num">0.9</td>
+            <td class="num">304,591 ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 313,729₪ דמי ניהול של 2,741₪ ₪</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div style="page-break-after:always"></div>
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להשאיר</td>
+            <td>קופת גמל להשקעה</td>
+            <td class="wrap">אינפיניטי השתלמות, גמל ופנסיה בע&#34;מ</td>
+            <td class="wrap">אינפיניטי גמל להשקעה כללי (מס&#39; קופה: 921-33455-0)</td>
+            <td class="wrap">אינפיניטי גמל להשקעה כללי (מס&#39; קופה: 921-33455-0) (9638)</td>
+            <td class="wrap">לא</td>
+            <td class="num">14.83%</td>
+            <td class="num">40.42%</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num">10,303 ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 10,612₪ דמי ניהול של 0₪ ₪</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div style="page-break-after:always"></div>
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להשאיר</td>
+            <td>קופת גמל</td>
+            <td class="wrap">הפניקס פנסיה וגמל בע&#34;מ</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-196999 (6077379))</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-196999 (6077379)) (9529)</td>
+            <td class="wrap">לא</td>
+            <td class="num">15.86%</td>
+            <td class="num">39.83%</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num">55,574 ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 57,241₪ דמי ניהול של 0₪ ₪</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div style="page-break-after:always"></div>
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להשאיר</td>
+            <td>קופת גמל</td>
+            <td class="wrap">הפניקס פנסיה וגמל בע&#34;מ</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-197006 (6077377))</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-197006 (6077377)) (9529)</td>
+            <td class="wrap">לא</td>
+            <td class="num">15.86%</td>
+            <td class="num">39.83%</td>
+            <td class="num"></td>
+            <td class="num">0.8</td>
+            <td class="num">50,529 ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 52,045₪ דמי ניהול של 404₪ ₪</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div style="page-break-after:always"></div>
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להשאיר</td>
+            <td>קופת גמל</td>
+            <td class="wrap">הפניקס פנסיה וגמל בע&#34;מ</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 658-274-197008 (6077381))</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 658-274-197008 (6077381)) (9529)</td>
+            <td class="wrap">לא</td>
+            <td class="num">15.86%</td>
+            <td class="num">39.83%</td>
+            <td class="num"></td>
+            <td class="num">0.8</td>
+            <td class="num">67,760 ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 69,792₪ דמי ניהול של 542₪ ₪</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div style="page-break-after:always"></div>
+  
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          
+          <tr class="">
+            <td class="wrap">להשאיר</td>
+            <td>קופת גמל</td>
+            <td class="wrap">הפניקס פנסיה וגמל בע&#34;מ</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-197014 (6077378))</td>
+            <td class="wrap">הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-197014 (6077378)) (9529)</td>
+            <td class="wrap">לא</td>
+            <td class="num">15.86%</td>
+            <td class="num">39.83%</td>
+            <td class="num"></td>
+            <td class="num">0.8</td>
+            <td class="num">66,162 ₪</td>
+            <td class="num">גיל פרישה 67 הון צפוי ללא הפקדות 68,147₪ דמי ניהול של 529₪ ₪</td>
+          </tr>
+          
+        
+      </tbody>
+    </table>
+    
+    <div class="warning-section">
+      <div class="warning-text">
+        אזהרה: משיכת פיצויי הפיטורין ו/או משיכת כספי התגמולים לפני גיל הפרישה עלולה להקטין את הקצבה שתקבל באופן משמעותי, או לביטולה, ולגרום להפסד של הטבות מס רבות. מומלץ לשקול חלופות אחרות לפני משיכת כספים אלו
+      </div>
+      <div class="warning-icon">
+        <span style="font-size: 24px;">⚠️</span>
+      </div>
+    </div>
+    
+    <div style="page-break-after:always"></div>
+  
+  
+
+  <div style="margin-top: 40px;">
+    <h2>2. הכיסויים הביטוחיים המומלצים עבורך</h2>
+    <p>למה? טבלה זו מרכזת את הכיסויים הביטוחיים שיש ברשותך או שהומלצו לך ביעוץ זה, בין אם מדובר בכיסוי הכלול במוצרי החיסכון הפנסיוני</p>
+    <p>שברשותך ובין אם מדובר במוצרים שמהווים כיסוי נוסף למוצרים הפנסיוניים.</p>
+    <p>חשוב לוודא שיש לך כיסוי ביטוחי מספק לצרכיך, אך שים לב שאינך רוכש כיסויים רבים שלא לצורך.</p>
+  </div>
+  
+        <p>שים לב: הזכאות לכיסוי ביטוחי וגובהו עשויה להיות מותנית בתנאים שונים, כגון שמירה על רציפות בהפקדות, גובה ההפקדות וכו' והכל בהתאם לתנאי המוצר הפרטניים.</p>
+      </div>
+    </div>
+  
+    <div class="coverage-section" style="margin-top: 20px; page-break-inside: avoid;">
+      <table class="table table-bordered coverage-table">
+        <thead>
+          <tr>
+            <th>המלצה</th>
+            <th>שם המוצר</th>
+            <th>שם הגוף המוסדי</th>
+            <th>סוג הכיסוי הביטוחי/מסלול הביטוח</th>
+            <th>סכום הכיסוי הביטוחי/מסלול הביטוח (יחידתי)</th>
+            <th>עלות חודשית</th>
+            <th>כלול במוצר הפנסיוני (כן/לא)</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            
+              <tr>
+                <td>להשאיר</td>
+                <td>אינפיניטי גמל להשקעה כללי (מס&#39; קופה: 216-107247-0)</td>
+                <td>אינפיניטי השתלמות, גמל ופנסיה בע&#34;מ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+          
+            
+              <tr>
+                <td>להשאיר</td>
+                <td>הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-196980 (6077380))</td>
+                <td>הפניקס פנסיה וגמל בע&#34;מ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+              <tr>
+                <td>חלופה 1</td>
+                <td>אלטשולר שחם פנסיה מקיפה 1328</td>
+                <td>אלטשולר שחם גמל ופנסיה בעמ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+              <tr>
+                <td>חלופה 2</td>
+                <td>אלטשулер שחם פנסיה כללית 1329</td>
+                <td>אלטשולר שחם גמל ופנסיה בעמ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+              <tr>
+                <td>חלופה 3</td>
+                <td>מגדל מסלול לבני 50-60 מ.ה-9604 פוליסה</td>
+                <td>מגדל</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+          
+            
+              <tr>
+                <td>להשאיר</td>
+                <td>אינפיניטי גמל להשקעה כללי (מס&#39; קופה: 921-33455-0)</td>
+                <td>אינפיניטי השתלמות, גמל ופנסיה בע&#34;מ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+          
+            
+              <tr>
+                <td>להשאיר</td>
+                <td>הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-196999 (6077379))</td>
+                <td>הפניקס פנסיה וגמל בע&#34;מ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+          
+            
+              <tr>
+                <td>להשאיר</td>
+                <td>הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-197006 (6077377))</td>
+                <td>הפניקס פנסיה וגמל בע&#34;מ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+          
+            
+              <tr>
+                <td>להשאיר</td>
+                <td>הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 658-274-197008 (6077381))</td>
+                <td>הפניקס פנסיה וגמל בע&#34;מ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+          
+            
+              <tr>
+                <td>להשאיר</td>
+                <td>הפניקס גמל מסלול לבני 50 עד 60 (מס&#39; קופה: 827-274-197014 (6077378))</td>
+                <td>הפניקס פנסיה וגמל בע&#34;מ</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td>אין כיסויים במוצר זה</td>
+                <td></td>
+              </tr>
+            
+          
+        </tbody>
+      </table>
+      <div style="margin-top: 20px; font-style: italic; text-align: right; direction: rtl;">
+        <p>שים לב: הזכאות לכיסוי ביטוחי וגובהו עשויה להיות מותנית בתנאים שונים, כגון שמירה על רציפות בהפקדות, גובה ההפקדות וכו' והכל בהתאם לתנאי המוצר הפרטניים.</p>
+      </div>
+    </div>
+  
+
+  <div style="page-break-before: always;">
+    <h2>חלק ב' - המאפיינים שלך לפיהם נקבעו ההמלצות</h2>
+  <p class="lead">למה? התחשבות במאפיינך האישיים חשובה לשם מתן המלצה על המוצרים המתאימים ביותר עבורך.</p>
+  
+  <p>להלן פירוט המאפיינים אליהם התייחסתי בייעוץ/בשיווק הפנסיוני:</p>
+  
+  <table class="table client-attributes">
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>גיל</td>
+        <td>66</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>מצב משפחתי</td>
+        <td>נשוי</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>מצב תעסוקתי</td>
+        <td>None</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>הכנסה קבועה לאחר הפרישה</td>
+        <td>לא</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>רמת סיכון מועדפת</td>
+        <td>בינוני</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>מטרת החיסכון</td>
+        <td>חסכון לגיל פרישה</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>צרכים ביטוחיים</td>
+        <td>None</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 20px; text-align: right; direction: rtl; padding: 15px; font-size: 11pt; line-height: 1.6;">
+    <p>שים ♥ אם החסרת מידע רלוונטי, ההמלצה שניתנה לך עלולה שלא להתאים לצרכים האישיים שלך.</p>
+    <p>תוכל לעדכן את סוכן הביטוח הפנסיוני במידע החסר ולבקש עדכון של ההמלצה בהתאם</p>
+    <p>ת☑ הצהרת בעל הרישיון על שמירת סודיות.</p>
+    <div style="margin-top: 55px;">
+      <p>חתימת בעל הרישיון_____________________________________</p>
+    </div>
+    <div style="margin-top: 20px;">
+      <p>כל מידע שנמסר לי בהליך הייעוץ/השיווק הפנסיוני על ידי הלקוח, יישמר בסודיות ויועבר אך ורק לגורמים רלוונטיים לעניין הליך הייעוץ/שיווק הפנסיוני.</p>
+    </div>
+    
+    <div style="margin-top: 30px;">
+      <p>☐ הצהרת לקוח על אי מסירת מידע.</p>
+      <p>לא מסרתי מידע על סעיפים, לאחר שהובהר לי כי ייתכן ופרטים אלו חיוניים לשם מתן המלצה על המוצרים הפנסיוניים המתאימים לי</p>
+    </div>
+    
+    <div style="margin-top: 40px;">
+      <p>חתימת הלקוח _____________________________________</p>
+    </div>
+    
+    <div style="margin-top: 40px;">
+      <p>☐ הצהרת בעל הרישיון על אי מסירת מידע על ידי הלקוח</p>
+      <p>על אף שהלקוח לא מסר מידע על סעיפים, אין בכך כדי למנוע ממני להתאים את הייעוץ או השיווק הפנסיוני לצרכיו של הלקוח, כפי שהובאו לידיעתי.</p>
+    </div>
+    
+    <div style="margin-top: 60px;">
+      <p>חתימת בעל הרישיון _______________________________________________</p>
+    </div>
+  </div>
+
+  <div style="page-break-before: always;">
+    <h2 class="mt-4">חלק ג' - הכר את הסוכן ביטוח פנסיוני</h2>
+  <h3 class="mt-3">1. פרטי הסוכן הפנסיוני</h3>
+  
+  <div style="margin-top: 40px; line-height: 2;">
+    <div>שם מלא: עומר בן-צבי</div>
+    <div>מספר רשיון פנסיוני: 034458497</div>
+    <div>מספר טלפון: 054-4411730</div>
+    <div>כתובת מייל: OMER@BENZVI.BIZ</div>
+    <div>כתובת: הבוטנים 34 פרדס חנה כרכור</div>
+    <div>האם פועל במסגרת חברה? לא</div>
+   </div>
+  
+  <div style="margin-top: 30px;">
+    <h3><strong>2. גילוי נאות</strong></h3>
+    <p>למה? חשוב שתכיר את ההסכמים שלי עם הגופים המוסדיים, כדי שתבין מהם הקשרים שלי למוצרים ולגופים המוסדיים השונים</p>
+    
+    <div style="margin-top: 20px; line-height: 2;">
+      <div><strong>■ סוכן ביטוח פנסיוני :</strong></div>
+      <div>☐ אני מקבל שכר מהגוף המוסדי _________ שבו אני עובד</div>
+      <div>☑ אני מקבל עמלה מהגופים המוסדיים שאני משווק את מוצריהם</div>
+      <div>☐ אני סוכן ביטוח שכיר מתוגמל ע"י סוכנות לביטוח שבה אני עובד וממנה מקבל שכר</div>
+    </div>
+    
+    <div style="margin-top: 50px; line-height: 1.6;">
+      <p>להלן רשימת הגופים המוסדיים העיקריים שאת מוצריהם שיווקתי בשנת 2023</p>
+      <p>- הרשימה מסודרת משיעור העמלות הגבוה ביותר לנמוך ביותר, כאשר מהגוף המופיע במקום ה-1 קיבלתי את מירב העמלות.</p>
+      
+      <table style="width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid #000; font-size: 10pt;">
+        <thead>
+          <tr style="background-color: #f2f2f2;">
+            <th style="border: 1px solid #000; padding: 8px; text-align: center;">מיקום</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: center;">שם חברת ביטוח</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: center;">שם קופת גמל</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: center;">שם קרן פנסיה</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: center;">שם קרן השתלמות</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">הראל</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">2</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">הראל</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">מור</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;"></td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">מור</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">3</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">מגדל</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">אלטשולר שחם</td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;"></td>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">אלטשולר שחם</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <div style="margin-top: 80px;">
+    <h3><strong>3. מכירת מוצרים ללקוח שאינם פנסיוניים</strong></h3>
+    <p>במסגרת פגישת השיווק נמכרו ללקוח מוצרי ביטוח שאינם פנסיוניים כמפורט להלן</p>
+    
+    <table style="width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 10pt;">
+      <thead>
+        <tr style="border-bottom: 1px solid #000;">
+          <th style="text-align: right; padding: 8px 0;">סוג מוצר</th>
+          <th style="text-align: right; padding: 8px 0;">עלות מוצר</th>
+          <th style="text-align: right; padding: 8px 0;">גורם משלם (מעסיק\לקוח)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 8px 0; border-bottom: 1px solid #eee;"></td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #eee;"></td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #eee;"></td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <p style="margin-top: 20px; font-style: italic;">
+      מוצרי הביטוח אשר נמכרו לך במסגרת פגישת שיווק ומוצגים ברשימה שלעיל אינם מוצרים פנסיוניים, 
+      ואינם מהווים חלק מתהליך השיווק או מותנים בו
+    </p>
+  </div>
+  
+  <div style="page-break-before: always;">
+    <h2 class="mt-4">חלק ד' - טבלת סיכום</h2>
+  
+  <div style="margin-top: 40px;">
+    <h4><strong>מצב קיים</strong></h4>
+    <table style="width: 100%; border: 1px solid #000; border-collapse: collapse; margin-top: 15px;">
+      <thead>
+        <tr style="background-color: #f2f2f2;">
+          <th style="border: 1px solid #000; padding: 8px; text-align: center;">שם קופה</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">אינפיניטי גמל להשקעה כללי</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">אינפיניטי גמל להשקעה כללי</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+  
+  <div style="margin-top: 60px;">
+    <h4><strong>מצב חדש</strong></h4>
+    <table style="width: 100%; border: 1px solid #000; border-collapse: collapse; margin-top: 15px;">
+      <thead>
+        <tr style="background-color: #f2f2f2;">
+          <th style="border: 1px solid #000; padding: 8px; text-align: center;">שם קופה</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">אינפיניטי גמל להשקעה כללי</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">אינפיניטי גמל להשקעה כללי</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס גמל מסלול לבני 50 עד 60</td>
+        </tr>
+        
+        
+        <tr>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center;">הפניקס השתלמות אג&#34;ח סחיר</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+  
+  <div style="page-break-before: always;">
+    <!-- Client Declaration Page -->
+  <div>
+    <h2 class="mt-4">חלק ה' - הצהרת הלקוח</h2>
+    <p style="margin-top: 40px; line-height: 2; text-align: right;">
+      אני, החתום מטה, מצהיר כי מסמך ההנמקה נמסר לי על ידי הסוכן ביטוח פנסיוני
+    </p>
+    
+    <!-- Add significant space here (about 100px) -->
+    <div style="height: 50px;"></div>
+  </div>
+
+  <!-- Signatures Section -->
+  <!-- Space before signatures section -->
+  <div style="height: 300px;"></div>
+  
+  <div class="signatures" style="width: 100%; display: flex; justify-content: space-between; direction: rtl;">
+    <!-- Advisor Signature (Right) -->
+    <div style="text-align: right; width: 30%; padding: 20px 0;">
+      <p style="margin: 0 0 80px 0; font-size: 11pt;">חתימת היועץ:</p>
+      <div style="height: 2px; background: #000; margin: 0 0 10px 0; width: 100%;"></div>
+      <p style="margin: 5px 0 0 0; font-size: 10pt;">שם היועץ: עומר בן צבי</p>
+    </div>
+
+      <!-- Signatures Section -->
+  <!-- Space before signatures section -->
+  <div style="height: 300px;"></div>
+   
+    <!-- Client Signature (Left) -->
+    <div style="text-align: right; width: 30%; padding: 20px 0;">
+      <p style="margin: 0 0 80px 0; font-size: 11pt;">חתימת הלקוח:</p>
+      <div style="height: 2px; background: #000; margin: 0 0 10px 0; width: 100%;">
+        <span style="visibility: hidden;">_</span>
+      </div>
+      <p style="margin: 5px 0 0 0; font-size: 10pt;">שם הלקוח: אברהם אהרוני</p>
+    </div>
+  </div>
+  
+
+      <!-- Signatures Section -->
+  <!-- Space before signatures section -->
+  <div style="height: 100px;"></div>
+  <p class="footer-note">
+    מסמך זה הופק באמצעות מערכת הנמקה אוטומטית של סוכנות בן צבי
+  </p>
+</body>
+</html>

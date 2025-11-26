@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <title>חתימה על מסמכים</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='client_sign.css') }}" />
+</head>
+<body>
+  <div class="page-container">
+    <h1>חתימת לקוח על מסמכים</h1>
+    <p class="instructions">
+      נא לקרוא את המסמך בחלון שלמטה ולאחר מכן לחתום באזור החתימה וללחוץ על כפתור השליחה.
+    </p>
+
+    <div class="pdf-frame-container">
+      <iframe id="pdf-frame" src="{{ packet_url }}" dir="ltr"></iframe>
+    </div>
+
+    <p class="open-packet-link">
+      <a href="{{ packet_url }}" target="_blank" rel="noopener noreferrer">פתח את המסמך בחלון חדש</a>
+    </p>
+
+    <div class="signature-section">
+      <p class="signature-title">חתימת {{ client_name }}</p>
+      <canvas id="signature-canvas"></canvas>
+      <div class="button-row">
+        <button id="clear-signature" type="button">נקה חתימה</button>
+        <button id="submit-signature" type="button">שלח חתימה</button>
+      </div>
+      <div id="status-message" class="status-message"></div>
+    </div>
+  </div>
+
+  <script>
+    window.SIGNING_CONFIG = {
+      submitUrl: "{{ submit_url }}",
+    };
+  </script>
+  <script src="{{ url_for('static', filename='client_sign.js') }}"></script>
+</body>
+</html>

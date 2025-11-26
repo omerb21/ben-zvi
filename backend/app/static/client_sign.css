@@ -1,0 +1,97 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f5f5f5;
+}
+
+.page-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  direction: rtl;
+  text-align: right;
+}
+
+h1 {
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+.instructions {
+  font-size: 14px;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.open-packet-link {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.open-packet-link a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.open-packet-link a:hover {
+  text-decoration: underline;
+}
+
+.pdf-frame-container {
+  border: 1px solid #ccc;
+  background-color: #fff;
+  margin-bottom: 16px;
+}
+
+#pdf-frame {
+  width: 100%;
+  height: 500px;
+  border: none;
+}
+
+.signature-section {
+  background-color: #fff;
+  border: 1px solid #ccc;
+  padding: 16px;
+}
+
+.signature-title {
+  font-size: 16px;
+  margin: 0 0 8px 0;
+}
+
+#signature-canvas {
+  width: 100%;
+  max-width: 600px;
+  height: 200px;
+  border: 1px solid #999;
+  background-color: #fafafa;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.button-row button {
+  padding: 6px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.status-message {
+  font-size: 13px;
+  min-height: 18px;
+}
+
+.status-success {
+  color: #2e7d32;
+}
+
+.status-error {
+  color: #c62828;
+}

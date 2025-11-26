@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דוח לקוח - {{ client.full_name }}</title>
+    <link rel="stylesheet" href="/static/report_client_pdf.css">
+</head>
+<body>
+    <div class="header">
+        <div class="title">דוח קופות לקוח</div>
+        <div>תאריך הפקה: {{ current_date }}</div>
+    </div>
+
+    <div class="client-info">
+        <h3>פרטי הלקוח</h3>
+        <div class="info-row">
+            <span class="info-label">שם מלא:</span>
+            <span class="info-value">{{ client.full_name }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">ת"ז:</span>
+            <span class="info-value">{{ client.id_number }}</span>
+        </div>
+        {% if client.phone %}
+        <div class="info-row">
+            <span class="info-label">טלפון:</span>
+            <span class="info-value">{{ client.phone }}</span>
+        </div>
+        {% endif %}
+        {% if client.email %}
+        <div class="info-row">
+            <span class="info-label">אימייל:</span>
+            <span class="info-value">{{ client.email }}</span>
+        </div>
+        {% endif %}
+        {% if month %}
+        <div class="info-row">
+            <span class="info-label">חודש דוח:</span>
+            <span class="info-value">{{ month }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="summary-box">
+        <div>סך כל היתרות</div>
+        <div class="total-amount">₪{{ "{:,.2f}".format(total_amount) }}</div>
+        <div>מספר קופות: {{ rows|length }}</div>
+    </div>
+
+    <table class="funds-table">
+        <thead>
+            <tr>
+                <th>מס' קופה</th>
+                <th>שם קופה</th>
+                <th>סוג מוצר</th>
+                <th>חברה</th>
+                <th>יתרה (₪)</th>
+                <th>תאריך צילום</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.fund_number }}</td>
+                <td>{{ row.fund_name }}</td>
+                <td>{{ row.fund_type }}</td>
+                <td>{{ row.company }}</td>
+                <td class="amount-cell">{{ "{:,.2f}".format(row.amount) }}</td>
+                <td>
+                    {% if row.snapshot_date %}
+                        {{ row.snapshot_date[8:10] }}/{{ row.snapshot_date[5:7] }}/{{ row.snapshot_date[0:4] }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% set fund_types = {} %}
+    {% for row in rows %}
+        {% if row.fund_type %}
+            {% if row.fund_type in fund_types %}
+                {% set _ = fund_types.update({row.fund_type: fund_types[row.fund_type] + row.amount}) %}
+            {% else %}
+                {% set _ = fund_types.update({row.fund_type: row.amount}) %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if fund_types %}
+    <div class="page-break">
+        <h3>פילוח לפי סוג מוצר</h3>
+        <table class="funds-table">
+            <thead>
+                <tr>
+                    <th>סוג מוצר</th>
+                    <th>יתרה (₪)</th>
+                    <th>אחוז</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fund_type, amount in fund_types.items() %}
+                <tr>
+                    <td>{{ fund_type }}</td>
+                    <td class="amount-cell">{{ "{:,.2f}".format(amount) }}</td>
+                    <td>{{ "{:.1f}%".format((amount / total_amount) * 100) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% set companies = {} %}
+    {% for row in rows %}
+        {% if row.company %}
+            {% if row.company in companies %}
+                {% set _ = companies.update({row.company: companies[row.company] + row.amount}) %}
+            {% else %}
+                {% set _ = companies.update({row.company: row.amount}) %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if companies %}
+    <div class="company-summary">
+        <h3>פילוח לפי חברה</h3>
+        <table class="funds-table">
+            <thead>
+                <tr>
+                    <th>חברה</th>
+                    <th>יתרה (₪)</th>
+                    <th>אחוז</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for company, amount in companies.items() %}
+                <tr>
+                    <td>{{ company }}</td>
+                    <td class="amount-cell">{{ "{:,.2f}".format(amount) }}</td>
+                    <td>{{ "{:.1f}%".format((amount / total_amount) * 100) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        <div>דוח זה הופק ממערכת CRM המאוחדת</div>
+        <div>{{ current_datetime }}</div>
+    </div>
+</body>
+</html>

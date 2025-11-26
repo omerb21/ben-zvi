@@ -1,0 +1,155 @@
+.app-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(to left, #111827, #1f2937);
+  color: #f9fafb;
+}
+
+.app-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background-color: #ffffff;
+  padding: 2px;
+  box-shadow: 0 0 0 2px rgba(249, 250, 251, 0.4);
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-button {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background-color: #111827;
+  color: #e5e7eb;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.nav-button:hover {
+  border-color: #9ca3af;
+}
+
+.nav-button-active {
+  background-color: #f59e0b;
+  border-color: #f59e0b;
+  color: #111827;
+}
+
+.app-admin-import {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.admin-import-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.admin-import-select {
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background-color: #111827;
+  color: #e5e7eb;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.admin-import-month {
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background-color: #111827;
+  color: #e5e7eb;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.admin-import-file {
+  font-size: 0.7rem;
+  color: #e5e7eb;
+}
+
+.admin-import-button {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background-color: #1f2937;
+  color: #e5e7eb;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.admin-import-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.admin-import-button:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
+.app-content {
+  flex: 1;
+  padding: 1rem 1.5rem 1.5rem;
+}
+
+.admin-import-status {
+  padding: 0.4rem 1.5rem;
+  font-size: 0.8rem;
+  background-color: #ecfdf3;
+  color: #166534;
+  border-bottom: 1px solid #d1fae5;
+}
+
+.admin-import-status-error {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-bottom-color: #fee2e2;
+}
+
+.panel-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.status-text {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.status-error {
+  color: #b91c1c;
+}
