@@ -602,9 +602,12 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
         return None
 
     candidate_paths = [
+        base_dir / "bin" / "wkhtmltopdf",
+        base_dir / "bin" / "wkhtmltopdf.exe",
         Path(r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
         Path(r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
     ]
+
     wkhtmltopdf_cmd = shutil.which("wkhtmltopdf")
     for candidate in candidate_paths:
         if candidate.is_file():
