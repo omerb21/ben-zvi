@@ -290,6 +290,12 @@ export async function deleteFormInstance(
   );
 }
 
+export async function deleteClientExports(clientId: number): Promise<void> {
+  await httpClient.delete(
+    `/api/v1/justification/clients/${clientId}/exports`
+  );
+}
+
 function buildBaseUrl(): string {
   const raw = httpClient.defaults.baseURL || "";
   return raw.replace(/\/+$/, "");

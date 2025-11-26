@@ -1,5 +1,7 @@
 from typing import List
 import os
+import shutil
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status, File, UploadFile
 from sqlalchemy.orm import Session
@@ -845,6 +847,27 @@ def trim_client_packet_pdf(
         )
 
     return {"detail": "Client packet PDF trimmed", "editedFilename": edited_path.name}
+
+
+@router.delete("/clients/{client_id}/exports", status_code=status.HTTP_204_NO_CONTENT)
+def delete_client_exports(
+    client_id: int,
+    db: Session = Depends(get_db),
+):
+    client = crm_service.get_client(db, client_id)
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+    export_dir = justification_b1_service._get_client_export_dir(client)
+
+    try:
+        if export_dir.is_dir():
+            shutil.rmtree(export_dir)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete client export directory",
+        )
 
 
 @router.get("/clients/{client_id}/packet-signed-client.pdf")

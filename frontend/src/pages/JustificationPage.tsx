@@ -22,6 +22,7 @@ import {
   buildPacketPdfUrl,
   createPacketSignRequest,
   buildSignedClientPacketPdfUrl,
+  uploadPacketPdf,
   trimPacketPdf,
 } from "../api/justificationApi";
 import { importGemelNetXml, clearJustificationData } from "../api/adminApi";
@@ -102,6 +103,12 @@ function JustificationPage({
   const [packetTrimInput, setPacketTrimInput] = useState("");
   const [packetTrimStatus, setPacketTrimStatus] = useState<string | null>(null);
   const [packetTrimIsError, setPacketTrimIsError] = useState(false);
+  const [packetUploadFile, setPacketUploadFile] = useState<File | null>(null);
+  const [packetUploadStatus, setPacketUploadStatus] = useState<string | null>(null);
+  const [packetUploadIsError, setPacketUploadIsError] = useState(false);
+  const [clientExportsStatus, setClientExportsStatus] = useState<string | null>(null);
+  const [clientExportsIsError, setClientExportsIsError] = useState(false);
+  const [isDeletingClientExports, setIsDeletingClientExports] = useState(false);
   const adobeViewRef = useRef<any | null>(null);
 
   useEffect(() => {
@@ -425,6 +432,59 @@ function JustificationPage({
     }
   };
 
+  const handlePacketUploadFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setPacketUploadFile(file);
+  };
+
+  const handleUploadPacketPdf = async () => {
+    if (!selectedClient || !packetUploadFile) {
+      return;
+    }
+
+    try {
+      await uploadPacketPdf(selectedClient.id, packetUploadFile);
+      setPacketUploadIsError(false);
+      setPacketUploadStatus("חבילת הטפסים הערוכה נשמרה בתיקיית הלקוח");
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail || error?.message;
+      setPacketUploadIsError(true);
+      setPacketUploadStatus(detail || "שגיאה בהעלאת חבילת הטפסים");
+    }
+  };
+
+  const handleDeleteClientExports = async () => {
+    if (!selectedClient) {
+      return;
+    }
+
+    // eslint-disable-next-line no-alert
+    const confirmed = window.confirm(
+      "האם אתה בטוח שברצונך למחוק את כל קבצי ה-PDF של הלקוח?"
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingClientExports(true);
+    setClientExportsStatus(null);
+    setClientExportsIsError(false);
+
+    try {
+      // Lazy import to avoid circular dependency at module init time
+      const { deleteClientExports } = await import("../api/justificationApi");
+      await deleteClientExports(selectedClient.id);
+      setClientExportsIsError(false);
+      setClientExportsStatus("כל קבצי ה-PDF של הלקוח נמחקו בהצלחה");
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail || error?.message;
+      setClientExportsIsError(true);
+      setClientExportsStatus(detail || "שגיאה במחיקת תיקיית הקבצים של הלקוח");
+    } finally {
+      setIsDeletingClientExports(false);
+    }
+  };
+
   const handleCreatePacketSignLink = async () => {
     if (!selectedClient) {
       return;
@@ -539,6 +599,15 @@ function JustificationPage({
   useEffect(() => {
     setPacketSignLink(null);
     setPacketSignError(null);
+    setPacketTrimInput("");
+    setPacketTrimStatus(null);
+    setPacketTrimIsError(false);
+    setPacketUploadFile(null);
+    setPacketUploadStatus(null);
+    setPacketUploadIsError(false);
+    setClientExportsStatus(null);
+    setClientExportsIsError(false);
+    setIsDeletingClientExports(false);
   }, [selectedClient]);
 
   useEffect(() => {
@@ -1372,6 +1441,33 @@ function JustificationPage({
                             מחק עמודים מהחבילה
                           </button>
                         </div>
+                        <div className="client-pdf-upload">
+                          <span>טעינת חבילה ערוכה (PDF):</span>
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            className="client-pdf-input"
+                            onChange={handlePacketUploadFileChange}
+                          />
+                          <button
+                            type="button"
+                            className="client-pdf-button"
+                            onClick={handleUploadPacketPdf}
+                            disabled={!packetUploadFile}
+                          >
+                            שמירת חבילה ערוכה במערכת
+                          </button>
+                        </div>
+                        <div className="client-pdf-delete">
+                          <button
+                            type="button"
+                            className="client-pdf-button client-pdf-button-danger"
+                            onClick={handleDeleteClientExports}
+                            disabled={isDeletingClientExports}
+                          >
+                            מחיקת תיקיית קבצי הלקוח
+                          </button>
+                        </div>
                       </div>
                     </li>
                   </ul>
@@ -1401,6 +1497,24 @@ function JustificationPage({
                     }
                   >
                     {packetTrimStatus}
+                  </div>
+                )}
+                {packetUploadStatus && (
+                  <div
+                    className={
+                      packetUploadIsError ? "status-text status-error" : "status-text"
+                    }
+                  >
+                    {packetUploadStatus}
+                  </div>
+                )}
+                {clientExportsStatus && (
+                  <div
+                    className={
+                      clientExportsIsError ? "status-text status-error" : "status-text"
+                    }
+                  >
+                    {clientExportsStatus}
                   </div>
                 )}
                 {packetSignError && (
