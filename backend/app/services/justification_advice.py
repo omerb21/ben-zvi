@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Client, ExistingProduct, NewProduct
 from app.services import justification_b1 as justification_b1_service
+from app.services import justification_forms as justification_forms_service
 
 
 INTEREST_RATE = 0.03
@@ -595,7 +596,7 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
     }
 
     # backend_root: .../backend
-    backend_root = Path(__file__).resolve().parent.parent
+    backend_root = Path(__file__).resolve().parent.parent.parent
     runtime_dir = backend_root / "advice_runtime"
     try:
         runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -688,6 +689,27 @@ def save_advice_pdf_for_client(db: Session, client: Client) -> None:
     pdf_bytes = generate_advice_pdf(html)
     if pdf_bytes is None:
         return
+
+    # Overlay the client's drawn signature image onto the advice PDF, if
+    # available. This ensures that the client signature appears in the
+    # advice document even if the HTML-to-PDF engine behaves differently
+    # across environments.
+    try:
+        client_sig_path = export_dir / "client_signature.png"
+        if client_sig_path.is_file():
+            client_sig_bytes = client_sig_path.read_bytes()
+            client_sig_b64 = base64.b64encode(client_sig_bytes).decode("ascii")
+            client_sig_data_url = f"data:image/png;base64,{client_sig_b64}"
+            pdf_bytes = justification_forms_service.apply_overlay_to_pdf(
+                pdf_bytes,
+                free_text=None,
+                signature_image_data=client_sig_data_url,
+                signature_position="bottom_right",
+            )
+    except Exception:
+        # If anything goes wrong with overlaying the signature, we still
+        # keep the base advice PDF without failing the whole flow.
+        pass
 
     try:
         save_path.write_bytes(pdf_bytes)
