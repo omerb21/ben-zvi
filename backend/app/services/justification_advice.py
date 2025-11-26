@@ -618,10 +618,11 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
         candidate_paths.append(backend_root / "bin" / "wkhtmltopdf")
 
     wkhtmltopdf_cmd = shutil.which("wkhtmltopdf")
-    for candidate in candidate_paths:
-        if candidate.is_file():
-            wkhtmltopdf_cmd = str(candidate)
-            break
+    if not wkhtmltopdf_cmd:
+        for candidate in candidate_paths:
+            if candidate.is_file():
+                wkhtmltopdf_cmd = str(candidate)
+                break
 
     if not wkhtmltopdf_cmd:
         # Debug log for environments (e.g. Render) where wkhtmltopdf is
