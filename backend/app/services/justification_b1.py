@@ -33,14 +33,22 @@ def _get_client_export_dir(client: Client) -> Path:
 
 
 def _register_hebrew_font() -> str:
-    candidates = [
-        r"C:\\Windows\\Fonts\\arial.ttf",
-        r"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    base_dir = _get_base_dir()
+    project_font_dir = base_dir / "static" / "fonts"
+
+    candidate_paths = [
+        project_font_dir / "hebrew.ttf",
+        project_font_dir / "arial.ttf",
+        project_font_dir / "DejaVuSans.ttf",
+        Path(r"C:\\Windows\\Fonts\\arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
     ]
-    for path in candidates:
-        if os.path.exists(path):
-            pdfmetrics.registerFont(TTFont("Heb", path))
+
+    for path in candidate_paths:
+        if path.is_file():
+            pdfmetrics.registerFont(TTFont("Heb", str(path)))
             return "Heb"
+
     raise AssertionError("Hebrew TTF font not found")
 
 

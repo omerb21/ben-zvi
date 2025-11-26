@@ -45,17 +45,24 @@ def _register_overlay_font() -> str:
     except KeyError:
         pass
 
-    candidates = [
-        r"C:\\Windows\\Fonts\\arial.ttf",
-        r"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    base_dir = Path(__file__).resolve().parent.parent
+    project_font_dir = base_dir / "static" / "fonts"
+
+    candidate_paths = [
+        project_font_dir / "hebrew.ttf",
+        project_font_dir / "arial.ttf",
+        project_font_dir / "DejaVuSans.ttf",
+        Path(r"C:\\Windows\\Fonts\\arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
     ]
-    for path in candidates:
-        if os.path.exists(path):
-            try:
-                pdfmetrics.registerFont(TTFont(font_name, path))
+
+    for path in candidate_paths:
+        try:
+            if path.is_file():
+                pdfmetrics.registerFont(TTFont(font_name, str(path)))
                 return font_name
-            except Exception:
-                continue
+        except Exception:
+            continue
 
     # Fallback: use built-in Helvetica if nothing better is available.
     return "Helvetica"
