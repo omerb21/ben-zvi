@@ -594,16 +594,17 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
         "load-error-handling": "ignore",
     }
 
-    base_dir = Path(__file__).resolve().parent.parent.parent
-    runtime_dir = base_dir / "advice_runtime"
+    # backend_root: .../backend
+    backend_root = Path(__file__).resolve().parent.parent
+    runtime_dir = backend_root / "advice_runtime"
     try:
         runtime_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
         return None
 
     candidate_paths = [
-        base_dir / "bin" / "wkhtmltopdf",
-        base_dir / "bin" / "wkhtmltopdf.exe",
+        backend_root / "bin" / "wkhtmltopdf",
+        backend_root / "bin" / "wkhtmltopdf.exe",
         Path(r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
         Path(r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
     ]
