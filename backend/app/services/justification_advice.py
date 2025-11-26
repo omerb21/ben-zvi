@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import base64
+import os
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlalchemy.orm import Session
@@ -603,12 +604,18 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
     except Exception:
         return None
 
-    candidate_paths = [
-        backend_root / "bin" / "wkhtmltopdf",
-        backend_root / "bin" / "wkhtmltopdf.exe",
-        Path(r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
-        Path(r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
-    ]
+    is_windows = os.name == "nt"
+    candidate_paths: list[Path] = []
+    if is_windows:
+        candidate_paths.extend(
+            [
+                backend_root / "bin" / "wkhtmltopdf.exe",
+                Path(r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
+                Path(r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
+            ]
+        )
+    else:
+        candidate_paths.append(backend_root / "bin" / "wkhtmltopdf")
 
     wkhtmltopdf_cmd = shutil.which("wkhtmltopdf")
     for candidate in candidate_paths:

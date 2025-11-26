@@ -361,7 +361,10 @@ def download_client_advice_pdf(
     html = justification_advice_service.build_advice_html(db, client)
     pdf_bytes = justification_advice_service.generate_advice_pdf(html)
     if pdf_bytes is None:
-        return Response(content=html, media_type="text/html; charset=utf-8")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Advice PDF generation failed",
+        )
 
     try:
         save_path.write_bytes(pdf_bytes)
