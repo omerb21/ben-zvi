@@ -700,6 +700,7 @@
   height: 100%;
   border-radius: 9999px;
   background: linear-gradient(to left, #93c5fd, #3b82f6);
+  width: var(--crm-bar-width, 5%);
 }
 
 .crm-dashboard-bar-fill-type {

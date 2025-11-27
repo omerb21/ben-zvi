@@ -1,4 +1,5 @@
 import { useEffect, useState, ChangeEvent } from "react";
+import type { CSSProperties } from "react";
 import {
   Client,
   ClientSummary,
@@ -1178,7 +1179,7 @@ function CrmPage({ onOpenJustification }: Props) {
                         <div className="crm-dashboard-bar-track">
                           <div
                             className="crm-dashboard-bar-fill"
-                            style={{ width: `${Math.max(5, percent)}%` }}
+                            style={{ "--crm-bar-width": `${Math.max(5, percent)}%` } as CSSProperties}
                           />
                         </div>
                       </div>
@@ -1215,7 +1216,7 @@ function CrmPage({ onOpenJustification }: Props) {
                         <div className="crm-dashboard-bar-track">
                           <div
                             className="crm-dashboard-bar-fill crm-dashboard-bar-fill-type"
-                            style={{ width: `${Math.max(5, percent)}%` }}
+                            style={{ "--crm-bar-width": `${Math.max(5, percent)}%` } as CSSProperties}
                           />
                         </div>
                       </div>

@@ -254,8 +254,6 @@ def apply_signature_to_sig_fields(
 
     any_signature_drawn = False
 
-    print("[sign] apply_signature_to_sig_fields: pages=", len(writer.pages))
-
     for page_index, page in enumerate(writer.pages):
         annots = page.get("/Annots") or []
         if not annots:
@@ -289,8 +287,6 @@ def apply_signature_to_sig_fields(
             continue
 
         any_signature_drawn = True
-
-        print("[sign] page", page_index, ": sig_annots=", len(sig_rects))
 
         page_width = float(page.mediabox.width)
         page_height = float(page.mediabox.height)
@@ -327,7 +323,6 @@ def apply_signature_to_sig_fields(
 
     if not any_signature_drawn:
         # אם משום מה לא מצאנו שדות /Sig, נשתמש בפולבק הקודם
-        print("[sign] no /Sig fields found, using bottom_right fallback")
         return apply_overlay_to_pdf(
             source_pdf_bytes,
             free_text=None,
