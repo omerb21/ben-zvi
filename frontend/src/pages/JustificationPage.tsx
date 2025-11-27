@@ -28,6 +28,9 @@ import {
 import { importGemelNetXml, clearJustificationData } from "../api/adminApi";
 import { Client, ClientSummary, fetchClientSummaries, fetchClient } from "../api/crmApi";
 import "../styles/justification.css";
+import JustificationTabs from "../components/JustificationTabs";
+import JustificationMarketDashboard from "../components/JustificationMarketDashboard";
+import JustificationFormsPanel from "../components/JustificationFormsPanel";
 
 type Props = {
   savingProductsReloadKey?: number;
@@ -1241,105 +1244,23 @@ function JustificationPage({
   if (viewMode === "market") {
     return (
       <div className="justification-page-wrapper">
-        <div className="just-tabs">
-          <button
-            type="button"
-            className="just-tab-button just-tab-button-active"
-            onClick={() => setViewMode("market")}
-          >
-            דשבורד
-          </button>
-          <button
-            type="button"
-            className="just-tab-button"
-            onClick={() => setViewMode("client")}
-          >
-            הנמקה ללקוח
-          </button>
-          <button
-            type="button"
-            className="just-tab-button"
-            onClick={() => setViewMode("forms")}
-          >
-            עריכת טפסים
-          </button>
-        </div>
+        <JustificationTabs currentView={viewMode} onChangeView={setViewMode} />
         <div className="justification-page">
-          <section className="just-panel">
-            <h2 className="panel-title">דשבורד הנמקה</h2>
-            {importStatus && (
-              <div className="admin-import-status">{importStatus}</div>
-            )}
-            {importError && (
-              <div className="admin-import-status admin-import-status-error">
-                {importError}
-              </div>
-            )}
-            <div className="just-dashboard-import-card">
-              <div className="just-dashboard-import-title">
-                ניהול קבצי הנמקה (גמל-נט / מחיקת נתונים)
-              </div>
-              <div className="admin-import-group">
-                <input
-                  type="file"
-                  accept=".xml"
-                  className="admin-import-file"
-                  onChange={handleGemelFileChange}
-                />
-                <button
-                  type="button"
-                  className="admin-import-button"
-                  onClick={handleRunGemelImport}
-                  disabled={!gemelFile || isGemelImporting || isJustificationClearing}
-                >
-                  ייבוא גמל-נט (XML)
-                </button>
-                <button
-                  type="button"
-                  className="admin-import-button"
-                  onClick={handleClearJustificationData}
-                  disabled={isGemelImporting || isJustificationClearing}
-                >
-                  מחיקת נתוני הנמקה
-                </button>
-              </div>
-            </div>
-            {loading && <div className="status-text">טוען נתונים…</div>}
-            {error && <div className="status-text status-error">{error}</div>}
-            <table className="saving-table">
-              <thead>
-                <tr>
-                  <th>חברה</th>
-                  <th>שם קופה</th>
-                  <th>סוג</th>
-                  <th>קוד</th>
-                  <th>תשואה 12 חודשים</th>
-                  <th>תשואה 36 חודשים</th>
-                </tr>
-              </thead>
-              <tbody>
-                {savingProducts.map((product) => (
-                  <tr
-                    key={product.id}
-                    className={
-                      selectedSavingProduct &&
-                      selectedSavingProduct.id === product.id
-                        ? "saving-row saving-row-selected"
-                        : "saving-row"
-                    }
-                    onClick={() => setSelectedSavingProduct(product)}
-                  >
-                    <td>{product.companyName}</td>
-                    <td>{product.fundName}</td>
-                    <td>{product.fundType}</td>
-                    <td>{product.fundCode}</td>
-                    <td>{product.yield1yr ?? "-"}</td>
-                    <td>{product.yield3yr ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+          <JustificationMarketDashboard
+            savingProducts={savingProducts}
+            selectedSavingProduct={selectedSavingProduct}
+            onSelectSavingProduct={setSelectedSavingProduct}
+            importStatus={importStatus}
+            importError={importError}
+            loading={loading}
+            error={error}
+            gemelFile={gemelFile}
+            isGemelImporting={isGemelImporting}
+            isJustificationClearing={isJustificationClearing}
+            onGemelFileChange={handleGemelFileChange}
+            onRunGemelImport={handleRunGemelImport}
+            onClearJustificationData={handleClearJustificationData}
+          />
         </div>
       </div>
     );
@@ -1348,29 +1269,7 @@ function JustificationPage({
   if (viewMode === "forms") {
     return (
       <div className="justification-page-wrapper">
-        <div className="just-tabs">
-          <button
-            type="button"
-            className="just-tab-button"
-            onClick={() => setViewMode("market")}
-          >
-            דשבורד
-          </button>
-          <button
-            type="button"
-            className="just-tab-button"
-            onClick={() => setViewMode("client")}
-          >
-            הנמקה ללקוח
-          </button>
-          <button
-            type="button"
-            className="just-tab-button just-tab-button-active"
-            onClick={() => setViewMode("forms")}
-          >
-            עריכת טפסים
-          </button>
-        </div>
+        <JustificationTabs currentView={viewMode} onChangeView={setViewMode} />
         <div className="justification-page">
           <section className="just-panel just-middle">
             <h2 className="panel-title">
@@ -1383,144 +1282,32 @@ function JustificationPage({
               </div>
             )}
             {selectedClient && (
-              <section className="client-pdf-section">
-                <h3 className="panel-subtitle">חבילת טפסי PDF ללקוח</h3>
-                <div className="client-pdf-layout">
-                  <ul className="client-pdf-list">
-                    <li className="client-pdf-item">
-                      <div className="client-pdf-item-main">
-                        <span className="client-pdf-title">חבילת טפסים מאוחדת</span>
-                        <span className="client-pdf-meta">
-                          החבילה כוללת: מסמך הנמקה, טופס B1 וכל קיטי ההצטרפות שנוצרו ללקוח
-                        </span>
-                      </div>
-                      <div className="client-pdf-actions">
-                        <button
-                          type="button"
-                          className="client-pdf-button"
-                          onClick={handleGeneratePacketPdf}
-                        >
-                          הפקת חבילת טפסים
-                        </button>
-                        <button
-                          type="button"
-                          className="client-pdf-button"
-                          onClick={handlePreviewPacketPdf}
-                        >
-                          תצוגה בעמוד
-                        </button>
-                        <button
-                          type="button"
-                          className="client-pdf-button"
-                          onClick={handleCreatePacketSignLink}
-                          disabled={isPacketSignLoading}
-                        >
-                          שלח ללקוח לחתימה
-                        </button>
-                        <button
-                          type="button"
-                          className="client-pdf-button"
-                          onClick={handlePreviewSignedPacketPdf}
-                        >
-                          צפייה בחבילה החתומה
-                        </button>
-                        <div className="client-pdf-trim">
-                          <span>מחק עמודים (לפי מספר):</span>
-                          <input
-                            type="text"
-                            className="client-pdf-input"
-                            value={packetTrimInput}
-                            onChange={(event) => setPacketTrimInput(event.target.value)}
-                            placeholder="לדוגמה: 2 5 7"
-                          />
-                          <button
-                            type="button"
-                            className="client-pdf-button"
-                            onClick={handleTrimPacketPages}
-                          >
-                            מחק עמודים מהחבילה
-                          </button>
-                        </div>
-                        <div className="client-pdf-upload">
-                          <span>טעינת חבילה ערוכה (PDF):</span>
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            className="client-pdf-input"
-                            onChange={handlePacketUploadFileChange}
-                          />
-                          <button
-                            type="button"
-                            className="client-pdf-button"
-                            onClick={handleUploadPacketPdf}
-                            disabled={!packetUploadFile}
-                          >
-                            שמירת חבילה ערוכה במערכת
-                          </button>
-                        </div>
-                        <div className="client-pdf-delete">
-                          <button
-                            type="button"
-                            className="client-pdf-button client-pdf-button-danger"
-                            onClick={handleDeleteClientExports}
-                            disabled={isDeletingClientExports}
-                          >
-                            מחיקת תיקיית קבצי הלקוח
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-                {pdfGenerationMessage && (
-                  <div
-                    className={
-                      pdfGenerationIsError ? "status-text status-error" : "status-text"
-                    }
-                  >
-                    {pdfGenerationMessage}
-                  </div>
-                )}
-                {packetSignLink && (
-                  <div className="status-text">
-                    ניתן לשלוח ללקוח את הקישור הבא לחתימה:
-                    <br />
-                    <a href={packetSignLink} target="_blank" rel="noreferrer">
-                      {packetSignLink}
-                    </a>
-                  </div>
-                )}
-                {packetTrimStatus && (
-                  <div
-                    className={
-                      packetTrimIsError ? "status-text status-error" : "status-text"
-                    }
-                  >
-                    {packetTrimStatus}
-                  </div>
-                )}
-                {packetUploadStatus && (
-                  <div
-                    className={
-                      packetUploadIsError ? "status-text status-error" : "status-text"
-                    }
-                  >
-                    {packetUploadStatus}
-                  </div>
-                )}
-                {clientExportsStatus && (
-                  <div
-                    className={
-                      clientExportsIsError ? "status-text status-error" : "status-text"
-                    }
-                  >
-                    {clientExportsStatus}
-                  </div>
-                )}
-                {packetSignError && (
-                  <div className="status-text status-error">{packetSignError}</div>
-                )}
-              </section>
+              <JustificationFormsPanel
+                selectedClient={selectedClient}
+                isPacketSignLoading={isPacketSignLoading}
+                isDeletingClientExports={isDeletingClientExports}
+                packetTrimInput={packetTrimInput}
+                packetUploadFile={packetUploadFile}
+                pdfGenerationMessage={pdfGenerationMessage}
+                pdfGenerationIsError={pdfGenerationIsError}
+                packetSignLink={packetSignLink}
+                packetSignError={packetSignError}
+                packetTrimStatus={packetTrimStatus}
+                packetTrimIsError={packetTrimIsError}
+                packetUploadStatus={packetUploadStatus}
+                packetUploadIsError={packetUploadIsError}
+                clientExportsStatus={clientExportsStatus}
+                clientExportsIsError={clientExportsIsError}
+                onGeneratePacketPdf={handleGeneratePacketPdf}
+                onPreviewPacketPdf={handlePreviewPacketPdf}
+                onCreatePacketSignLink={handleCreatePacketSignLink}
+                onPreviewSignedPacketPdf={handlePreviewSignedPacketPdf}
+                onPacketTrimInputChange={setPacketTrimInput}
+                onTrimPacketPages={handleTrimPacketPages}
+                onPacketUploadFileChange={handlePacketUploadFileChange}
+                onUploadPacketPdf={handleUploadPacketPdf}
+                onDeleteClientExports={handleDeleteClientExports}
+              />
             )}
           </section>
         </div>
@@ -1530,29 +1317,7 @@ function JustificationPage({
 
   return (
     <div className="justification-page-wrapper">
-      <div className="just-tabs">
-        <button
-          type="button"
-          className="just-tab-button"
-          onClick={() => setViewMode("market")}
-        >
-          דשבורד
-        </button>
-        <button
-          type="button"
-          className="just-tab-button just-tab-button-active"
-          onClick={() => setViewMode("client")}
-        >
-          הנמקה ללקוח
-        </button>
-        <button
-          type="button"
-          className="just-tab-button"
-          onClick={() => setViewMode("forms")}
-        >
-          עריכת טפסים
-        </button>
-      </div>
+      <JustificationTabs currentView={viewMode} onChangeView={setViewMode} />
       <div className="justification-page">
         <section className="just-panel just-middle">
           <h2 className="panel-title">
