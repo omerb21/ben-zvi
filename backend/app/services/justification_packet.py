@@ -139,6 +139,23 @@ KIT_SPLIT_FIELD_NAMES_LOWER = {
     "per14",
     "per15",
     "group4",
+    "check box2",
+    "check box3",
+    "check box4",
+    "check box5",
+    "check box6",
+    "check box7",
+    "check box8",
+    "check box9",
+    "check box10",
+    "check box11",
+    "check box12",
+    "check box13",
+    "check box14",
+    "check box15",
+    "check box18",
+    "code",
+    "chosen",
 }
 
 
