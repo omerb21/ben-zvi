@@ -1,0 +1,84 @@
+  <div style="page-break-before: always;">
+    <h2>חלק ב' - המאפיינים שלך לפיהם נקבעו ההמלצות</h2>
+  <p class="lead">למה? התחשבות במאפיינך האישיים חשובה לשם מתן המלצה על המוצרים המתאימים ביותר עבורך.</p>
+  
+  <p>להלן פירוט המאפיינים אליהם התייחסתי בייעוץ/בשיווק הפנסיוני:</p>
+  
+  <table class="table client-attributes">
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>גיל</td>
+        <td>{% if client.date_of_birth %}{{ ((now - client.date_of_birth).days // 365) }}{% else %}לא צוין{% endif %}</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>מצב משפחתי</td>
+        <td>{{ client.marital_status }}</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>מצב תעסוקתי</td>
+        <td>{{ client.employment_status if client.employment_status is defined else 'לא צוין' }}</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>הכנסה קבועה לאחר הפרישה</td>
+        <td>{{ 'כן' if client.retirement_income else 'לא' if client.retirement_income is defined else 'לא צוין' }}</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>רמת סיכון מועדפת</td>
+        <td>בינוני</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>מטרת החיסכון</td>
+        <td>חסכון לגיל פרישה</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>צרכים ביטוחיים</td>
+        <td>{{ client.insurance_needs if client.insurance_needs is defined else 'לא צוין' }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 20px; text-align: right; direction: rtl; padding: 15px; font-size: 11pt; line-height: 1.6;">
+    <p>שים ♥ אם החסרת מידע רלוונטי, ההמלצה שניתנה לך עלולה שלא להתאים לצרכים האישיים שלך.</p>
+    <p>תוכל לעדכן את סוכן הביטוח הפנסיוני במידע החסר ולבקש עדכון של ההמלצה בהתאם</p>
+    <p>ת☑ הצהרת בעל הרישיון על שמירת סודיות.</p>
+    <div style="margin-top: 55px;">
+      <p style="margin: 0 0 10px 0;">חתימת בעל הרישיון:</p>
+      {% if signature_data_url %}
+        <img src="{{ signature_data_url }}" alt="חתימת בעל הרישיון" style="max-height: 60px; margin-bottom: 10px;">
+      {% endif %}
+      <div style="height: 2px; background: #000; margin: 0 0 10px 0; width: 40%; margin-left: auto;"></div>
+    </div>
+    <div style="margin-top: 20px;">
+      <p>כל מידע שנמסר לי בהליך הייעוץ/השיווק הפנסיוני על ידי הלקוח, יישמר בסודיות ויועבר אך ורק לגורמים רלוונטיים לעניין הליך הייעוץ/שיווק הפנסיוני.</p>
+    </div>
+    
+    <div style="margin-top: 30px;">
+      <p>☐ הצהרת לקוח על אי מסירת מידע.</p>
+      <p>לא מסרתי מידע על סעיפים, לאחר שהובהר לי כי ייתכן ופרטים אלו חיוניים לשם מתן המלצה על המוצרים הפנסיוניים המתאימים לי</p>
+    </div>
+    
+    <div style="margin-top: 40px;">
+      <p>חתימת הלקוח:</p>
+      {% if client_signature_data_url %}
+        <img src="{{ client_signature_data_url }}" alt="חתימת הלקוח" style="max-height: 60px; margin-bottom: 10px;">
+      {% endif %}
+      <div style="height: 2px; background: #000; margin: 0 0 10px 0; width: 40%; margin-left: auto;"></div>
+    </div>
+    
+    <div style="margin-top: 40px;">
+      <p>☐ הצהרת בעל הרישיון על אי מסירת מידע על ידי הלקוח</p>
+      <p>על אף שהלקוח לא מסר מידע על סעיפים, אין בכך כדי למנוע ממני להתאים את הייעוץ או השיווק הפנסיוני לצרכיו של הלקוח, כפי שהובאו לידיעתי.</p>
+      <p style="margin: 0 0 10px 0;">חתימת בעל הרישיון:</p>
+      {% if signature_data_url %}
+        <img src="{{ signature_data_url }}" alt="חתימת בעל הרישיון" style="max-height: 60px; margin-bottom: 10px;">
+      {% endif %}
+      <div style="height: 2px; background: #000; margin: 0 0 10px 0; width: 40%; margin-left: auto;"></div>
+    </div>
+  </div>

@@ -1,0 +1,45 @@
+  <div style="margin-top: 40px;">
+    <h2>2. הכיסויים הביטוחיים המומלצים עבורך</h2>
+    <p>למה? טבלה זו מרכזת את הכיסויים הביטוחיים שיש ברשותך או שהומלצו לך ביעוץ זה, בין אם מדובר בכיסוי הכלול במוצרי החיסכון הפנסיוני</p>
+    <p>שברשותך ובין אם מדובר במוצרים שמהווים כיסוי נוסף למוצרים הפנסיוניים.</p>
+    <p>חשוב לוודא שיש לך כיסוי ביטוחי מספק לצרכיך, אך שים לב שאינך רוכש כיסויים רבים שלא לצורך.</p>
+  </div>
+  
+        <p>שים לב: הזכאות לכיסוי ביטוחי וגובהו עשויה להיות מותנית בתנאים שונים, כגון שמירה על רציפות בהפקדות, גובה ההפקדות וכו' והכל בהתאם לתנאי המוצר הפרטניים.</p>
+      </div>
+    </div>
+  {% if coverage_tables %}
+    <div class="coverage-section" style="margin-top: 20px; page-break-inside: avoid;">
+      <table class="table table-bordered coverage-table">
+        <thead>
+          <tr>
+            <th>המלצה</th>
+            <th>שם המוצר</th>
+            <th>שם הגוף המוסדי</th>
+            <th>סוג הכיסוי הביטוחי/מסלול הביטוח</th>
+            <th>סכום הכיסוי הביטוחי/מסלול הביטוח (יחידתי)</th>
+            <th>עלות חודשית</th>
+            <th>כלול במוצר הפנסיוני (כן/לא)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rows in coverage_tables %}
+            {% for row in rows %}
+              <tr>
+                <td>{{ row.recommendation }}</td>
+                <td>{{ row.product_name }}</td>
+                <td>{{ row.company_name }}</td>
+                <td>{{ row.coverage_type }}</td>
+                <td>{{ row.coverage_amount }}</td>
+                <td>{{ row.monthly_cost }}</td>
+                <td>{{ row.included_in_pension }}</td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="margin-top: 20px; font-style: italic; text-align: right; direction: rtl;">
+        <p>שים לב: הזכאות לכיסוי ביטוחי וגובהו עשויה להיות מותנית בתנאים שונים, כגון שמירה על רציפות בהפקדות, גובה ההפקדות וכו' והכל בהתאם לתנאי המוצר הפרטניים.</p>
+      </div>
+    </div>
+  {% endif %}

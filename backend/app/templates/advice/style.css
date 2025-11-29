@@ -1,0 +1,293 @@
+@page { 
+  size: A4; 
+  margin: 20mm; 
+}
+
+/* Print button styles */
+.print-button {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 10px 15px;
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 1000;
+}
+
+.print-button:hover {
+  background-color: #0b5ed7;
+}
+
+@media print {
+  .print-button {
+    display: none;
+  }
+}
+
+.title-container { 
+  text-align: center;
+  margin: 10mm 0 15mm 0;
+  direction: rtl;
+}
+
+.title-container h1 {
+  font-size: 20pt;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+  padding: 0;
+}
+
+.title-container h2 {
+  font-size: 16pt;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+}
+
+/* Client Attributes Section */
+.page-section {
+  margin-bottom: 30px;
+  page-break-inside: avoid;
+}
+
+.section-title {
+  font-size: 18pt;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 15px;
+  text-align: right;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 5px;
+}
+
+.lead {
+  font-size: 12pt;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  text-align: right;
+}
+
+.client-attributes {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 11pt;
+}
+
+.client-attributes td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: right;
+}
+
+.client-attributes tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.client-attributes tr:hover {
+  background-color: #f1f1f1;
+}
+
+.client-attributes td:first-child {
+  font-weight: bold;
+  width: 40px;
+  text-align: center;
+}
+
+.client-attributes td:nth-child(2) {
+  font-weight: bold;
+  width: 200px;
+}
+
+.client-info, .advisor-info { 
+  margin: 2px 0; 
+  font-size: 10pt; 
+  display: inline-block;
+  vertical-align: top;
+  width: 48%;
+}
+
+.advisor-info {
+  text-align: right;
+}
+
+.date { 
+  font-size: 10pt; 
+  text-align: right; 
+  margin: 10px 0 20px 0;
+  direction: rtl;
+  width: 100%;
+}
+
+.products { 
+  width: 100%; 
+  page-break-inside: avoid; 
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 9pt;
+}
+
+.products th {
+  background-color: #4a90e2; /* Darker blue color */
+  color: #ffffff; /* White text for better contrast */
+  padding: 8px;
+  text-align: center;
+  border: 1px solid #3a7bc8; /* Darker border */
+  font-weight: bold;
+}
+
+.products td {
+  padding: 6px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+.products tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.signatures { 
+  margin-top: 20px;
+  page-break-inside: avoid;
+}
+
+.signatures p { 
+  margin: 5px 0; 
+  font-size: 10pt; 
+}
+
+.footer-note { 
+  font-size: 9pt; 
+  color: #666; 
+  text-align: center;
+  margin-top: 10px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -15px;
+}
+
+.col-6 {
+  width: 50%;
+  padding: 0 15px;
+  box-sizing: border-box;
+}
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.mt-3 { margin-top: 1rem; }
+.mt-5 { margin-top: 3rem; }
+
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  width: 100%;
+  direction: rtl;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #000000;
+}
+
+.logo-container {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 40px; /* Add space between advisor info and logo */
+}
+
+.logo {
+  max-height: 105px;
+  width: auto;
+  height: auto;
+}
+
+.advisor-header {
+  text-align: right;
+  padding-top: 10px;
+  flex-grow: 1;
+}
+
+.summary {
+  background-color: #f0f7ff !important;
+  font-weight: bold;
+}
+
+.recommendation-row {
+  background-color: #f8f9fa !important;
+}
+
+.recommendation-text {
+  font-size: 12pt;
+  line-height: 1.6;
+  text-align: right;
+  padding: 15px !important;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  margin: 5px 0;
+}
+
+.wrap {
+  word-wrap: break-word;
+}
+
+.num {
+  text-align: left;
+  direction: ltr;
+}
+
+.warning-section {
+  margin-top: 30px;
+  padding: 15px;
+  background-color: #fff9e6;
+  border-right: 4px solid #ffcc00;
+  display: flex;
+  flex-direction: row-reverse; /* This will reverse the order of flex items */
+  align-items: flex-start;
+  direction: rtl;
+}
+
+.warning-icon {
+  color: #ffcc00;
+  font-size: 24px;
+  margin-left: 15px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.warning-text {
+  font-weight: bold;
+  margin: 0;
+  flex-grow: 1;
+}
+
+/* Coverage table styles */
+.coverage-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 9pt;
+}
+
+.coverage-table th, 
+.coverage-table td {
+  padding: 6px;
+  border: 1px solid #ddd;
+  text-align: right;
+  direction: rtl;
+}
+
+.coverage-table th {
+  background-color: #4a90e2;
+  color: white;
+  font-weight: bold;
+}
+
+.coverage-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}

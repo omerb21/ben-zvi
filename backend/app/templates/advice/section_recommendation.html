@@ -1,0 +1,56 @@
+ <h2>חלק א' - ההמלצה</h2>
+        <h3>1. הרכב החיסכון הפנסיוני המומלץ עבורך</h3>
+        <p>למה? בטבלה זו מרוכזים כל המוצרים הפנסיוניים שבחנו במהלך הייעוץ/השיווק - מוצרים שכבר קיימים ברשותך מוצרים חדשים אם הומלצו לך.</p>
+        <p>המוצרים מרוכזים לפי קבוצות, כך שבכל קבוצה ימצאו מוצרים פנסיונים מאותה משפחה הנותנים מענה דומה,</p>
+        <p>למשל: קופת גמל, קרן פנסיה, ביטוח מנהלים.</p>
+        <p>חשוב שתקרא את עמודת "המלצה" ואת שורת "השיקולים העיקריים במתן ההמלצה" – בה מופיע הנימוק להמלצה.</p>
+    </div>
+
+  
+  {% for tbl in tables %}
+    <table class="products fixed">
+      <thead>
+        <tr>
+          <th>המלצה</th><th>סוג מוצר</th><th>גוף מוסדי</th><th>שם מוצר ומספרו</th>
+          <th>שם מסלול</th><th>הבטחת תשואה</th><th>תשואה שנתית</th><th>תשואה תלת שנתית</th>
+          <th>דנ' הפקדה %</th><th>דנ' צבירה %</th>
+          <th>יתרה כיום</th><th>סכום צפוי בגיל 67</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in tbl %}
+          {% if 'שיקולים לבחירת הקופה' in row.recommendation %}
+          <tr class="recommendation-row">
+            <td colspan="12" class="recommendation-text">{{ row.recommendation }}</td>
+          </tr>
+          {% else %}
+          <tr class="{% if loop.last and row.recommendation.startswith('חלופה') %}summary{% endif %}">
+            <td class="wrap">{{ row.recommendation }}</td>
+            <td>{{ row.product_type }}</td>
+            <td class="wrap">{{ row.company_name }}</td>
+            <td class="wrap">{{ row.fund_name }}</td>
+            <td class="wrap">{{ row.track_name }}</td>
+            <td class="wrap">{{ row.guaranteed_return }}</td>
+            <td class="num">{{ row.yield_1yr }}</td>
+            <td class="num">{{ row.yield_3yr }}</td>
+            <td class="num">{{ row.mgmt_fee_dep }}</td>
+            <td class="num">{{ row.mgmt_fee_bal }}</td>
+            <td class="num">{{ row.balance }} ₪</td>
+            <td class="num">{{ row.forecast }} ₪</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if loop.last %}
+    <div class="warning-section">
+      <div class="warning-text">
+        אזהרה: משיכת פיצויי הפיטורין ו/או משיכת כספי התגמולים לפני גיל הפרישה עלולה להקטין את הקצבה שתקבל באופן משמעותי, או לביטולה, ולגרום להפסד של הטבות מס רבות. מומלץ לשקול חלופות אחרות לפני משיכת כספים אלו
+      </div>
+      <div class="warning-icon">
+        <span style="font-size: 24px;">⚠️</span>
+      </div>
+    </div>
+    {% endif %}
+    <div style="page-break-after:always"></div>
+  {% endfor %}

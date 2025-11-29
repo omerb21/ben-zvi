@@ -50,7 +50,7 @@ def build_advice_html(db: Session, client: Client, include_print_button: bool = 
     }
 
     env = _get_templates_env()
-    template = env.get_template("advice_print.html")
+    template = env.get_template("advice/print.html")
     now = date.today()
 
     base_dir = Path(__file__).resolve().parent.parent
@@ -228,10 +228,6 @@ def save_advice_pdf_for_client(db: Session, client: Client) -> None:
     html = build_advice_html(db, client)
     pdf_bytes = generate_advice_pdf(html)
     if pdf_bytes is None:
-        try:
-            print("[advice] save_advice_pdf_for_client: PDF generation failed for client", client.id)
-        except Exception:
-            pass
         return
 
     try:

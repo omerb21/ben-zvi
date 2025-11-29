@@ -394,7 +394,12 @@ def generate_kit_pdf_for_new_product(
 
     payload = build_full_payload(client, new_fund, old_fund)
 
-    pdf_path = fill_form_auto(str(template_path_obj), payload, out_path)
+    pdf_path = fill_form_auto(
+        str(template_path_obj),
+        payload,
+        out_path,
+        field_name_prefix=None,
+    )
     data = Path(pdf_path).read_bytes()
 
     return data, output_filename
@@ -453,7 +458,12 @@ def generate_kit_pdf_for_new_product_overlay(
 
     payload = build_full_payload_overlay(client, new_fund, old_fund)
 
-    pdf_path = fill_form_auto(str(template_path_obj), payload, out_path)
+    pdf_path = fill_form_auto(
+        str(template_path_obj),
+        payload,
+        out_path,
+        field_name_prefix=f"kit_{client_id}_{new_product_id}_",
+    )
     data = Path(pdf_path).read_bytes()
 
     return data, output_filename

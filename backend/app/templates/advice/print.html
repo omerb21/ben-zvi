@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>מסמך הנמקה - {{ client.first_name }} {{ client.last_name }}</title>
+  <style>
+    {% include "advice/style.css" %}
+  </style>
+  <script>
+    function triggerPrint() {
+      window.print();
+    }
+  </script>
+</head>
+<body>
+  {% include "advice/header_intro.html" %}
+  {% include "advice/section_recommendation.html" %}
+  {% include "advice/section_coverages.html" %}
+  {% include "advice/section_client_attributes.html" %}
+  {% include "advice/section_advisor_disclosure.html" %}
+  {% include "advice/section_summary_tables.html" %}
+  {% include "advice/section_client_declaration.html" %}
+</body>
+</html>

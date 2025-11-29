@@ -1,0 +1,43 @@
+  <div class="header-container">
+    <div class="logo-container">
+      <img src="{{ logo_data_url }}" alt="Logo" class="logo">
+    </div>
+    <div class="advisor-header">
+      <p>שם הסוכן: עומר בן צבי</p>
+      <p>ת.ז. הסוכן: 034458497</p>
+    </div>
+  </div>
+  
+  <div class="client-info">
+    <p>לכבוד</p>
+    <p>שם: {{ client.first_name }} {{ client.last_name }}</p>
+    <p>ת.ז.: {{ client.national_id }}</p>
+  </div>
+  
+  <div class="advisor-info text-right">
+    <!-- Advisor info moved to header -->
+  </div>
+  
+  <div class="clearfix"></div>
+  
+  <p class="date">תאריך: {{ now.strftime('%d/%m/%Y') }}</p>
+  
+  <div class="title-container">
+    <h1>נספח א':</h1>
+    <h2>מסמך ההנמקה - הסבר להמלצות על החיסכון הפנסיוני ללקוח</h2>
+  </div>
+
+  <h2 class="primary">לקוח יקר,</h2>
+            <p style="font-weight:bold;">זהו סיכום תהליך בחינת החיסכון הפנסיוני שלך אותו עברת עם סוכן ביטוח פנסיוני.</p>
+            <p style="font-weight:bold;">כאן מרוכז המידע שמסרת לסוכן ביטוח פנסיוני ומפורטים כל הנימוקים להמלצה של הסוכן ביטוח פנסיוני</p>
+  <p style="font-weight:bold;">  שים ♡ </p>
+
+<p style="font-weight:bold;">   חשוב שתקרא את המסמך ותבין את מערך השיקולים העומדים בבסיס ההמלצה כדי שאתה תבחר בחיסכון הפנסיוני הטוב ביותר עבורך .</p>
+
+  <p style="font-weight:bold;">רק לאחר שקראת והבנת – חתום.
+
+מומלץ לשמור מסמך זה ולבדוק אחת לכמה שנים ובעת שינוי במאפיינים האישיים האם החיסכון הפנסיוני,
+
+והכיסויים הביטוחיים עדיין מתאימים לצרכים שלך.</p>
+
+<div style="page-break-before: always;"></div>

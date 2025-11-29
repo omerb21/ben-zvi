@@ -1,7 +1,7 @@
 import { useState } from "react";
 import MainLayout from "./layout/MainLayout";
-import CrmPage from "./pages/CrmPage";
-import JustificationPage from "./pages/JustificationPage";
+import CrmPage from "./pages/crm/CrmPageRoot";
+import JustificationPage from "./pages/justification/JustificationPageRoot";
 
 export type AppView = "crm" | "justification";
 

@@ -5,6 +5,7 @@ from typing import List, Tuple
 
 from sqlalchemy.orm import Session
 from pypdf import PdfWriter, PdfReader
+from pypdf.generic import NameObject, TextStringObject
 
 from app.models import Client
 from app.services import justification as justification_service
@@ -103,6 +104,73 @@ def _get_kit_pdf_paths_for_client(
     return kit_paths
 
 
+KIT_SPLIT_FIELD_NAMES_LOWER = {
+    "employ",
+    "indipendent",
+    "baalshlita",
+    "indiploy",
+    "dmnsum",
+    "fund_code",
+    "fund_name",
+    "company_name",
+    "kupacode",
+    "depno",
+    "depyes",
+    "personal_number",
+    "group3",
+    "group29",
+    "group30",
+    "group31",
+    "text6",
+    "text8",
+    "per1",
+    "per2",
+    "per3",
+    "per4",
+    "per5",
+    "per6",
+    "per7",
+    "per8",
+    "per9",
+    "per10",
+    "per11",
+    "per12",
+    "per13",
+    "per14",
+    "per15",
+    "group4",
+}
+
+
+def _rename_kit_specific_fields(reader: PdfReader, prefix: str) -> None:
+    root = reader.trailer.get("/Root")
+    if root is None:
+        return
+
+    acro = root.get("/AcroForm")
+    if acro is None:
+        return
+
+    fields = acro.get("/Fields")
+    if not fields:
+        return
+
+    def _walk(field_array):  # type: ignore[no-redef]
+        for field_ref in field_array:
+            field = field_ref.get_object()
+            name_obj = field.get("/T")
+            if name_obj is not None:
+                name_str = str(name_obj)
+                if name_str.lower() in KIT_SPLIT_FIELD_NAMES_LOWER:
+                    new_name = TextStringObject(f"{prefix}{name_str}")
+                    field.update({NameObject("/T"): new_name})
+            kids = field.get("/Kids")
+            if kids:
+                _walk(kids)
+
+    _walk(fields)
+
+
 def generate_client_packet_pdf(
     db: Session,
     client: Client,
@@ -159,9 +227,25 @@ def generate_client_packet_pdf(
 
     writer = PdfWriter()
     has_pages = False
+    kit_index = 1
     for pdf_path in parts:
         try:
-            writer.append(str(pdf_path))
+            reader = PdfReader(str(pdf_path))
+        except Exception:
+            # אם קובץ אחד בעייתי, לא מפילים את כל תהליך יצירת החבילה
+            continue
+
+        is_kit = pdf_path.name.startswith("kit_")
+
+        if is_kit:
+            try:
+                _rename_kit_specific_fields(reader, f"kit{kit_index}_")
+            except Exception:
+                pass
+            kit_index += 1
+
+        try:
+            writer.append(reader)
             has_pages = True
         except Exception:
             # אם קובץ אחד בעייתי, לא מפילים את כל תהליך יצירת החבילה
@@ -176,8 +260,81 @@ def generate_client_packet_pdf(
     except Exception as exc:
         raise ValueError(f"FAILED_TO_WRITE_PACKET:{exc}")
 
+    _debug_dump_packet_fields(packet_path)
+
     data = packet_path.read_bytes()
     return data, packet_filename
+
+
+def _make_packet_field_names_unique_in_file(packet_path: Path) -> None:
+    reader = PdfReader(str(packet_path))
+    root = reader.trailer.get("/Root")
+    if root is None:
+        return
+
+    acro = root.get("/AcroForm")
+    if acro is None:
+        return
+
+    fields = acro.get("/Fields")
+    if not fields:
+        return
+
+    writer = PdfWriter()
+    writer.clone_document_from_reader(reader)
+
+    acro_out = writer._root_object.get("/AcroForm")
+    if acro_out is None:
+        return
+
+    fields_out = acro_out.get("/Fields")
+    if not fields_out:
+        return
+
+    counter = 1
+
+    def _walk(field_array):  # type: ignore[no-redef]
+        nonlocal counter
+        for field_ref in field_array:
+            field = field_ref.get_object()
+            name_obj = field.get("/T")
+            if name_obj is not None:
+                new_name = TextStringObject(f"field_{counter}")
+                counter += 1
+                field.update({NameObject("/T"): new_name})
+            kids = field.get("/Kids")
+            if kids:
+                _walk(kids)
+
+    try:
+        _walk(fields_out)
+    except Exception:
+        return
+
+    with packet_path.open("wb") as f:
+        writer.write(f)
+
+
+def _debug_dump_packet_fields(packet_path: Path) -> None:
+    try:
+        reader = PdfReader(str(packet_path))
+        fields = reader.get_fields()
+    except Exception:
+        return
+
+    if not fields:
+        return
+
+    debug_path = packet_path.with_name(f"{packet_path.stem}_debug_fields.txt")
+
+    try:
+        lines = []
+        for name in fields.keys():
+            lines.append(str(name))
+        content = "\n".join(lines)
+        debug_path.write_text(content, encoding="utf-8")
+    except Exception:
+        return
 
 
 def trim_client_packet_pdf(client: Client, pages_to_remove: List[int]) -> Path:

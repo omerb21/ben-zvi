@@ -1,0 +1,48 @@
+  <div style="page-break-before: always;">
+    <!-- Client Declaration Page -->
+  <div>
+    <h2 class="mt-4">חלק ה' - הצהרת הלקוח</h2>
+    <p style="margin-top: 40px; line-height: 2; text-align: right;">
+      אני, החתום מטה, מצהיר כי מסמך ההנמקה נמסר לי על ידי הסוכן ביטוח פנסיוני
+    </p>
+    
+    <!-- Add significant space here (about 100px) -->
+    <div style="height: 50px;"></div>
+  </div>
+
+  <!-- Signatures Section -->
+  <!-- Space before signatures section -->
+  <div style="height: 300px;"></div>
+  
+  <div class="signatures" style="width: 100%; display: flex; justify-content: space-between; direction: rtl;">
+    <!-- Advisor Signature (Right) -->
+    <div style="text-align: right; width: 30%; padding: 20px 0;">
+      <p style="margin: 0 0 10px 0; font-size: 11pt;">חתימת בעל הרשיון:</p>
+      {% if signature_data_url %}
+        <img src="{{ signature_data_url }}" alt="חתימת בעל הרשיון" style="max-height: 60px; margin-bottom: 10px;">
+      {% endif %}
+      <div style="height: 2px; background: #000; margin: 0 0 10px 0; width: 100%;"></div>
+      <p style="margin: 5px 0 0 0; font-size: 10pt;">שם הסוכן: עומר בן צבי</p>
+    </div>
+
+    <!-- Client Signature (Left) -->
+    <div style="text-align: right; width: 30%; padding: 20px 0;">
+      <p style="margin: 0 0 10px 0; font-size: 11pt;">חתימת הלקוח:</p>
+      {% if client_signature_data_url %}
+        <img src="{{ client_signature_data_url }}" alt="חתימת הלקוח" style="max-height: 60px; margin-bottom: 10px;">
+      {% endif %}
+      <div style="height: 2px; background: #000; margin: 0 0 10px 0; width: 100%;">
+        <span style="visibility: hidden;">_</span>
+      </div>
+      <p style="margin: 5px 0 0 0; font-size: 10pt;">שם הלקוח: {{ client.first_name }} {{ client.last_name }}</p>
+    </div>
+  </div>
+  
+
+      <!-- Signatures Section -->
+  <!-- Space before signatures section -->
+  <div style="height: 100px;"></div>
+  <p class="footer-note">
+    מסמך זה הופק באמצעות מערכת הנמקה אוטומטית של סוכנות בן צבי
+  </p>
+  </div>

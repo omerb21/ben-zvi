@@ -20,6 +20,13 @@ from app.schemas.justification import (
     ClientSignatureSubmitPayload,
     PacketTrimPayload,
 )
+from app.utils.justification_mappers import (
+    to_saving_product_read,
+    to_existing_product_read,
+    to_existing_product_read_from_dict,
+    to_new_product_read,
+    to_form_instance_read,
+)
 from app.services import justification as justification_service
 from app.services import crm as crm_service
 from app.services import justification_advice as justification_advice_service
@@ -35,21 +42,8 @@ router = APIRouter(prefix="/api/v1/justification", tags=["justification"])
 
 @router.get("/saving-products", response_model=List[SavingProductRead])
 def list_saving_products(db: Session = Depends(get_db)):
-    products = justification_service.list_saving_products(db)
-    return [
-        SavingProductRead(
-            id=product.id,
-            fundType=product.fund_type,
-            companyName=product.company_name,
-            fundName=product.fund_name,
-            fundCode=product.fund_code,
-            yield1yr=product.yield_1yr,
-            yield3yr=product.yield_3yr,
-            riskLevel=product.risk_level,
-            guaranteedReturn=product.guaranteed_return,
-        )
-        for product in products
-    ]
+     products = justification_service.list_saving_products(db)
+     return [to_saving_product_read(product) for product in products]
 
 
 @router.post(
@@ -58,32 +52,16 @@ def list_saving_products(db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
 )
 def create_existing_product_for_client(
-    client_id: int,
-    existing_in: ExistingProductCreate,
-    db: Session = Depends(get_db),
-):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+     client_id: int,
+     existing_in: ExistingProductCreate,
+     db: Session = Depends(get_db),
+ ):
+     client = crm_service.get_client(db, client_id)
+     if not client:
+         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    product = justification_service.create_existing_product_for_client(db, client_id, existing_in)
-    return ExistingProductRead(
-        id=product.id,
-        clientId=product.client_id,
-        fundType=product.fund_type,
-        companyName=product.company_name,
-        fundName=product.fund_name,
-        fundCode=product.fund_code,
-        yield1yr=product.yield_1yr,
-        yield3yr=product.yield_3yr,
-        personalNumber=product.personal_number,
-        managementFeeBalance=product.management_fee_balance,
-        managementFeeContributions=product.management_fee_contributions,
-        accumulatedAmount=product.accumulated_amount,
-        employmentStatus=product.employment_status,
-        hasRegularContributions=product.has_regular_contributions,
-        isVirtual=False,
-    )
+     product = justification_service.create_existing_product_for_client(db, client_id, existing_in)
+     return to_existing_product_read(product, is_virtual=False)
 
 
 @router.get(
@@ -91,31 +69,12 @@ def create_existing_product_for_client(
     response_model=List[ExistingProductRead],
 )
 def list_existing_products_for_client(client_id: int, db: Session = Depends(get_db)):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+     client = crm_service.get_client(db, client_id)
+     if not client:
+         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    products = justification_service.list_existing_products_view_for_client(db, client_id)
-    return [
-        ExistingProductRead(
-            id=product["id"],
-            clientId=product["client_id"],
-            fundType=product["fund_type"],
-            companyName=product["company_name"],
-            fundName=product["fund_name"],
-            fundCode=product["fund_code"],
-            yield1yr=product["yield_1yr"],
-            yield3yr=product["yield_3yr"],
-            personalNumber=product["personal_number"],
-            managementFeeBalance=product["management_fee_balance"],
-            managementFeeContributions=product["management_fee_contributions"],
-            accumulatedAmount=product["accumulated_amount"],
-            employmentStatus=product["employment_status"],
-            hasRegularContributions=product["has_regular_contributions"],
-            isVirtual=product["is_virtual"],
-        )
-        for product in products
-    ]
+     products = justification_service.list_existing_products_view_for_client(db, client_id)
+     return [to_existing_product_read_from_dict(product) for product in products]
 
 
 @router.patch(
@@ -123,34 +82,18 @@ def list_existing_products_for_client(client_id: int, db: Session = Depends(get_
     response_model=ExistingProductRead,
 )
 def update_existing_product(
-    existing_product_id: int,
-    existing_in: ExistingProductUpdate,
-    db: Session = Depends(get_db),
-):
-    product = justification_service.update_existing_product(db, existing_product_id, existing_in)
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Existing product not found",
-        )
+     existing_product_id: int,
+     existing_in: ExistingProductUpdate,
+     db: Session = Depends(get_db),
+ ):
+     product = justification_service.update_existing_product(db, existing_product_id, existing_in)
+     if not product:
+         raise HTTPException(
+             status_code=status.HTTP_404_NOT_FOUND,
+             detail="Existing product not found",
+         )
 
-    return ExistingProductRead(
-        id=product.id,
-        clientId=product.client_id,
-        fundType=product.fund_type,
-        companyName=product.company_name,
-        fundName=product.fund_name,
-        fundCode=product.fund_code,
-        yield1yr=product.yield_1yr,
-        yield3yr=product.yield_3yr,
-        personalNumber=product.personal_number,
-        managementFeeBalance=product.management_fee_balance,
-        managementFeeContributions=product.management_fee_contributions,
-        accumulatedAmount=product.accumulated_amount,
-        employmentStatus=product.employment_status,
-        hasRegularContributions=product.has_regular_contributions,
-        isVirtual=False,
-    )
+     return to_existing_product_read(product, is_virtual=False)
 
 
 @router.get(
@@ -158,31 +101,12 @@ def update_existing_product(
     response_model=List[NewProductRead],
 )
 def list_new_products_for_client(client_id: int, db: Session = Depends(get_db)):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+     client = crm_service.get_client(db, client_id)
+     if not client:
+         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    products = justification_service.list_new_products_for_client(db, client_id)
-    return [
-        NewProductRead(
-            id=product.id,
-            clientId=product.client_id,
-            existingProductId=getattr(product, "existing_product_id", None),
-            fundType=product.fund_type,
-            companyName=product.company_name,
-            fundName=product.fund_name,
-            fundCode=product.fund_code,
-            yield1yr=product.yield_1yr,
-            yield3yr=product.yield_3yr,
-            personalNumber=product.personal_number,
-            managementFeeBalance=product.management_fee_balance,
-            managementFeeContributions=product.management_fee_contributions,
-            accumulatedAmount=product.accumulated_amount,
-            employmentStatus=product.employment_status,
-            hasRegularContributions=product.has_regular_contributions,
-        )
-        for product in products
-    ]
+     products = justification_service.list_new_products_for_client(db, client_id)
+     return [to_new_product_read(product) for product in products]
 
 
 @router.post(
@@ -191,32 +115,16 @@ def list_new_products_for_client(client_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
 )
 def create_new_product_for_client(
-    client_id: int,
-    new_product_in: NewProductCreate,
-    db: Session = Depends(get_db),
-):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+     client_id: int,
+     new_product_in: NewProductCreate,
+     db: Session = Depends(get_db),
+ ):
+     client = crm_service.get_client(db, client_id)
+     if not client:
+         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    product = justification_service.create_new_product_for_client(db, client_id, new_product_in)
-    return NewProductRead(
-        id=product.id,
-        clientId=product.client_id,
-        existingProductId=getattr(product, "existing_product_id", None),
-        fundType=product.fund_type,
-        companyName=product.company_name,
-        fundName=product.fund_name,
-        fundCode=product.fund_code,
-        yield1yr=product.yield_1yr,
-        yield3yr=product.yield_3yr,
-        personalNumber=product.personal_number,
-        managementFeeBalance=product.management_fee_balance,
-        managementFeeContributions=product.management_fee_contributions,
-        accumulatedAmount=product.accumulated_amount,
-        employmentStatus=product.employment_status,
-        hasRegularContributions=product.has_regular_contributions,
-    )
+     product = justification_service.create_new_product_for_client(db, client_id, new_product_in)
+     return to_new_product_read(product)
 
 
 @router.get(
@@ -224,18 +132,8 @@ def create_new_product_for_client(
     response_model=List[FormInstanceRead],
 )
 def list_form_instances_for_new_product(new_product_id: int, db: Session = Depends(get_db)):
-    forms = justification_service.list_form_instances_for_new_product(db, new_product_id)
-    return [
-        FormInstanceRead(
-            id=form.id,
-            newProductId=form.new_product_id,
-            templateFilename=form.template_filename,
-            status=form.status,
-            filledData=form.filled_data,
-            fileOutputPath=form.file_output_path,
-        )
-        for form in forms
-    ]
+     forms = justification_service.list_form_instances_for_new_product(db, new_product_id)
+     return [to_form_instance_read(form) for form in forms]
 
 
 @router.post(
@@ -244,20 +142,13 @@ def list_form_instances_for_new_product(new_product_id: int, db: Session = Depen
     status_code=status.HTTP_201_CREATED,
 )
 def create_form_instance_for_new_product(
-    new_product_id: int,
-    form_in: FormInstanceCreate,
-    db: Session = Depends(get_db),
-):
-    # Could validate that new_product_id exists here if needed
-    form = justification_service.create_form_instance_for_new_product(db, new_product_id, form_in)
-    return FormInstanceRead(
-        id=form.id,
-        newProductId=form.new_product_id,
-        templateFilename=form.template_filename,
-        status=form.status,
-        filledData=form.filled_data,
-        fileOutputPath=form.file_output_path,
-    )
+     new_product_id: int,
+     form_in: FormInstanceCreate,
+     db: Session = Depends(get_db),
+ ):
+     # Could validate that new_product_id exists here if needed
+     form = justification_service.create_form_instance_for_new_product(db, new_product_id, form_in)
+     return to_form_instance_read(form)
 
 
 @router.delete(
@@ -991,7 +882,6 @@ def download_client_packet_for_sign(
     token: str,
     db: Session = Depends(get_db),
 ):
-    print("[sign] download_client_packet_for_sign called, token=", token)
     try:
         request_obj, client = justification_signing_service.get_active_request_for_token(db, token)
     except ValueError as exc:
@@ -1044,7 +934,6 @@ def submit_client_signature(
     payload: ClientSignatureSubmitPayload,
     db: Session = Depends(get_db),
 ):
-    print("[sign] submit_client_signature called, token=", token)
     if not payload.signatureDataUrl:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
