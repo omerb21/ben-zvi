@@ -65,11 +65,23 @@ def import_crm_from_excel(
     if not snapshot_month:
         raise ValueError("חסר תאריך סנפשוט")
 
+    # Normalize the snapshot month string so that both YYYY-MM-DD and
+    # YYYY-MM (from <input type="month">) are accepted. The legacy
+    # Mini-CRM loaders expect a full date string.
+    snapshot_month = snapshot_month.strip()
+    if len(snapshot_month) == 7:
+        # Treat a bare year-month as the first day of that month.
+        normalized_snapshot_month = f"{snapshot_month}-01"
+    else:
+        normalized_snapshot_month = snapshot_month
+
     # Let the legacy service choose the correct loader by filename and
     # perform all column mapping / cleaning per provider (FNX, AS, YL, MOR,
     # ANLST, DASH, NFTY).
     try:
-        df, file_type = transform_uploaded_file(df_raw, filename or "", snapshot_month)
+        df, file_type = transform_uploaded_file(
+            df_raw, filename or "", normalized_snapshot_month
+        )
     except UploadProcessingError as exc:
         raise ValueError(exc.user_message) from exc
 
@@ -87,10 +99,10 @@ def import_crm_from_excel(
 
     # Normalize snapshot date to first day of month (legacy behavior).
     try:
-        snap_dt = datetime.strptime(snapshot_month, "%Y-%m-%d")
-    except ValueError:
-        # Fallback: accept YYYY-MM and treat as first day of month
-        snap_dt = datetime.strptime(snapshot_month + "-01", "%Y-%m-%d")
+        snap_dt = datetime.strptime(normalized_snapshot_month, "%Y-%m-%d")
+    except ValueError as exc:
+        # If even the normalized value is invalid, fail with a clear message.
+        raise ValueError("תאריך סנפשוט אינו בפורמט חוקי (YYYY-MM או YYYY-MM-DD)") from exc
     snapshot_date = snap_dt.replace(day=1).strftime("%Y-%m-%d")
 
     company = (file_type or "").upper()

@@ -14,10 +14,24 @@
 }
 
 .just-tabs {
-  display: inline-flex;
-  gap: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 0.8rem;
   color: #16a34a;
+  width: 100%;
+  direction: ltr;
+}
+
+.just-tabs-right {
+  display: inline-flex;
+  gap: 0.5rem;
+  direction: rtl;
+}
+
+.just-tabs-left {
+  display: inline-flex;
+  direction: rtl;
 }
 
 .just-tab-button {
@@ -27,6 +41,10 @@
   padding: 0.25rem 0.75rem;
   font-size: 0.8rem;
   cursor: pointer;
+}
+
+.just-tab-button-dashboard {
+  margin-left: 0;
 }
 
 .just-tab-button-active {

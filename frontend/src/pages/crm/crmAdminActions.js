@@ -1,37 +1,17 @@
-import type { ChangeEvent } from "react";
-import type { Dispatch, SetStateAction } from "react";
 import { importCrmExcel, clearCrmData } from "../../api/adminApi";
 
-export type CrmFileChangeArgs = {
-  event: ChangeEvent<HTMLInputElement>;
-  setCrmImportFiles: Dispatch<SetStateAction<File[]>>;
-};
-
-export function crmFileChangeHandler({
-  event,
-  setCrmImportFiles,
-}: CrmFileChangeArgs) {
+export function crmFileChangeHandler({ event, setCrmImportFiles }) {
   const { files } = event.target;
   if (!files || files.length === 0) {
     setCrmImportFiles([]);
     return;
   }
-  const nextFiles: File[] = [];
+  const nextFiles = [];
   for (let i = 0; i < files.length; i += 1) {
     nextFiles.push(files[i]);
   }
   setCrmImportFiles(nextFiles);
 }
-
-export type RunCrmImportArgs = {
-  crmImportFiles: File[];
-  crmImportMonth: string;
-  isCrmImporting: boolean;
-  isCrmClearing: boolean;
-  setIsCrmImporting: Dispatch<SetStateAction<boolean>>;
-  setCrmAdminMessage: Dispatch<SetStateAction<string | null>>;
-  setCrmAdminError: Dispatch<SetStateAction<string | null>>;
-};
 
 export function runCrmImportAction({
   crmImportFiles,
@@ -41,7 +21,7 @@ export function runCrmImportAction({
   setIsCrmImporting,
   setCrmAdminMessage,
   setCrmAdminError,
-}: RunCrmImportArgs) {
+}) {
   if (
     crmImportFiles.length === 0 ||
     !crmImportMonth ||
@@ -89,7 +69,7 @@ export function runCrmImportAction({
         `ייבוא CRM (Excel) מתוך ${results.length} קבצים: נוצרו ${aggregated.createdClients} לקוחות, נעשה שימוש חוזר ב-${aggregated.reusedClients} לקוחות, נוצרו ${aggregated.createdSnapshots} צילומים (שורות: ${aggregated.rowsProcessed}, כפילויות שדולגו: ${aggregated.duplicatesSkipped})`
       );
     })
-    .catch((error: any) => {
+    .catch((error) => {
       const detail = error?.response?.data?.detail || error?.message;
       setCrmAdminError(detail || "שגיאה בייבוא CRM מקובצי Excel");
     })
@@ -98,21 +78,13 @@ export function runCrmImportAction({
     });
 }
 
-export type ClearCrmDataLocalArgs = {
-  isCrmImporting: boolean;
-  isCrmClearing: boolean;
-  setIsCrmClearing: Dispatch<SetStateAction<boolean>>;
-  setCrmAdminMessage: Dispatch<SetStateAction<string | null>>;
-  setCrmAdminError: Dispatch<SetStateAction<string | null>>;
-};
-
 export function clearCrmDataLocalAction({
   isCrmImporting,
   isCrmClearing,
   setIsCrmClearing,
   setCrmAdminMessage,
   setCrmAdminError,
-}: ClearCrmDataLocalArgs) {
+}) {
   if (isCrmImporting || isCrmClearing) {
     return;
   }
