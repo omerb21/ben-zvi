@@ -62,6 +62,24 @@ def get_active_request_for_token(db: Session, token: str) -> Tuple[ClientSignatu
     return request, client
 
 
+def get_request_and_client_for_token(db: Session, token: str) -> Tuple[ClientSignatureRequest, Client]:
+    """Fetch a signature request and its client by token without enforcing status.
+
+    Used when we want to access resources (כמו המסמך החתום) גם אחרי שהקישור
+    החד-פעמי כבר נוצל והסטטוס של הבקשה איננו "pending".
+    """
+
+    request = db.query(ClientSignatureRequest).filter(ClientSignatureRequest.token == token).first()
+    if not request:
+        raise ValueError("SIGNATURE_REQUEST_NOT_FOUND")
+
+    client = db.get(Client, request.client_id)
+    if not client:
+        raise ValueError("CLIENT_NOT_FOUND")
+
+    return request, client
+
+
 def complete_packet_signature(db: Session, token: str, signature_data_url: str) -> ClientSignatureRequest:
     request = db.query(ClientSignatureRequest).filter(ClientSignatureRequest.token == token).first()
     if not request:
@@ -124,10 +142,12 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
         signature_image_data=signature_data_url,
     )
 
+    flattened_bytes = justification_forms_service.flatten_form_fields(signed_bytes)
+
     if not signed_packet_path.parent.exists():
         signed_packet_path.parent.mkdir(parents=True, exist_ok=True)
 
-    signed_packet_path.write_bytes(signed_bytes)
+    signed_packet_path.write_bytes(flattened_bytes)
 
     from datetime import datetime, timezone
 

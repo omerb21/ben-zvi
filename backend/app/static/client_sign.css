@@ -95,3 +95,18 @@ h1 {
 .status-error {
   color: #c62828;
 }
+
+.signed-packet-link {
+  display: none;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.signed-packet-link.visible {
+  display: block;
+}
+
+.signature-section.completed #signature-canvas,
+.signature-section.completed .button-row {
+  display: none;
+}

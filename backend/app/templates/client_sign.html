@@ -2,8 +2,11 @@
 <html lang="he">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>חתימה על מסמכים</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='client_sign.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='client_sign.css') }}?v=3" />
 </head>
 <body>
   <div class="page-container">
@@ -28,14 +31,20 @@
         <button id="submit-signature" type="button">שלח חתימה</button>
       </div>
       <div id="status-message" class="status-message"></div>
+      <p id="signed-packet-link" class="signed-packet-link">
+        <a href="{{ signed_packet_url }}" target="_blank" rel="noopener noreferrer">
+          קבלת המסמך החתום
+        </a>
+      </p>
     </div>
   </div>
 
   <script>
     window.SIGNING_CONFIG = {
       submitUrl: "{{ submit_url }}",
+      signedPacketUrl: "{{ signed_packet_url }}",
     };
   </script>
-  <script src="{{ url_for('static', filename='client_sign.js') }}"></script>
+  <script src="{{ url_for('static', filename='client_sign.js') }}?v=4"></script>
 </body>
 </html>

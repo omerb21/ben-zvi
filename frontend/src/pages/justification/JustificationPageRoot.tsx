@@ -581,7 +581,7 @@ function JustificationPageRoot({
                 className="just-report-button"
                 onClick={handleGenerateAllKits}
               >
-                הפקת קיט הצטרפות
+                הפקת כל קיטי ההצטרפות
               </button>
             </div>
           )}

@@ -825,7 +825,7 @@ function JustificationPage({
                 className="just-report-button"
                 onClick={handleGenerateAllKits}
               >
-                הפקת קיט הצטרפות
+                הפקת  קיטים הצטרפות 
               </button>
             </div>
           )}

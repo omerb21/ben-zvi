@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status, File, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -336,7 +337,7 @@ def download_client_new_product_kit_pdf(
         ascii_product_id = str(new_product_id)
         ascii_filename = f"kit_{ascii_client_id}_{ascii_product_id}.pdf"
         headers = {
-            "Content-Disposition": f'inline; filename="{ascii_filename}"',
+            "Content-Disposition": f'attachment; filename="{ascii_filename}"',
         }
         return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
@@ -382,7 +383,7 @@ def download_client_new_product_kit_pdf(
     ascii_filename = f"kit_{ascii_client_id}_{ascii_product_id}.pdf"
 
     headers = {
-        "Content-Disposition": f'inline; filename="{ascii_filename}"',
+        "Content-Disposition": f'attachment; filename="{ascii_filename}"',
     }
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
@@ -519,7 +520,7 @@ def download_client_b1_pdf(
     pdf_bytes, _filename = justification_b1_service.generate_b1_pdf_for_client(client)
 
     headers = {
-        "Content-Disposition": f'inline; filename="{ascii_filename}"',
+        "Content-Disposition": f'attachment; filename="{ascii_filename}"',
     }
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
@@ -628,7 +629,7 @@ def download_client_packet_pdf(
             )
 
         headers = {
-            "Content-Disposition": f'inline; filename="{ascii_filename}"',
+            "Content-Disposition": f'attachment; filename="{ascii_filename}"',
         }
         return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
@@ -659,7 +660,7 @@ def download_client_packet_pdf(
         )
 
     headers = {
-        "Content-Disposition": f'inline; filename="{ascii_filename}"',
+        "Content-Disposition": f'attachment; filename="{ascii_filename}"',
     }
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
@@ -840,7 +841,7 @@ def get_client_sign_page(
     db: Session = Depends(get_db),
 ):
     try:
-        request_obj, client = justification_signing_service.get_active_request_for_token(db, token)
+        request_obj, client = justification_signing_service.get_request_and_client_for_token(db, token)
     except ValueError as exc:
         message = str(exc)
         if message in {"SIGNATURE_REQUEST_NOT_FOUND", "CLIENT_NOT_FOUND"}:
@@ -848,15 +849,15 @@ def get_client_sign_page(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Signing link not found",
             )
-        if message == "SIGNATURE_REQUEST_ALREADY_COMPLETED":
-            raise HTTPException(
-                status_code=status.HTTP_410_GONE,
-                detail="Signing link already used",
-            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load signing page",
         )
+
+    # אם הבקשה כבר לא במצב pending, נפנה ישירות למסמך החתום
+    if request_obj.status != "pending":
+        signed_packet_url = f"/api/v1/justification/clients/{client.id}/packet-signed-client.pdf"
+        return RedirectResponse(url=signed_packet_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     client_name_parts = [client.first_name or "", client.last_name or ""]
     client_name = " ".join(part for part in client_name_parts if part).strip()
@@ -868,13 +869,21 @@ def get_client_sign_page(
 
     packet_url = f"/api/v1/justification/client-sign/{token}/packet.pdf"
     submit_url = f"/api/v1/justification/client-sign/{token}/submit"
+    signed_packet_url = f"/api/v1/justification/clients/{client.id}/packet-signed-client.pdf"
 
     html = template.render(
         client_name=client_name,
         packet_url=packet_url,
         submit_url=submit_url,
+        signed_packet_url=signed_packet_url,
     )
-    return Response(content=html, media_type="text/html; charset=utf-8")
+    # Prevent browser caching to ensure fresh content
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+    return Response(content=html, media_type="text/html; charset=utf-8", headers=headers)
 
 
 @router.get("/client-sign/{token}/packet.pdf")
@@ -883,7 +892,7 @@ def download_client_packet_for_sign(
     db: Session = Depends(get_db),
 ):
     try:
-        request_obj, client = justification_signing_service.get_active_request_for_token(db, token)
+        request_obj, client = justification_signing_service.get_request_and_client_for_token(db, token)
     except ValueError as exc:
         message = str(exc)
         if message in {"SIGNATURE_REQUEST_NOT_FOUND", "CLIENT_NOT_FOUND"}:
@@ -891,15 +900,15 @@ def download_client_packet_for_sign(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Signing link not found",
             )
-        if message == "SIGNATURE_REQUEST_ALREADY_COMPLETED":
-            raise HTTPException(
-                status_code=status.HTTP_410_GONE,
-                detail="Signing link already used",
-            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load client packet for sign",
         )
+
+    # קישור ה-token ל-PDF ישמש רק לפני החתימה. לאחר החתימה נפנה למסמך החתום.
+    if request_obj.status != "pending":
+        signed_packet_url = f"/api/v1/justification/clients/{client.id}/packet-signed-client.pdf"
+        return RedirectResponse(url=signed_packet_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     export_dir = justification_b1_service._get_client_export_dir(client)
     packet_path = export_dir / request_obj.packet_filename
@@ -954,10 +963,27 @@ def submit_client_signature(
                 detail="Signing link not found",
             )
         if message == "SIGNATURE_REQUEST_ALREADY_COMPLETED":
-            raise HTTPException(
-                status_code=status.HTTP_410_GONE,
-                detail="Signing link already used",
+            # אם הבקשה כבר הושלמה, נתייחס לזה כאל פעולה אידמפוטנטית
+            # ונחזיר ללקוח את כתובת המסמך החתום במקום שגיאה.
+            try:
+                request_obj, _client = justification_signing_service.get_request_and_client_for_token(
+                    db, token
+                )
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_410_GONE,
+                    detail="Signing link already used",
+                )
+
+            signed_packet_url = (
+                f"/api/v1/justification/clients/{request_obj.client_id}/packet-signed-client.pdf"
             )
+
+            return {
+                "detail": "Signature already saved",
+                "status": request_obj.status,
+                "signedPacketUrl": signed_packet_url,
+            }
         if message == "CLIENT_PACKET_PDF_NOT_FOUND":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -968,4 +994,10 @@ def submit_client_signature(
             detail="Failed to save client signature",
         )
 
-    return {"detail": "Signature saved", "status": request_obj.status}
+    signed_packet_url = f"/api/v1/justification/clients/{request_obj.client_id}/packet-signed-client.pdf"
+
+    return {
+        "detail": "Signature saved",
+        "status": request_obj.status,
+        "signedPacketUrl": signed_packet_url,
+    }

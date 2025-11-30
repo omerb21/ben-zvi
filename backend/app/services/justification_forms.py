@@ -334,3 +334,9 @@ def apply_signature_to_sig_fields(
     writer.write(out_buf)
 
     return out_buf.getvalue()
+
+
+def flatten_form_fields(source_pdf_bytes: bytes) -> bytes:
+    # החזרה למצב הקודם: לא משטחים בפועל את ה-PDF, רק מחזירים את הקובץ המקורי.
+    # זה מוודא שהחתימה פועלת כמו בעבר, ללא שינוי באופן הרינדור של כרום/Adobe.
+    return source_pdf_bytes

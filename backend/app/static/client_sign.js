@@ -4,6 +4,9 @@
     var clearBtn = document.getElementById("clear-signature");
     var submitBtn = document.getElementById("submit-signature");
     var statusEl = document.getElementById("status-message");
+    var signedLink = document.getElementById("signed-packet-link");
+    var sectionEl = document.querySelector(".signature-section");
+    var openPacketRow = document.querySelector(".open-packet-link");
 
     if (!canvas || !clearBtn || !submitBtn || !statusEl) {
       return;
@@ -120,8 +123,30 @@
             });
           })
           .then(function () {
-            statusEl.textContent = "החתימה התקבלה בהצלחה. ניתן לסגור את הדפדפן.";
+            statusEl.textContent = "החתימה התקבלה בהצלחה.";
             statusEl.className = "status-message status-success";
+
+            if (signedLink) {
+              // ודא שהקישור מצביע ל-PDF החתום גם אם ה-HTML הישן בקאש.
+              var linkEl = signedLink.querySelector("a");
+              if (
+                linkEl &&
+                window.SIGNING_CONFIG &&
+                window.SIGNING_CONFIG.signedPacketUrl
+              ) {
+                linkEl.href = window.SIGNING_CONFIG.signedPacketUrl;
+              }
+
+              signedLink.className = "signed-packet-link visible";
+            }
+
+            if (sectionEl && !sectionEl.classList.contains("completed")) {
+              sectionEl.classList.add("completed");
+            }
+
+            if (openPacketRow) {
+              openPacketRow.style.display = "none";
+            }
           })
           .catch(function () {
             statusEl.textContent = "שגיאה בשליחת החתימה. נסה שוב.";

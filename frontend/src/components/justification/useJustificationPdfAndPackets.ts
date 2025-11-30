@@ -61,6 +61,36 @@ export function useJustificationPdfAndPackets(
   const [clientExportsIsError, setClientExportsIsError] = useState(false);
   const [isDeletingClientExports, setIsDeletingClientExports] = useState(false);
 
+  const triggerPdfDownloadFromResponse = async (response: Response) => {
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.download = "";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  };
+
+  const openPdfTabFromResponse = async (response: Response) => {
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      window.open(objectUrl, "_blank");
+    } finally {
+      // ניתן לשחרר את ה-URL לאחר פתיחת הלשונית
+      setTimeout(() => {
+        URL.revokeObjectURL(objectUrl);
+      }, 10000);
+    }
+  };
+
   useEffect(() => {
     setPacketSignLink(null);
     setPacketSignError(null);
@@ -187,14 +217,29 @@ export function useJustificationPdfAndPackets(
     if (!selectedClient) {
       return;
     }
-    const generateUrl = `${buildPacketPdfUrl(selectedClient.id)}?generate=1`;
-    try {
-      await fetch(generateUrl);
-    } catch {
-      // במקרה של שגיאה בהפקה, עדיין ננסה לפתוח את מה שקיים (אם קיים)
-    }
     const url = buildPacketPdfUrl(selectedClient.id);
-    window.open(url, "_blank");
+
+    // קודם כל מנסים לפתוח חבילה קיימת בלי להפעיל יצירה כבדה מחדש
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        await triggerPdfDownloadFromResponse(response);
+        return;
+      }
+    } catch {
+      // אם יש שגיאת רשת, נעבור לנסיון יצירה למטה
+    }
+
+    // אם אין חבילה קיימת, מפעילים יצירה ולאחריה ניסיון תצוגה
+    await handleGeneratePacketPdf();
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        await triggerPdfDownloadFromResponse(response);
+      }
+    } catch {
+      // אם גם כאן יש תקלה, לא נעשה עוד ניסיון
+    }
   };
 
   const handlePreviewSignedPacketPdf = () => {
