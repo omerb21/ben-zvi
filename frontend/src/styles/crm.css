@@ -627,6 +627,32 @@
   background-color: #059669;
 }
 
+.crm-beneficiaries {
+  margin-top: 0.75rem;
+}
+
+.crm-beneficiaries-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.crm-beneficiaries-table th,
+.crm-beneficiaries-table td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: right;
+}
+
+.crm-beneficiaries-input {
+  width: 100%;
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+}
+
 .crm-dashboard-panel {
   margin-top: 0.5rem;
 }

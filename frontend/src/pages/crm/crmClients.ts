@@ -19,6 +19,7 @@ import {
   updateClient,
 } from "../../api/crmApi";
 import type { Dispatch, SetStateAction } from "react";
+import type { BeneficiaryFormRow } from "./crmBeneficiaries";
 
 export type ViewMode = "main" | "dashboard" | "clientDetail";
 
@@ -48,6 +49,7 @@ export type LoadClientDetailsArgs = {
   setEditEmployerAddress: Dispatch<SetStateAction<string>>;
   setEditEmployerPhone: Dispatch<SetStateAction<string>>;
   setError: Dispatch<SetStateAction<string | null>>;
+  setBeneficiaries: Dispatch<SetStateAction<BeneficiaryFormRow[]>>;
 };
 
 export function loadClientDetailsAction({
@@ -76,6 +78,7 @@ export function loadClientDetailsAction({
   setEditEmployerAddress,
   setEditEmployerPhone,
   setError,
+  setBeneficiaries,
 }: LoadClientDetailsArgs) {
   setSelectedClient(client);
   setViewMode("clientDetail");
@@ -111,6 +114,27 @@ export function loadClientDetailsAction({
       setEditEmployerHp(details.employerHp || "");
       setEditEmployerAddress(details.employerAddress || "");
       setEditEmployerPhone(details.employerPhone || "");
+
+      const nextBeneficiaries: BeneficiaryFormRow[] = [];
+      for (let index = 1; index <= 4; index += 1) {
+        const existing = (details.beneficiaries || []).find(
+          (item) => item.index === index
+        );
+        nextBeneficiaries.push({
+          index,
+          firstName: existing?.firstName || "",
+          lastName: existing?.lastName || "",
+          idNumber: existing?.idNumber || "",
+          birthDate: existing?.birthDate || "",
+          address: existing?.address || "",
+          relation: existing?.relation || "",
+          percentage:
+            existing && existing.percentage !== undefined && existing.percentage !== null
+              ? String(existing.percentage)
+              : "",
+        });
+      }
+      setBeneficiaries(nextBeneficiaries);
       setSnapshots(snapshotsData);
       setNotes(notesData);
       setClientHistory(historyData);
@@ -276,6 +300,7 @@ export type SaveClientDetailsArgs = {
   editEmployerHp: string;
   editEmployerAddress: string;
   editEmployerPhone: string;
+  beneficiaries: BeneficiaryFormRow[];
   setLoading: Dispatch<SetStateAction<boolean>>;
   setClientDetailsMap: Dispatch<SetStateAction<Record<number, Client>>>;
   setSelectedClient: Dispatch<SetStateAction<ClientSummary | null>>;
@@ -299,6 +324,7 @@ export function saveClientDetailsAction({
   editEmployerHp,
   editEmployerAddress,
   editEmployerPhone,
+  beneficiaries,
   setLoading,
   setClientDetailsMap,
   setSelectedClient,
@@ -351,6 +377,37 @@ export function saveClientDetailsAction({
   }
   if (editEmployerPhone.trim()) {
     payload.employerPhone = editEmployerPhone.trim();
+  }
+
+  const beneficiaryPayload = beneficiaries.map((row) => {
+    const firstName = row.firstName.trim();
+    const lastName = row.lastName.trim();
+    const idNumber = row.idNumber.trim();
+    const birthDate = row.birthDate.trim();
+    const address = row.address.trim();
+    const relation = row.relation.trim();
+    const percentageText = row.percentage.trim();
+    let percentageValue = 0;
+    if (percentageText) {
+      const parsed = Number(percentageText.replace(",", "."));
+      if (Number.isFinite(parsed)) {
+        percentageValue = parsed;
+      }
+    }
+    return {
+      index: row.index,
+      firstName,
+      lastName,
+      idNumber,
+      birthDate,
+      address,
+      relation,
+      percentage: percentageValue,
+    };
+  });
+
+  if (beneficiaryPayload.length > 0) {
+    payload.beneficiaries = beneficiaryPayload;
   }
 
   if (Object.keys(payload).length === 0) {

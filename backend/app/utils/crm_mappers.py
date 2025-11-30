@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from app.models import Client, ClientNote, Snapshot
 from app.schemas.crm import (
     ClientRead,
+    ClientBeneficiaryRead,
     ClientSummaryItem,
     FundHistoryPoint,
     HistoryPoint,
@@ -25,6 +26,22 @@ def _iso_or_none(value: Optional[date]) -> Optional[str]:
 
 
 def to_client_read(client: Client) -> ClientRead:
+    beneficiaries: List[ClientBeneficiaryRead] = []
+    for b in sorted(getattr(client, "beneficiaries", []) or [], key=lambda x: x.index or 0):
+        beneficiaries.append(
+            ClientBeneficiaryRead(
+                id=b.id,
+                index=b.index,
+                firstName=b.first_name or "",
+                lastName=b.last_name or "",
+                idNumber=b.id_number or "",
+                birthDate=_iso_or_none(b.birth_date) or "",
+                address=b.address or "",
+                relation=b.relation or "",
+                percentage=float(b.percentage or 0.0),
+            )
+        )
+
     return ClientRead(
         id=client.id,
         idNumber=client.id_number,
@@ -46,6 +63,7 @@ def to_client_read(client: Client) -> ClientRead:
         employerHp=client.employer_hp,
         employerAddress=client.employer_address,
         employerPhone=client.employer_phone,
+        beneficiaries=beneficiaries,
     )
 
 

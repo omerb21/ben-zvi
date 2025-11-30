@@ -6,6 +6,7 @@ import type {
   FundHistoryPoint,
   ClientNote,
 } from "../api/crmApi";
+import type { BeneficiaryFormRow } from "../pages/crm/crmBeneficiaries";
 
 type HistoryChartPoint = {
   x: number;
@@ -46,6 +47,18 @@ type Props = {
   onEditEmployerHpChange: (value: string) => void;
   onEditEmployerAddressChange: (value: string) => void;
   onEditEmployerPhoneChange: (value: string) => void;
+  onBeneficiaryChange: (
+    index: number,
+    field:
+      | "firstName"
+      | "lastName"
+      | "idNumber"
+      | "birthDate"
+      | "address"
+      | "relation"
+      | "percentage",
+    value: string
+  ) => void;
   editFirstName: string;
   editLastName: string;
   editPhone: string;
@@ -60,6 +73,7 @@ type Props = {
   editEmployerHp: string;
   editEmployerAddress: string;
   editEmployerPhone: string;
+  beneficiaries: BeneficiaryFormRow[];
   onSaveClientDetails: () => void;
   onNewSnapshotFundCodeChange: (value: string) => void;
   onNewSnapshotFundNameChange: (value: string) => void;
@@ -112,6 +126,7 @@ function CrmClientDetailPanel({
   onEditEmployerHpChange,
   onEditEmployerAddressChange,
   onEditEmployerPhoneChange,
+  onBeneficiaryChange,
   editFirstName,
   editLastName,
   editPhone,
@@ -126,6 +141,7 @@ function CrmClientDetailPanel({
   editEmployerHp,
   editEmployerAddress,
   editEmployerPhone,
+  beneficiaries,
   onSaveClientDetails,
   onNewSnapshotFundCodeChange,
   onNewSnapshotFundNameChange,
@@ -338,6 +354,127 @@ function CrmClientDetailPanel({
             >
               שמירת פרטי לקוח
             </button>
+          </div>
+
+          <div className="crm-beneficiaries">
+            <h3 className="panel-subtitle">מוטבים</h3>
+            <table className="crm-beneficiaries-table">
+              <thead>
+                <tr>
+                  <th>שם פרטי *</th>
+                  <th>שם משפחה *</th>
+                  <th>תאריך לידה *</th>
+                  <th>מס׳ תעודת זהות/דרכון *</th>
+                  <th>כתובת *</th>
+                  <th>קרבת משפחה *</th>
+                  <th>חלק ב-% *</th>
+                </tr>
+              </thead>
+              <tbody>
+                {beneficiaries.map((row) => (
+                  <tr key={row.index}>
+                    <td>
+                      <input
+                        type="text"
+                        className="crm-beneficiaries-input"
+                        value={row.firstName}
+                        onChange={(event) =>
+                          onBeneficiaryChange(
+                            row.index,
+                            "firstName",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="crm-beneficiaries-input"
+                        value={row.lastName}
+                        onChange={(event) =>
+                          onBeneficiaryChange(
+                            row.index,
+                            "lastName",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="date"
+                        className="crm-beneficiaries-input"
+                        value={row.birthDate}
+                        onChange={(event) =>
+                          onBeneficiaryChange(
+                            row.index,
+                            "birthDate",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="crm-beneficiaries-input"
+                        value={row.idNumber}
+                        onChange={(event) =>
+                          onBeneficiaryChange(
+                            row.index,
+                            "idNumber",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="crm-beneficiaries-input"
+                        value={row.address}
+                        onChange={(event) =>
+                          onBeneficiaryChange(
+                            row.index,
+                            "address",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="crm-beneficiaries-input"
+                        value={row.relation}
+                        onChange={(event) =>
+                          onBeneficiaryChange(
+                            row.index,
+                            "relation",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="crm-beneficiaries-input"
+                        value={row.percentage}
+                        onChange={(event) =>
+                          onBeneficiaryChange(
+                            row.index,
+                            "percentage",
+                            event.target.value
+                          )
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           <div className="crm-snapshot-create">

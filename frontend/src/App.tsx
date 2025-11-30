@@ -1,6 +1,6 @@
 import { useState } from "react";
 import MainLayout from "./layout/MainLayout";
-import CrmPage from "./pages/crm/CrmPageRoot";
+import CrmPage from "./pages/crm/CrmPageRoot.tsx";
 import JustificationPage from "./pages/justification/JustificationPageRoot";
 
 export type AppView = "crm" | "justification";

@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 from pydantic import BaseModel
 
@@ -29,8 +29,28 @@ class ClientCreate(ClientBase):
     pass
 
 
+class ClientBeneficiaryBase(BaseModel):
+    index: int
+    firstName: str
+    lastName: str
+    idNumber: str
+    birthDate: str
+    address: str
+    relation: str
+    percentage: float
+
+
+class ClientBeneficiaryRead(ClientBeneficiaryBase):
+    id: int
+
+
+class ClientBeneficiaryUpdate(ClientBeneficiaryBase):
+    pass
+
+
 class ClientRead(ClientBase):
     id: int
+    beneficiaries: List[ClientBeneficiaryRead] = []
 
     class Config:
         from_attributes = True
@@ -141,3 +161,4 @@ class ClientUpdate(BaseModel):
     employerPhone: Optional[str] = None
     addressHouseNumber: Optional[str] = None
     addressApartment: Optional[str] = None
+    beneficiaries: Optional[List[ClientBeneficiaryUpdate]] = None

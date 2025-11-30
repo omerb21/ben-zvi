@@ -1,5 +1,17 @@
 import httpClient from "./httpClient";
 
+export type ClientBeneficiary = {
+  id: number;
+  index: number;
+  firstName: string;
+  lastName: string;
+  idNumber: string;
+  birthDate: string;
+  address: string;
+  relation: string;
+  percentage: number;
+};
+
 export type Client = {
   id: number;
   idNumber: string;
@@ -21,6 +33,7 @@ export type Client = {
   employerHp?: string | null;
   employerAddress?: string | null;
   employerPhone?: string | null;
+  beneficiaries?: ClientBeneficiary[] | null;
 };
 
 export type Snapshot = {
@@ -88,6 +101,17 @@ export type Reminder = {
   clientName: string;
 };
 
+export type ClientBeneficiaryPayload = {
+  index: number;
+  firstName: string;
+  lastName: string;
+  idNumber: string;
+  birthDate: string;
+  address: string;
+  relation: string;
+  percentage: number;
+};
+
 export type ClientUpdatePayload = {
   firstName?: string;
   lastName?: string;
@@ -106,6 +130,7 @@ export type ClientUpdatePayload = {
   employerHp?: string;
   employerAddress?: string;
   employerPhone?: string;
+  beneficiaries?: ClientBeneficiaryPayload[];
 };
 
 export type ClientCreatePayload = {

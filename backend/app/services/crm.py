@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Client, Snapshot, ClientNote
+from app.models import Client, Snapshot, ClientNote, ClientBeneficiary
 from app.schemas.crm import ClientCreate, SnapshotCreate, ClientUpdate
 from app.utils.id_normalization import normalize_id_number
 
@@ -515,6 +515,81 @@ def update_client(db: Session, client_id: int, update: ClientUpdate) -> Optional
         parts = [p for p in [client.first_name, client.last_name] if p]
         if parts:
             client.full_name = " ".join(parts)
+
+    if update.beneficiaries is not None:
+        existing = (
+            db.query(ClientBeneficiary)
+            .filter(ClientBeneficiary.client_id == client.id)
+            .all()
+        )
+        by_index: dict[int, ClientBeneficiary] = {b.index: b for b in existing}
+
+        seen_indexes: set[int] = set()
+        new_rows: list[ClientBeneficiary] = []
+
+        for item in update.beneficiaries:
+            idx = int(item.index)
+            if idx < 1 or idx > 4:
+                continue
+            seen_indexes.add(idx)
+
+            first_name = (item.firstName or "").strip()
+            last_name = (item.lastName or "").strip()
+            id_number = (item.idNumber or "").strip()
+            birth_date_text = (item.birthDate or "").strip()
+            address = (item.address or "").strip()
+            relation = (item.relation or "").strip()
+            percentage_value = float(item.percentage or 0.0)
+
+            all_empty = not any(
+                [
+                    first_name,
+                    last_name,
+                    id_number,
+                    birth_date_text,
+                    address,
+                    relation,
+                    percentage_value,
+                ]
+            )
+            if all_empty:
+                if idx in by_index:
+                    db.delete(by_index[idx])
+                continue
+
+            try:
+                birth_date_value = datetime.fromisoformat(birth_date_text).date()
+            except ValueError:
+                continue
+
+            row = by_index.get(idx)
+            if row is None:
+                row = ClientBeneficiary(
+                    client_id=client.id,
+                    index=idx,
+                    first_name=first_name,
+                    last_name=last_name,
+                    id_number=id_number,
+                    birth_date=birth_date_value,
+                    address=address,
+                    relation=relation,
+                    percentage=percentage_value,
+                )
+                db.add(row)
+            else:
+                row.first_name = first_name
+                row.last_name = last_name
+                row.id_number = id_number
+                row.birth_date = birth_date_value
+                row.address = address
+                row.relation = relation
+                row.percentage = percentage_value
+            new_rows.append(row)
+
+        # Delete any beneficiaries that were not mentioned at all
+        for idx, row in by_index.items():
+            if idx not in seen_indexes:
+                db.delete(row)
 
     db.commit()
     db.refresh(client)

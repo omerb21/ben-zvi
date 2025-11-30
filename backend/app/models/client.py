@@ -105,6 +105,9 @@ class Client(Base):
         back_populates="client",
         cascade="all, delete-orphan",
     )
+    beneficiaries = relationship(
+        "ClientBeneficiary", back_populates="client", cascade="all, delete-orphan"
+    )
 
     def __init__(self, *args, **kwargs):
         # map older or alternate kwarg names to canonical field names

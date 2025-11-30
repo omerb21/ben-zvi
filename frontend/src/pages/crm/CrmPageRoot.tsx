@@ -18,7 +18,7 @@ import {
   fetchMonthlyChange,
 } from "../../api/crmApi";
 import "../../styles/crm.css";
-import CrmPageLayout from "./CrmPageLayout";
+import CrmPageLayout from "./CrmPageLayout.tsx";
 import { buildHistoryChartData, buildMonthlyChangeChartData } from "./crmCharts";
 import {
   loadClientDetailsAction,
@@ -41,6 +41,7 @@ import {
   dismissReminderAction,
   clearReminderGlobalAction,
 } from "./crmNotesAndReminders";
+import type { BeneficiaryFormRow } from "./crmBeneficiaries";
 import {
   crmFileChangeHandler,
   runCrmImportAction,
@@ -89,6 +90,7 @@ function CrmPageRoot({ onOpenJustification }: Props) {
   const [editEmployerHp, setEditEmployerHp] = useState("");
   const [editEmployerAddress, setEditEmployerAddress] = useState("");
   const [editEmployerPhone, setEditEmployerPhone] = useState("");
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryFormRow[]>([]);
   const [crmImportFiles, setCrmImportFiles] = useState<File[]>([]);
   const [crmImportMonth, setCrmImportMonth] = useState("");
   const [isCrmImporting, setIsCrmImporting] = useState(false);
@@ -263,6 +265,7 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       setEditEmployerAddress,
       setEditEmployerPhone,
       setError,
+      setBeneficiaries,
     });
   };
 
@@ -314,6 +317,7 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       editEmployerHp,
       editEmployerAddress,
       editEmployerPhone,
+      beneficiaries,
       setLoading,
       setClientDetailsMap,
       setSelectedClient,
@@ -485,6 +489,30 @@ function CrmPageRoot({ onOpenJustification }: Props) {
     setViewMode(viewMode === "dashboard" ? "main" : "dashboard");
   };
 
+  const handleBeneficiaryChange = (
+    index: number,
+    field:
+      | "firstName"
+      | "lastName"
+      | "idNumber"
+      | "birthDate"
+      | "address"
+      | "relation"
+      | "percentage",
+    value: string
+  ) => {
+    setBeneficiaries((prev) =>
+      prev.map((row) =>
+        row.index === index
+          ? {
+              ...row,
+              [field]: value,
+            }
+          : row
+      )
+    );
+  };
+
   return (
     <CrmPageLayout
       summary={summary}
@@ -548,6 +576,7 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       editEmployerHp={editEmployerHp}
       editEmployerAddress={editEmployerAddress}
       editEmployerPhone={editEmployerPhone}
+      beneficiaries={beneficiaries}
       onShiftMonth={handleShiftMonth}
       onMonthChange={handleMonthInputChange}
       onToggleDashboard={handleToggleDashboard}
@@ -587,6 +616,7 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       onEditEmployerAddressChange={setEditEmployerAddress}
       onEditEmployerPhoneChange={setEditEmployerPhone}
       onSaveClientDetails={handleSaveClientDetails}
+      onBeneficiaryChange={handleBeneficiaryChange}
       onNewSnapshotFundCodeChange={setNewSnapshotFundCode}
       onNewSnapshotFundNameChange={setNewSnapshotFundName}
       onNewSnapshotFundTypeChange={setNewSnapshotFundType}

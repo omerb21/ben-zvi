@@ -14,8 +14,9 @@ import CrmSummaryPanel from "../../components/CrmSummaryPanel";
 import CrmClientListPanel from "../../components/CrmClientListPanel";
 import CrmDashboardPanel from "../../components/CrmDashboardPanel";
 import CrmRemindersPanel from "../../components/CrmRemindersPanel";
-import CrmClientDetailPanel from "../../components/CrmClientDetailPanel";
+import CrmClientDetailPanel from "../../components/CrmClientDetailPanel.tsx";
 import type { ViewMode } from "./crmClients";
+import type { BeneficiaryFormRow } from "./crmBeneficiaries";
 
 type HistoryChartPoint = {
   x: number;
@@ -84,6 +85,7 @@ type Props = {
   editEmployerHp: string;
   editEmployerAddress: string;
   editEmployerPhone: string;
+  beneficiaries: BeneficiaryFormRow[];
   onShiftMonth: (delta: number) => void;
   onMonthChange: (value: string) => void;
   onToggleDashboard: () => void;
@@ -123,6 +125,18 @@ type Props = {
   onEditEmployerAddressChange: (value: string) => void;
   onEditEmployerPhoneChange: (value: string) => void;
   onSaveClientDetails: () => void;
+  onBeneficiaryChange: (
+    index: number,
+    field:
+      | "firstName"
+      | "lastName"
+      | "idNumber"
+      | "birthDate"
+      | "address"
+      | "relation"
+      | "percentage",
+    value: string
+  ) => void;
   onNewSnapshotFundCodeChange: (value: string) => void;
   onNewSnapshotFundNameChange: (value: string) => void;
   onNewSnapshotFundTypeChange: (value: string) => void;
@@ -205,6 +219,7 @@ function CrmPageLayout({
   editEmployerHp,
   editEmployerAddress,
   editEmployerPhone,
+  beneficiaries,
   onShiftMonth,
   onMonthChange,
   onToggleDashboard,
@@ -244,6 +259,7 @@ function CrmPageLayout({
   onEditEmployerAddressChange,
   onEditEmployerPhoneChange,
   onSaveClientDetails,
+  onBeneficiaryChange,
   onNewSnapshotFundCodeChange,
   onNewSnapshotFundNameChange,
   onNewSnapshotFundTypeChange,
@@ -385,6 +401,8 @@ function CrmPageLayout({
             editEmployerAddress={editEmployerAddress}
             editEmployerPhone={editEmployerPhone}
             onSaveClientDetails={onSaveClientDetails}
+            beneficiaries={beneficiaries}
+            onBeneficiaryChange={onBeneficiaryChange}
             onNewSnapshotFundCodeChange={onNewSnapshotFundCodeChange}
             onNewSnapshotFundNameChange={onNewSnapshotFundNameChange}
             onNewSnapshotFundTypeChange={onNewSnapshotFundTypeChange}

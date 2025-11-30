@@ -247,6 +247,36 @@ def build_common_fields(client: Client) -> Dict[str, Any]:
             "employerphone": client.employer_phone,
         }
     )
+    beneficiaries = getattr(client, "beneficiaries", None) or []
+    by_index = {}
+    for b in beneficiaries:
+        try:
+            idx = int(getattr(b, "index", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if idx < 1 or idx > 4:
+            continue
+        by_index[idx] = b
+
+    for idx in range(1, 5):
+        b = by_index.get(idx)
+        if not b:
+            continue
+
+        prefix = f"motav{idx}"
+        payload[f"{prefix}name"] = getattr(b, "first_name", "") or ""
+        payload[f"{prefix}lastname"] = getattr(b, "last_name", "") or ""
+        payload[f"{prefix}id"] = getattr(b, "id_number", "") or ""
+        payload[f"{prefix}ads"] = getattr(b, "address", "") or ""
+        payload[f"{prefix}rel"] = getattr(b, "relation", "") or ""
+
+        percentage_value = getattr(b, "percentage", None)
+        if percentage_value is None:
+            payload[f"{prefix}per"] = ""
+        else:
+            payload[f"{prefix}per"] = str(percentage_value)
+
+        payload[f"{prefix}Bdate"] = _fmt_date(getattr(b, "birth_date", None))
 
     return payload
 
