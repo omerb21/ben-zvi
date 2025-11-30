@@ -590,7 +590,7 @@
 
 .client-pdf-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 1rem;
   margin-top: 0.5rem;
 }
@@ -636,8 +636,22 @@
 }
 
 .client-pdf-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  column-gap: 0.8rem;
+  row-gap: 0.8rem;
+}
+
+.client-pdf-trim,
+.client-pdf-upload,
+.client-pdf-delete {
   display: flex;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.6rem;
+  grid-column: 1 / -1;
 }
 
 .client-pdf-button {
@@ -645,8 +659,8 @@
   border: none;
   background-color: #10b981;
   color: #ffffff;
-  padding: 0.15rem 0.6rem;
-  font-size: 0.7rem;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
