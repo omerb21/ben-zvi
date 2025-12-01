@@ -188,7 +188,6 @@ kit1_code
 kit1_dmnsum
 Text7
 Image1
-kit1_Check Box12
 kit1_fund_code
 kit1_fund_name
 kit1_company_name
@@ -237,18 +236,19 @@ motav3per
 motav4per
 Group5
 Check Box21
-kit1_Check Box2
-kit1_Check Box3
-kit1_Check Box4
-kit1_Check Box6
-kit1_Check Box7
-kit1_Check Box8
-kit1_Check Box9
-kit1_Check Box10
 kit1_Check Box11
+kit1_Check Box10
+kit1_Check Box9
+kit1_Check Box8
+kit1_Check Box7
+kit1_Check Box6
+kit1_Check Box4
+kit1_Check Box3
+kit1_Check Box2
 kit1_Check Box13
 kit1_Check Box14
-Check Box11cc
+Check BoxGH
+kit1_Check Box12
 Group1
 kit2_kupacode
 Signature3

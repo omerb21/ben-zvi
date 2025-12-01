@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 import secrets
 from typing import Tuple
 
+from pypdf import PdfReader as PyPdfReader, PdfWriter as PyPdfWriter
 from sqlalchemy.orm import Session
 
 from app.models import Client, ClientSignatureRequest
@@ -10,6 +12,83 @@ from app.services import justification_b1 as justification_b1_service
 from app.services import justification_forms as justification_forms_service
 from app.services import justification_packet as justification_packet_service
 from app.services import justification_advice as justification_advice_service
+
+
+def _add_signature_to_advice_pages(
+    packet_bytes: bytes,
+    signature_data_url: str,
+    advice_page_count: int,
+) -> bytes:
+    """
+    מוסיף את חתימת הלקוח לדפי ההנמקה (הדפים הראשונים בחבילה).
+    משתמש ב-overlay כדי לא לפגוע בשדות הטופס.
+    """
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+    
+    if not signature_data_url or advice_page_count <= 0:
+        return packet_bytes
+    
+    try:
+        # פענח את תמונת החתימה
+        sig_bytes = justification_forms_service._decode_data_url(signature_data_url)
+        if not sig_bytes:
+            return packet_bytes
+        
+        img = ImageReader(io.BytesIO(sig_bytes))
+        img_width, img_height = img.getSize()
+        if img_width <= 0 or img_height <= 0:
+            return packet_bytes
+        
+        reader = PyPdfReader(io.BytesIO(packet_bytes))
+        writer = PyPdfWriter()
+        writer.clone_document_from_reader(reader)
+        
+        # מיקומי חתימת לקוח בדפי ההנמקה (מבוסס על התבנית)
+        # קואורדינטות ב-PDF הן מהפינה השמאלית-תחתונה
+        # עמוד A4: 595 רוחב, 842 גובה
+        # X=400 זה בצד ימין, Y גבוה יותר = גבוה יותר בדף
+        SIGNATURE_POSITIONS = [
+            # (page_index, x, y, width, height) - 0-indexed
+            # חתימה בעמוד האחרון
+            (advice_page_count - 1, 370, 390, 120, 50),
+            # חתימה בעמוד הרביעי מהסוף
+            (advice_page_count - 4, 370, 250, 120, 50),
+        ]
+        
+        for pos in SIGNATURE_POSITIONS:
+            if pos is None:
+                continue
+            page_idx, x, y, target_w, target_h = pos
+            if page_idx < 0 or page_idx >= len(writer.pages):
+                continue
+            
+            page = writer.pages[page_idx]
+            page_width = float(page.mediabox.width)
+            page_height = float(page.mediabox.height)
+            
+            # חשב את הגודל תוך שמירה על יחס הגובה-רוחב
+            scale = min(target_w / img_width, target_h / img_height, 1.0)
+            draw_w = img_width * scale
+            draw_h = img_height * scale
+            
+            # צור overlay עם החתימה
+            buf = io.BytesIO()
+            c = canvas.Canvas(buf, pagesize=(page_width, page_height))
+            c.drawImage(img, x, y, width=draw_w, height=draw_h, mask="auto")
+            c.save()
+            buf.seek(0)
+            
+            overlay_reader = PyPdfReader(buf)
+            page.merge_page(overlay_reader.pages[0])
+        
+        out_buf = io.BytesIO()
+        writer.write(out_buf)
+        return out_buf.getvalue()
+        
+    except Exception as e:
+        print(f"[SIGNING] Failed to add signature to advice pages: {e}")
+        return packet_bytes
 
 
 def _get_packet_paths_for_client(client: Client):
@@ -137,9 +216,38 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
 
     source_bytes = packet_path.read_bytes()
 
+    # לחבילה ערוכה: הוסף חתימת לקוח לדפי ההנמקה (overlay, לא החלפה)
+    if packet_path != base_packet_path:
+        advice_path = justification_packet_service._get_advice_pdf_path(client)
+        if advice_path.is_file():
+            try:
+                advice_reader = PyPdfReader(io.BytesIO(advice_path.read_bytes()))
+                advice_page_count = len(advice_reader.pages)
+                source_bytes = _add_signature_to_advice_pages(
+                    source_bytes,
+                    signature_data_url,
+                    advice_page_count,
+                )
+                print(f"[SIGNING] Added signature to {advice_page_count} advice pages")
+            except Exception as e:
+                print(f"[SIGNING] Error adding signature to advice pages: {e}")
+
+    # לחבילה ערוכה: השתמש בחבילה המקורית כ-reference כדי לקבל מיקומי חתימות
+    # שאולי אבדו בעריכה ב-Adobe
+    reference_pdf_bytes = None
+    if packet_path != base_packet_path and base_packet_path.is_file():
+        try:
+            reference_pdf_bytes = base_packet_path.read_bytes()
+            print(f"[SIGNING] Using reference PDF: {base_packet_path}, size={len(reference_pdf_bytes)}")
+        except Exception as e:
+            print(f"[SIGNING] Failed to load reference PDF: {e}")
+    else:
+        print(f"[SIGNING] No reference PDF. packet_path={packet_path}, base_packet_path={base_packet_path}, base_exists={base_packet_path.is_file()}")
+
     signed_bytes = justification_forms_service.apply_signature_to_sig_fields(
         source_bytes,
         signature_image_data=signature_data_url,
+        reference_pdf_bytes=reference_pdf_bytes,
     )
 
     flattened_bytes = justification_forms_service.flatten_form_fields(signed_bytes)

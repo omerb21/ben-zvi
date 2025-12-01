@@ -223,10 +223,219 @@ def apply_overlay_to_pdf(
     return out_buf.getvalue()
 
 
+def _get_inherited_ft(field_obj) -> str:
+    """
+    מחזיר את ה-FT (field type) של שדה, כולל ירושה מהורים.
+    ב-PDF, ה-FT יכול להיות על השדה עצמו או על אב קדמון.
+    """
+    current = field_obj
+    visited = set()
+    while current is not None:
+        try:
+            obj = current.get_object() if hasattr(current, "get_object") else current
+            obj_id = id(obj)
+            if obj_id in visited:
+                break
+            visited.add(obj_id)
+
+            ft = obj.get("/FT")
+            if ft:
+                return str(ft)
+
+            current = obj.get("/Parent")
+        except Exception:
+            break
+    return ""
+
+
+def _get_full_field_name(field_obj) -> str:
+    """
+    בונה את השם המלא של השדה (FQN) על ידי צירוף שמות ההורים.
+    לדוגמה: "form1.page1.Signature1"
+    """
+    parts = []
+    current = field_obj
+    visited = set()
+    while current is not None:
+        try:
+            obj = current.get_object() if hasattr(current, "get_object") else current
+            obj_id = id(obj)
+            if obj_id in visited:
+                break
+            visited.add(obj_id)
+
+            name = obj.get("/T")
+            if name:
+                parts.append(str(name))
+
+            current = obj.get("/Parent")
+        except Exception:
+            break
+    parts.reverse()
+    return ".".join(parts)
+
+
+def _is_signature_field(annot) -> bool:
+    """
+    בודק אם annotation הוא שדה חתימה.
+    בודק FT ישירות ובירושה, וגם שמות שדות.
+    """
+    # בדיקת FT בירושה מלאה
+    ft = _get_inherited_ft(annot)
+    if ft == "/Sig":
+        return True
+
+    # בדיקת שם מלא של השדה
+    full_name = _get_full_field_name(annot).lower()
+    if "sig" in full_name or "חתימ" in full_name:
+        return True
+
+    # בדיקת שם ישיר על ה-annotation
+    field_name = annot.get("/T")
+    if field_name:
+        name_str = str(field_name).lower()
+        if "sig" in name_str or "חתימ" in name_str:
+            return True
+
+    return False
+
+
+def _collect_sig_fields_from_acroform(reader) -> dict:
+    """
+    אוסף את כל שדות החתימה מה-AcroForm ומחזיר מילון של page_index -> list of rects.
+    זה מאפשר לזהות שדות חתימה גם כשהם לא מופיעים ישירות ב-Annots של הדף.
+    """
+    sig_rects_by_page = {}
+
+    try:
+        root = reader.trailer.get("/Root")
+        if not root:
+            return sig_rects_by_page
+
+        root_obj = root.get_object() if hasattr(root, "get_object") else root
+        acroform = root_obj.get("/AcroForm")
+        if not acroform:
+            return sig_rects_by_page
+
+        acroform_obj = acroform.get_object() if hasattr(acroform, "get_object") else acroform
+        fields = acroform_obj.get("/Fields")
+        if not fields:
+            return sig_rects_by_page
+
+        # מיפוי דפים לאינדקסים
+        page_to_index = {}
+        for i, page in enumerate(reader.pages):
+            page_to_index[id(page.get_object())] = i
+
+        def process_field(field_ref, inherited_ft=""):
+            try:
+                field = field_ref.get_object() if hasattr(field_ref, "get_object") else field_ref
+
+                # FT יכול להיות על השדה או לרשת מהורה
+                ft = field.get("/FT")
+                if ft:
+                    current_ft = str(ft)
+                else:
+                    current_ft = inherited_ft
+
+                # בדיקת שם
+                field_name = field.get("/T")
+                is_sig_by_name = False
+                if field_name:
+                    name_lower = str(field_name).lower()
+                    if "sig" in name_lower or "חתימ" in name_lower:
+                        is_sig_by_name = True
+
+                is_sig_field = (current_ft == "/Sig") or is_sig_by_name
+
+                # אם זה שדה חתימה, מצא את ה-Widget(s) שלו
+                if is_sig_field:
+                    # השדה עצמו יכול להיות Widget
+                    rect = field.get("/Rect")
+                    page_ref = field.get("/P")
+                    if rect and len(rect) == 4 and page_ref:
+                        try:
+                            page_obj = page_ref.get_object() if hasattr(page_ref, "get_object") else page_ref
+                            page_idx = page_to_index.get(id(page_obj))
+                            if page_idx is not None:
+                                llx, lly, urx, ury = float(rect[0]), float(rect[1]), float(rect[2]), float(rect[3])
+                                if page_idx not in sig_rects_by_page:
+                                    sig_rects_by_page[page_idx] = []
+                                sig_rects_by_page[page_idx].append((llx, lly, urx, ury))
+                        except Exception:
+                            pass
+
+                # עבור על Kids
+                kids = field.get("/Kids")
+                if kids:
+                    for kid_ref in kids:
+                        process_field(kid_ref, current_ft)
+
+            except Exception:
+                pass
+
+        for field_ref in fields:
+            process_field(field_ref)
+
+    except Exception:
+        pass
+
+    return sig_rects_by_page
+
+
+def _collect_all_sig_rects(reader) -> dict:
+    """
+    אוסף את כל מיקומי שדות החתימה מ-PDF ומחזיר מילון של page_index -> list of rects.
+    """
+    sig_rects_by_page = {}
+
+    # שיטה 1: חיפוש מה-AcroForm
+    acroform_rects = _collect_sig_fields_from_acroform(reader)
+    for page_idx, rects in acroform_rects.items():
+        if page_idx not in sig_rects_by_page:
+            sig_rects_by_page[page_idx] = []
+        sig_rects_by_page[page_idx].extend(rects)
+
+    # שיטה 2: חיפוש ישיר ב-Annots של כל דף
+    for page_idx, page in enumerate(reader.pages):
+        annots = page.get("/Annots") or []
+        for annot_ref in annots:
+            try:
+                annot = annot_ref.get_object()
+                if not _is_signature_field(annot):
+                    continue
+                rect = annot.get("/Rect")
+                if not rect or len(rect) != 4:
+                    continue
+                llx = float(rect[0])
+                lly = float(rect[1])
+                urx = float(rect[2])
+                ury = float(rect[3])
+                rect_tuple = (llx, lly, urx, ury)
+                if page_idx not in sig_rects_by_page:
+                    sig_rects_by_page[page_idx] = []
+                if rect_tuple not in sig_rects_by_page[page_idx]:
+                    sig_rects_by_page[page_idx].append(rect_tuple)
+            except Exception:
+                continue
+
+    return sig_rects_by_page
+
+
 def apply_signature_to_sig_fields(
     source_pdf_bytes: bytes,
     signature_image_data: str,
+    reference_pdf_bytes: bytes = None,
 ) -> bytes:
+    """
+    מחיל חתימה על כל שדות החתימה ב-PDF.
+    
+    Args:
+        source_pdf_bytes: ה-PDF שעליו יוחלו החתימות
+        signature_image_data: תמונת החתימה כ-data URL
+        reference_pdf_bytes: אופציונלי - PDF מקורי לחילוץ מיקומי שדות חתימה
+                            שאולי אבדו בעריכה
+    """
     if not signature_image_data:
         return source_pdf_bytes
 
@@ -252,36 +461,33 @@ def apply_signature_to_sig_fields(
     writer = PyPdfWriter()
     writer.clone_document_from_reader(base_reader)
 
+    # אסוף שדות חתימה מה-PDF המקור
+    sig_rects_by_page = _collect_all_sig_rects(base_reader)
+
+    # אם יש PDF מקורי לייחוס, אסוף גם ממנו את מיקומי החתימות
+    # זה מטפל במקרה שעריכה ב-Adobe איבדה את שדות החתימה
+    if reference_pdf_bytes:
+        try:
+            ref_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
+            ref_sig_rects = _collect_all_sig_rects(ref_reader)
+            
+            # הוסף מיקומים מה-reference שלא נמצאו ב-source
+            for page_idx, rects in ref_sig_rects.items():
+                if page_idx >= len(base_reader.pages):
+                    continue  # דלג על עמודים שלא קיימים ב-source
+                if page_idx not in sig_rects_by_page:
+                    sig_rects_by_page[page_idx] = []
+                for rect in rects:
+                    if rect not in sig_rects_by_page[page_idx]:
+                        sig_rects_by_page[page_idx].append(rect)
+        except Exception:
+            pass
+
     any_signature_drawn = False
 
     for page_index, page in enumerate(writer.pages):
-        annots = page.get("/Annots") or []
-        if not annots:
-            continue
-
-        sig_rects = []
-        for annot_ref in annots:
-            annot = annot_ref.get_object()
-            ft = annot.get("/FT")
-            parent = annot.get("/Parent")
-            parent_ft = parent.get("/FT") if parent is not None else None
-
-            if ft != "/Sig" and parent_ft != "/Sig":
-                continue
-
-            rect = annot.get("/Rect")
-            if not rect or len(rect) != 4:
-                continue
-
-            try:
-                llx = float(rect[0])
-                lly = float(rect[1])
-                urx = float(rect[2])
-                ury = float(rect[3])
-            except Exception:
-                continue
-
-            sig_rects.append((llx, lly, urx, ury))
+        # קח את מיקומי החתימות שכבר אספנו (מה-source ומה-reference)
+        sig_rects = sig_rects_by_page.get(page_index, [])
 
         if not sig_rects:
             continue
