@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Header
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -65,12 +65,27 @@ def create_client(client_in: ClientCreate, db: Session = Depends(get_db)):
     "/clients/{client_id}/snapshots",
     response_model=List[SnapshotRead],
 )
-def list_client_snapshots(client_id: int, db: Session = Depends(get_db)):
-    client = crm_service.get_client(db, client_id)
+def list_client_snapshots(
+    client_id: int,
+    db: Session = Depends(get_db),
+    x_client_token: str | None = Header(default=None),
+):
+    effective_client_id = client_id
+
+    if x_client_token:
+        client_from_token = crm_service.get_client_by_token(db, x_client_token)
+        if not client_from_token:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Client not found",
+            )
+        effective_client_id = client_from_token.id
+
+    client = crm_service.get_client(db, effective_client_id)
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    snapshots = crm_service.list_client_snapshots(db, client_id)
+    snapshots = crm_service.list_client_snapshots(db, effective_client_id)
     return [to_snapshot_read(snapshot) for snapshot in snapshots]
 
 
@@ -105,8 +120,23 @@ def get_monthly_change(db: Session = Depends(get_db)):
 
 
 @router.get("/history", response_model=List[HistoryPoint])
-def get_history(client_id: Optional[int] = None, db: Session = Depends(get_db)):
-    items = crm_service.get_history(db, client_id)
+def get_history(
+    client_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    x_client_token: str | None = Header(default=None),
+):
+    effective_client_id = client_id
+
+    if x_client_token:
+        client_from_token = crm_service.get_client_by_token(db, x_client_token)
+        if not client_from_token:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Client not found",
+            )
+        effective_client_id = client_from_token.id
+
+    items = crm_service.get_history(db, effective_client_id)
     return to_history_points(items)
 
 

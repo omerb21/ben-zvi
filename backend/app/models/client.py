@@ -87,6 +87,9 @@ class Client(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
+    # Client-facing token used by external client apps (nullable, unique)
+    client_token = Column(String(64), unique=True, index=True, nullable=True)
+
     # Indexes
     __table_args__ = (
         Index("ix_client_full_name_id_number", "full_name", "id_number"),

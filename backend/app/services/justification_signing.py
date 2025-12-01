@@ -86,8 +86,7 @@ def _add_signature_to_advice_pages(
         writer.write(out_buf)
         return out_buf.getvalue()
         
-    except Exception as e:
-        print(f"[SIGNING] Failed to add signature to advice pages: {e}")
+    except Exception:
         return packet_bytes
 
 
@@ -228,9 +227,8 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
                     signature_data_url,
                     advice_page_count,
                 )
-                print(f"[SIGNING] Added signature to {advice_page_count} advice pages")
-            except Exception as e:
-                print(f"[SIGNING] Error adding signature to advice pages: {e}")
+            except Exception:
+                pass
 
     # לחבילה ערוכה: השתמש בחבילה המקורית כ-reference כדי לקבל מיקומי חתימות
     # שאולי אבדו בעריכה ב-Adobe
@@ -238,11 +236,8 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
     if packet_path != base_packet_path and base_packet_path.is_file():
         try:
             reference_pdf_bytes = base_packet_path.read_bytes()
-            print(f"[SIGNING] Using reference PDF: {base_packet_path}, size={len(reference_pdf_bytes)}")
-        except Exception as e:
-            print(f"[SIGNING] Failed to load reference PDF: {e}")
-    else:
-        print(f"[SIGNING] No reference PDF. packet_path={packet_path}, base_packet_path={base_packet_path}, base_exists={base_packet_path.is_file()}")
+        except Exception:
+            pass
 
     signed_bytes = justification_forms_service.apply_signature_to_sig_fields(
         source_bytes,

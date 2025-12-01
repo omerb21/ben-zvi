@@ -19,6 +19,21 @@ def get_client(db: Session, client_id: int) -> Optional[Client]:
     return db.query(Client).filter(Client.id == client_id).first()
 
 
+def get_client_by_token(db: Session, token: str) -> Optional[Client]:
+    """Return a single client by client_token for external client apps.
+
+    If the token is empty or no active client is associated with it, return None.
+    """
+    if not token:
+        return None
+
+    return (
+        db.query(Client)
+        .filter(Client.client_token == token, Client.is_active.is_(True))
+        .first()
+    )
+
+
 def create_client(db: Session, client_in: ClientCreate) -> Client:
     """Create a new client from CRM input schema."""
     id_number_raw = client_in.idNumber

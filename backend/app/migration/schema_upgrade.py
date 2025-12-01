@@ -35,6 +35,10 @@ def ensure_schema_up_to_date(engine: Engine) -> None:
     if "address_apartment" not in existing_cols:
         ddl_statements.append("ALTER TABLE client ADD COLUMN address_apartment TEXT")
 
+    # Token used by external client applications to access a single client's data
+    if "client_token" not in existing_cols:
+        ddl_statements.append("ALTER TABLE client ADD COLUMN client_token TEXT")
+
     if not ddl_statements:
         return
 
