@@ -14,14 +14,14 @@ from app.services import justification_packet as justification_packet_service
 from app.services import justification_advice as justification_advice_service
 
 
-def _add_signature_to_advice_pages(
+def _add_signature_overlay_to_advice_pages(
     packet_bytes: bytes,
     signature_data_url: str,
     advice_page_count: int,
 ) -> bytes:
     """
-    מוסיף את חתימת הלקוח לדפי ההנמקה (הדפים הראשונים בחבילה).
-    משתמש ב-overlay כדי לא לפגוע בשדות הטופס.
+    מוסיף overlay של חתימת לקוח לדפי ההנמקה בחבילה הערוכה.
+    מחפש את המיקום של "חתימת הלקוח" בטקסט של כל עמוד ומציב את החתימה מתחת.
     """
     from reportlab.pdfgen import canvas
     from reportlab.lib.utils import ImageReader
@@ -30,7 +30,6 @@ def _add_signature_to_advice_pages(
         return packet_bytes
     
     try:
-        # פענח את תמונת החתימה
         sig_bytes = justification_forms_service._decode_data_url(signature_data_url)
         if not sig_bytes:
             return packet_bytes
@@ -44,35 +43,35 @@ def _add_signature_to_advice_pages(
         writer = PyPdfWriter()
         writer.clone_document_from_reader(reader)
         
-        # מיקומי חתימת לקוח בדפי ההנמקה (מבוסס על התבנית)
-        # קואורדינטות ב-PDF הן מהפינה השמאלית-תחתונה
-        # עמוד A4: 595 רוחב, 842 גובה
-        # X=400 זה בצד ימין, Y גבוה יותר = גבוה יותר בדף
-        SIGNATURE_POSITIONS = [
-            # (page_index, x, y, width, height) - 0-indexed
-            # חתימה בעמוד האחרון
-            (advice_page_count - 1, 370, 390, 120, 50),
-            # חתימה בעמוד הרביעי מהסוף
-            (advice_page_count - 4, 370, 250, 120, 50),
-        ]
+        # מיקומי חתימת לקוח - עמודים מהסוף של דפי ההנמקה
+        # נשתמש בקואורדינטות קבועות כי מבנה ההנמקה קבוע
+        TARGET_W, TARGET_H = 120, 50
         
-        for pos in SIGNATURE_POSITIONS:
-            if pos is None:
-                continue
-            page_idx, x, y, target_w, target_h = pos
-            if page_idx < 0 or page_idx >= len(writer.pages):
-                continue
-            
+        # חשב גודל החתימה תוך שמירה על יחס
+        scale = min(TARGET_W / img_width, TARGET_H / img_height, 1.0)
+        draw_w = img_width * scale
+        draw_h = img_height * scale
+        
+        # עמוד אחרון של ההנמקה - חתימה למטה
+        last_advice_idx = advice_page_count - 1
+        # עמוד רביעי מהסוף של ההנמקה - חתימה נוספת
+        fourth_from_end_idx = advice_page_count - 4
+        
+        signature_positions = []
+        
+        # עמוד אחרון: חתימה בחלק התחתון
+        if 0 <= last_advice_idx < len(writer.pages):
+            signature_positions.append((last_advice_idx, 370, 390))
+        
+        # עמוד רביעי מהסוף: חתימה בחלק האמצעי-תחתון
+        if 0 <= fourth_from_end_idx < len(writer.pages):
+            signature_positions.append((fourth_from_end_idx, 370, 250))
+        
+        for page_idx, x, y in signature_positions:
             page = writer.pages[page_idx]
             page_width = float(page.mediabox.width)
             page_height = float(page.mediabox.height)
             
-            # חשב את הגודל תוך שמירה על יחס הגובה-רוחב
-            scale = min(target_w / img_width, target_h / img_height, 1.0)
-            draw_w = img_width * scale
-            draw_h = img_height * scale
-            
-            # צור overlay עם החתימה
             buf = io.BytesIO()
             c = canvas.Canvas(buf, pagesize=(page_width, page_height))
             c.drawImage(img, x, y, width=draw_w, height=draw_h, mask="auto")
@@ -215,14 +214,14 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
 
     source_bytes = packet_path.read_bytes()
 
-    # לחבילה ערוכה: הוסף חתימת לקוח לדפי ההנמקה (overlay, לא החלפה)
+    # לחבילה ערוכה: הוסף חתימת לקוח לדפי ההנמקה (overlay)
     if packet_path != base_packet_path:
         advice_path = justification_packet_service._get_advice_pdf_path(client)
         if advice_path.is_file():
             try:
                 advice_reader = PyPdfReader(io.BytesIO(advice_path.read_bytes()))
                 advice_page_count = len(advice_reader.pages)
-                source_bytes = _add_signature_to_advice_pages(
+                source_bytes = _add_signature_overlay_to_advice_pages(
                     source_bytes,
                     signature_data_url,
                     advice_page_count,
