@@ -97,10 +97,11 @@ def _add_signature_overlay_to_advice_pages(
             print(f"[SIGNING] Using fallback positions. advice_page_count={advice_page_count}")
             last_advice_idx = advice_page_count - 1
             fourth_from_end_idx = advice_page_count - 4
+            # הרם מעט את החתימות על ציר ה-Y כך שישבו קצת מעל הקו
             if last_advice_idx >= 0:
-                signature_positions.append((last_advice_idx, 370, 390))
+                signature_positions.append((last_advice_idx, 370, 400))
             if fourth_from_end_idx >= 0:
-                signature_positions.append((fourth_from_end_idx, 370, 250))
+                signature_positions.append((fourth_from_end_idx, 370, 260))
             print(f"[SIGNING] Fallback positions: {signature_positions}")
         
         print(f"[SIGNING] Will apply signatures at: {signature_positions}")
