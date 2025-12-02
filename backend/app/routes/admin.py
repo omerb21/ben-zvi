@@ -17,9 +17,11 @@ from app.schemas.admin import (
     ClearCrmDataResult,
     ClearJustificationDataResult,
     LegacyCrmClientsImportResult,
+    ClientTokenUpdate,
+    ClientTokenUpdateResult,
 )
 from app.services.imports import import_crm_from_excel, import_saving_products_from_gemelnet_xml
-from app.services.crm import clear_crm_data
+from app.services.crm import clear_crm_data, set_client_token
 from app.services.justification import clear_justification_data
 
 
@@ -171,3 +173,19 @@ def clear_justification_data_endpoint(
 
     result = clear_justification_data(db)
     return ClearJustificationDataResult(**result)
+
+
+@router.post("/clients/{client_id}/token", response_model=ClientTokenUpdateResult)
+def update_client_token(
+    client_id: int,
+    payload: ClientTokenUpdate,
+    db: Session = Depends(get_db),
+) -> ClientTokenUpdateResult:
+    client = set_client_token(db, client_id, payload.clientToken)
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
+
+    return ClientTokenUpdateResult(clientId=client.id, clientToken=client.client_token)

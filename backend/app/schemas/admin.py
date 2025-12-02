@@ -55,3 +55,12 @@ class LegacyCrmClientsImportResult(BaseModel):
     updatedClients: int
     reusedClients: int
     rowsProcessed: int
+
+
+class ClientTokenUpdate(BaseModel):
+    clientToken: str
+
+
+class ClientTokenUpdateResult(BaseModel):
+    clientId: int
+    clientToken: str | None

@@ -479,6 +479,17 @@ def list_global_reminders(db: Session, today: Optional[date] = None) -> List[Dic
     return results
 
 
+def set_client_token(db: Session, client_id: int, token: Optional[str]) -> Optional[Client]:
+    client = get_client(db, client_id)
+    if not client:
+        return None
+
+    client.client_token = token or None
+    db.commit()
+    db.refresh(client)
+    return client
+
+
 def update_client(db: Session, client_id: int, update: ClientUpdate) -> Optional[Client]:
     client = get_client(db, client_id)
     if not client:
