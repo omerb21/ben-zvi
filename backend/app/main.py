@@ -47,6 +47,7 @@ else:
         "http://localhost:8000",
         "http://localhost:5174",
         "https://ben-zvi.onrender.com",
+        "https://bzclient.onrender.com",
     ]
 
 
