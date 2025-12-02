@@ -13,4 +13,5 @@ pdfkit==1.0.0
 pdfrw
 reportlab
 pypdf
+pdfplumber
 pytz

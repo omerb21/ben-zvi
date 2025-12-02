@@ -14,6 +14,56 @@ from app.services import justification_packet as justification_packet_service
 from app.services import justification_advice as justification_advice_service
 
 
+def _find_client_signature_positions(packet_bytes: bytes, advice_page_count: int):
+    """
+    מחפש את המיקומים של "חתימת הלקוח" בדפי ההנמקה.
+    מחזיר רשימה של (page_idx, x, y) עבור כל מיקום שנמצא.
+    אם pdfplumber לא מותקן, מחזיר רשימה ריקה כדי שנשתמש בפולבק קבוע.
+    """
+    positions = []
+
+    # נסה לייבא את pdfplumber; אם אינו זמין, נחזור מיד ללא שגיאה
+    try:
+        import pdfplumber  # type: ignore
+    except Exception as e:  # pragma: no cover - הגנה בסביבות ללא pdfplumber
+        print(f"[SIGNING] pdfplumber not available: {e}. Falling back to fixed positions.")
+        return positions
+
+    try:
+        with pdfplumber.open(io.BytesIO(packet_bytes)) as pdf:
+            for page_idx in range(min(advice_page_count, len(pdf.pages))):
+                page = pdf.pages[page_idx]
+                page_height = float(page.height)
+                page_width = float(page.width)
+                words = page.extract_words() or []
+
+                for i, word in enumerate(words):
+                    text = word.get("text", "")
+                    # חפש "חתימת הלקוח" - יכול להיות מילה אחת או שתיים
+                    if "הלקוח" in text and "חתימת" in text:
+                        # מצאנו את הביטוי המלא במילה אחת
+                        word_top = float(word.get("top", 0))
+                        word_x0 = float(word.get("x0", 0))
+                        pdf_y = page_height - word_top - 70
+                        if 0 < pdf_y < page_height and 0 < word_x0 < page_width:
+                            positions.append((page_idx, word_x0, pdf_y))
+                    elif "הלקוח" in text:
+                        # בדוק אם המילה הקודמת היא "חתימת"
+                        if i > 0:
+                            prev_word = words[i - 1].get("text", "")
+                            if "חתימת" in prev_word:
+                                word_top = float(word.get("top", 0))
+                                word_x0 = float(words[i - 1].get("x0", 0))
+                                pdf_y = page_height - word_top - 70
+                                if 0 < pdf_y < page_height and 0 < word_x0 < page_width:
+                                    positions.append((page_idx, word_x0, pdf_y))
+    except Exception as e:
+        print(f"[SIGNING] pdfplumber error: {e}")
+
+    print(f"[SIGNING] Found {len(positions)} signature positions: {positions}")
+    return positions
+
+
 def _add_signature_overlay_to_advice_pages(
     packet_bytes: bytes,
     signature_data_url: str,
@@ -39,35 +89,36 @@ def _add_signature_overlay_to_advice_pages(
         if img_width <= 0 or img_height <= 0:
             return packet_bytes
         
+        # חפש את מיקומי "חתימת הלקוח" ב-PDF
+        signature_positions = _find_client_signature_positions(packet_bytes, advice_page_count)
+        
+        # אם לא מצאנו, נשתמש בקואורדינטות fallback
+        if not signature_positions:
+            print(f"[SIGNING] Using fallback positions. advice_page_count={advice_page_count}")
+            last_advice_idx = advice_page_count - 1
+            fourth_from_end_idx = advice_page_count - 4
+            if last_advice_idx >= 0:
+                signature_positions.append((last_advice_idx, 370, 390))
+            if fourth_from_end_idx >= 0:
+                signature_positions.append((fourth_from_end_idx, 370, 250))
+            print(f"[SIGNING] Fallback positions: {signature_positions}")
+        
+        print(f"[SIGNING] Will apply signatures at: {signature_positions}")
         reader = PyPdfReader(io.BytesIO(packet_bytes))
         writer = PyPdfWriter()
         writer.clone_document_from_reader(reader)
         
-        # מיקומי חתימת לקוח - עמודים מהסוף של דפי ההנמקה
-        # נשתמש בקואורדינטות קבועות כי מבנה ההנמקה קבוע
         TARGET_W, TARGET_H = 120, 50
-        
-        # חשב גודל החתימה תוך שמירה על יחס
         scale = min(TARGET_W / img_width, TARGET_H / img_height, 1.0)
         draw_w = img_width * scale
         draw_h = img_height * scale
         
-        # עמוד אחרון של ההנמקה - חתימה למטה
-        last_advice_idx = advice_page_count - 1
-        # עמוד רביעי מהסוף של ההנמקה - חתימה נוספת
-        fourth_from_end_idx = advice_page_count - 4
-        
-        signature_positions = []
-        
-        # עמוד אחרון: חתימה בחלק התחתון
-        if 0 <= last_advice_idx < len(writer.pages):
-            signature_positions.append((last_advice_idx, 370, 390))
-        
-        # עמוד רביעי מהסוף: חתימה בחלק האמצעי-תחתון
-        if 0 <= fourth_from_end_idx < len(writer.pages):
-            signature_positions.append((fourth_from_end_idx, 370, 250))
-        
         for page_idx, x, y in signature_positions:
+            if page_idx < 0 or page_idx >= len(writer.pages):
+                print(f"[SIGNING] Skipping invalid page_idx={page_idx}, total_pages={len(writer.pages)}")
+                continue
+            
+            print(f"[SIGNING] Applying signature to page {page_idx} at ({x}, {y})")
             page = writer.pages[page_idx]
             page_width = float(page.mediabox.width)
             page_height = float(page.mediabox.height)
@@ -83,9 +134,11 @@ def _add_signature_overlay_to_advice_pages(
         
         out_buf = io.BytesIO()
         writer.write(out_buf)
+        print(f"[SIGNING] Successfully wrote signed packet, size={len(out_buf.getvalue())}")
         return out_buf.getvalue()
         
-    except Exception:
+    except Exception as e:
+        print(f"[SIGNING] Exception in _add_signature_overlay_to_advice_pages: {e}")
         return packet_bytes
 
 
@@ -216,18 +269,23 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
 
     # לחבילה ערוכה: הוסף חתימת לקוח לדפי ההנמקה (overlay)
     if packet_path != base_packet_path:
+        print(f"[SIGNING] Edited packet detected, will add signature overlay")
         advice_path = justification_packet_service._get_advice_pdf_path(client)
+        print(f"[SIGNING] Advice path: {advice_path}, exists: {advice_path.is_file()}")
         if advice_path.is_file():
             try:
                 advice_reader = PyPdfReader(io.BytesIO(advice_path.read_bytes()))
                 advice_page_count = len(advice_reader.pages)
+                print(f"[SIGNING] Advice page count: {advice_page_count}")
                 source_bytes = _add_signature_overlay_to_advice_pages(
                     source_bytes,
                     signature_data_url,
                     advice_page_count,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[SIGNING] Error adding signature overlay: {e}")
+    else:
+        print(f"[SIGNING] Base packet, skipping advice overlay")
 
     # לחבילה ערוכה: השתמש בחבילה המקורית כ-reference כדי לקבל מיקומי חתימות
     # שאולי אבדו בעריכה ב-Adobe
