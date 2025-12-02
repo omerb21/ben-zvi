@@ -15,7 +15,20 @@ from app.services import justification_forms as justification_forms_service
 from app.services import justification_advice_tables as advice_tables_service
 
 
+# Cache for static resources - loaded once at module level
+_TEMPLATES_ENV: Optional[Environment] = None
+_LOGO_DATA_URL: Optional[str] = None
+_SIGNATURE_DATA_URL: Optional[str] = None
+_STATIC_RESOURCES_LOADED = False
+_WKHTMLTOPDF_CMD: Optional[str] = None
+_WKHTMLTOPDF_CHECKED = False
+
+
 def _get_templates_env() -> Environment:
+    global _TEMPLATES_ENV
+    if _TEMPLATES_ENV is not None:
+        return _TEMPLATES_ENV
+    
     base_dir = Path(__file__).resolve().parent.parent
     templates_dir = base_dir / "templates"
     env = Environment(
@@ -29,7 +42,43 @@ def _get_templates_env() -> Environment:
         return filename
 
     env.globals["url_for"] = _url_for
+    _TEMPLATES_ENV = env
     return env
+
+
+def _load_static_resources():
+    """Load static resources (logo, signature) once and cache them."""
+    global _LOGO_DATA_URL, _SIGNATURE_DATA_URL, _STATIC_RESOURCES_LOADED
+    
+    if _STATIC_RESOURCES_LOADED:
+        return _LOGO_DATA_URL, _SIGNATURE_DATA_URL
+    
+    base_dir = Path(__file__).resolve().parent.parent
+    
+    # Load logo
+    logo_path = base_dir / "static" / "logo.png"
+    try:
+        if logo_path.is_file():
+            logo_bytes = logo_path.read_bytes()
+            logo_b64 = base64.b64encode(logo_bytes).decode("ascii")
+            _LOGO_DATA_URL = f"data:image/png;base64,{logo_b64}"
+    except Exception:
+        _LOGO_DATA_URL = ""
+    
+    # Load signature
+    primary_sign_path = base_dir / "static" / "signature.jpg"
+    fallback_sign_path = base_dir / "static" / "sign.jpg"
+    try:
+        sign_path = primary_sign_path if primary_sign_path.is_file() else fallback_sign_path
+        if sign_path.is_file():
+            sign_bytes = sign_path.read_bytes()
+            sign_b64 = base64.b64encode(sign_bytes).decode("ascii")
+            _SIGNATURE_DATA_URL = f"data:image/jpeg;base64,{sign_b64}"
+    except Exception:
+        _SIGNATURE_DATA_URL = ""
+    
+    _STATIC_RESOURCES_LOADED = True
+    return _LOGO_DATA_URL or "", _SIGNATURE_DATA_URL or ""
 
 
 def build_advice_html(db: Session, client: Client, include_print_button: bool = True) -> str:
@@ -53,28 +102,8 @@ def build_advice_html(db: Session, client: Client, include_print_button: bool = 
     template = env.get_template("advice/print.html")
     now = date.today()
 
-    base_dir = Path(__file__).resolve().parent.parent
-    logo_path = base_dir / "static" / "logo.png"
-    logo_data_url = ""
-    try:
-        if logo_path.is_file():
-            logo_bytes = logo_path.read_bytes()
-            logo_b64 = base64.b64encode(logo_bytes).decode("ascii")
-            logo_data_url = f"data:image/png;base64,{logo_b64}"
-    except Exception:
-        logo_data_url = ""
-
-    primary_sign_path = base_dir / "static" / "signature.jpg"
-    fallback_sign_path = base_dir / "static" / "sign.jpg"
-    signature_data_url = ""
-    try:
-        sign_path = primary_sign_path if primary_sign_path.is_file() else fallback_sign_path
-        if sign_path.is_file():
-            sign_bytes = sign_path.read_bytes()
-            sign_b64 = base64.b64encode(sign_bytes).decode("ascii")
-            signature_data_url = f"data:image/jpeg;base64,{sign_b64}"
-    except Exception:
-        signature_data_url = ""
+    # Use cached static resources
+    logo_data_url, signature_data_url = _load_static_resources()
 
     # Client signature (from signing flow), if available as PNG in the
     # client's export directory. This is used to render the client's
@@ -103,13 +132,51 @@ def build_advice_html(db: Session, client: Client, include_print_button: bool = 
     return html
 
 
+def _get_wkhtmltopdf_cmd() -> Optional[str]:
+    """Find wkhtmltopdf command path once and cache it."""
+    global _WKHTMLTOPDF_CMD, _WKHTMLTOPDF_CHECKED
+    
+    if _WKHTMLTOPDF_CHECKED:
+        return _WKHTMLTOPDF_CMD
+    
+    import shutil
+    
+    backend_root = Path(__file__).resolve().parent.parent.parent
+    is_windows = os.name == "nt"
+    
+    # Try PATH first
+    cmd = shutil.which("wkhtmltopdf")
+    if cmd:
+        _WKHTMLTOPDF_CMD = cmd
+        _WKHTMLTOPDF_CHECKED = True
+        return cmd
+    
+    # Try known paths
+    candidate_paths: list[Path] = []
+    if is_windows:
+        candidate_paths.extend([
+            backend_root / "bin" / "wkhtmltopdf.exe",
+            Path(r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
+            Path(r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
+        ])
+    else:
+        candidate_paths.append(backend_root / "bin" / "wkhtmltopdf")
+    
+    for candidate in candidate_paths:
+        if candidate.is_file():
+            _WKHTMLTOPDF_CMD = str(candidate)
+            break
+    
+    _WKHTMLTOPDF_CHECKED = True
+    return _WKHTMLTOPDF_CMD
+
+
 def generate_advice_pdf(html: str) -> Optional[bytes]:
-    try:
-        import shutil
-        import subprocess
-        from pathlib import Path
-        from uuid import uuid4
-    except Exception:
+    import subprocess
+    from uuid import uuid4
+
+    wkhtmltopdf_cmd = _get_wkhtmltopdf_cmd()
+    if not wkhtmltopdf_cmd:
         return None
 
     options = {
@@ -118,37 +185,11 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
         "load-error-handling": "ignore",
     }
 
-    # backend_root: .../backend
     backend_root = Path(__file__).resolve().parent.parent.parent
     runtime_dir = backend_root / "advice_runtime"
     try:
         runtime_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
-        return None
-
-    is_windows = os.name == "nt"
-    candidate_paths: list[Path] = []
-    if is_windows:
-        candidate_paths.extend(
-            [
-                backend_root / "bin" / "wkhtmltopdf.exe",
-                Path(r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
-                Path(r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
-            ]
-        )
-    else:
-        candidate_paths.append(backend_root / "bin" / "wkhtmltopdf")
-
-    wkhtmltopdf_cmd = shutil.which("wkhtmltopdf")
-    if not wkhtmltopdf_cmd:
-        for candidate in candidate_paths:
-            if candidate.is_file():
-                wkhtmltopdf_cmd = str(candidate)
-                break
-
-    if not wkhtmltopdf_cmd:
-        # Debug log for environments (e.g. Render) where wkhtmltopdf is
-        # not available or not found in the expected locations.
         return None
 
     html_name = f"advice_{uuid4().hex}.html"

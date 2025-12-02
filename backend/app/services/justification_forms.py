@@ -28,19 +28,25 @@ def _decode_data_url(data_url: str) -> bytes:
     return base64.b64decode(b64_data)
 
 
+# Cache for overlay font
+_OVERLAY_FONT_NAME: str = ""
+
+
 def _register_overlay_font() -> str:
     """Register a font that can render Hebrew if possible.
-
-    We try common system fonts; if none are available we fall back to
-    the default Helvetica (which may not support Hebrew but avoids
-    crashing).
+    Results are cached to avoid repeated file system checks.
     """
+    global _OVERLAY_FONT_NAME
+    
+    if _OVERLAY_FONT_NAME:
+        return _OVERLAY_FONT_NAME
 
     font_name = "HebOverlay"
 
     # If already registered, just reuse it.
     try:
         pdfmetrics.getFont(font_name)
+        _OVERLAY_FONT_NAME = font_name
         return font_name
     except KeyError:
         pass
@@ -60,11 +66,13 @@ def _register_overlay_font() -> str:
         try:
             if path.is_file():
                 pdfmetrics.registerFont(TTFont(font_name, str(path)))
+                _OVERLAY_FONT_NAME = font_name
                 return font_name
         except Exception:
             continue
 
     # Fallback: use built-in Helvetica if nothing better is available.
+    _OVERLAY_FONT_NAME = "Helvetica"
     return "Helvetica"
 
 
@@ -429,12 +437,7 @@ def apply_signature_to_sig_fields(
 ) -> bytes:
     """
     מחיל חתימה על כל שדות החתימה ב-PDF.
-    
-    Args:
-        source_pdf_bytes: ה-PDF שעליו יוחלו החתימות
-        signature_image_data: תמונת החתימה כ-data URL
-        reference_pdf_bytes: אופציונלי - PDF מקורי לחילוץ מיקומי שדות חתימה
-                            שאולי אבדו בעריכה
+    אופטימיזציה: טוען את התמונה פעם אחת ומשתמש בה לכל השדות.
     """
     if not signature_image_data:
         return source_pdf_bytes
@@ -451,8 +454,6 @@ def apply_signature_to_sig_fields(
     except Exception:
         return source_pdf_bytes
 
-    # Use pypdf for reading/writing the PDF so that we keep the existing
-    # AcroForm and appearance settings as stable as possible.
     pdf_stream = io.BytesIO(source_pdf_bytes)
     base_reader = PyPdfReader(pdf_stream)
     if not base_reader.pages:
@@ -464,17 +465,14 @@ def apply_signature_to_sig_fields(
     # אסוף שדות חתימה מה-PDF המקור
     sig_rects_by_page = _collect_all_sig_rects(base_reader)
 
-    # אם יש PDF מקורי לייחוס, אסוף גם ממנו את מיקומי החתימות
-    # זה מטפל במקרה שעריכה ב-Adobe איבדה את שדות החתימה
+    # הוסף מיקומים מה-reference אם יש
     if reference_pdf_bytes:
         try:
             ref_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
             ref_sig_rects = _collect_all_sig_rects(ref_reader)
-            
-            # הוסף מיקומים מה-reference שלא נמצאו ב-source
             for page_idx, rects in ref_sig_rects.items():
                 if page_idx >= len(base_reader.pages):
-                    continue  # דלג על עמודים שלא קיימים ב-source
+                    continue
                 if page_idx not in sig_rects_by_page:
                     sig_rects_by_page[page_idx] = []
                 for rect in rects:
@@ -485,15 +483,15 @@ def apply_signature_to_sig_fields(
 
     any_signature_drawn = False
 
-    for page_index, page in enumerate(writer.pages):
-        # קח את מיקומי החתימות שכבר אספנו (מה-source ומה-reference)
-        sig_rects = sig_rects_by_page.get(page_index, [])
-
-        if not sig_rects:
+    # קבץ את כל העמודים שדורשים חתימה כדי לעבד אותם ביעילות
+    pages_with_sigs = [(idx, sig_rects_by_page[idx]) for idx in sig_rects_by_page if sig_rects_by_page[idx]]
+    
+    for page_index, sig_rects in pages_with_sigs:
+        if page_index >= len(writer.pages):
             continue
-
+            
         any_signature_drawn = True
-
+        page = writer.pages[page_index]
         page_width = float(page.mediabox.width)
         page_height = float(page.mediabox.height)
 
@@ -511,24 +509,15 @@ def apply_signature_to_sig_fields(
             x = llx + (box_w - draw_w) / 2.0
             y = lly + (box_h - draw_h) / 2.0
 
-            c.drawImage(
-                img,
-                x,
-                y,
-                width=draw_w,
-                height=draw_h,
-                mask="auto",
-            )
+            c.drawImage(img, x, y, width=draw_w, height=draw_h, mask="auto")
 
         c.save()
         buf.seek(0)
 
         overlay_reader = PyPdfReader(buf)
-        overlay_page = overlay_reader.pages[0]
-        page.merge_page(overlay_page)
+        page.merge_page(overlay_reader.pages[0])
 
     if not any_signature_drawn:
-        # אם משום מה לא מצאנו שדות /Sig, נשתמש בפולבק הקודם
         return apply_overlay_to_pdf(
             source_pdf_bytes,
             free_text=None,
@@ -538,7 +527,6 @@ def apply_signature_to_sig_fields(
 
     out_buf = io.BytesIO()
     writer.write(out_buf)
-
     return out_buf.getvalue()
 
 

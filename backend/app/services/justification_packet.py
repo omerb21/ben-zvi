@@ -333,25 +333,21 @@ def _make_packet_field_names_unique_in_file(packet_path: Path) -> None:
 
 
 def _debug_dump_packet_fields(packet_path: Path) -> None:
-    try:
-        reader = PdfReader(str(packet_path))
-        fields = reader.get_fields()
-    except Exception:
-        return
-
-    if not fields:
-        return
-
-    debug_path = packet_path.with_name(f"{packet_path.stem}_debug_fields.txt")
-
-    try:
-        lines = []
-        for name in fields.keys():
-            lines.append(str(name))
-        content = "\n".join(lines)
-        debug_path.write_text(content, encoding="utf-8")
-    except Exception:
-        return
+    # Disabled for performance - uncomment for debugging
+    # try:
+    #     reader = PdfReader(str(packet_path))
+    #     fields = reader.get_fields()
+    # except Exception:
+    #     return
+    # if not fields:
+    #     return
+    # debug_path = packet_path.with_name(f"{packet_path.stem}_debug_fields.txt")
+    # try:
+    #     lines = [str(name) for name in fields.keys()]
+    #     debug_path.write_text("\n".join(lines), encoding="utf-8")
+    # except Exception:
+    #     return
+    pass
 
 
 def trim_client_packet_pdf(client: Client, pages_to_remove: List[int]) -> Path:
