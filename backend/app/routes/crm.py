@@ -69,6 +69,7 @@ def list_client_snapshots(
     client_id: int,
     db: Session = Depends(get_db),
     x_client_token: str | None = Header(default=None),
+    x_client_pin: str | None = Header(default=None),
 ):
     effective_client_id = client_id
 
@@ -78,6 +79,11 @@ def list_client_snapshots(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Client not found",
+            )
+        if not crm_service.check_client_pin(client_from_token, x_client_pin):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid access code",
             )
         effective_client_id = client_from_token.id
 
@@ -124,6 +130,7 @@ def get_history(
     client_id: Optional[int] = None,
     db: Session = Depends(get_db),
     x_client_token: str | None = Header(default=None),
+    x_client_pin: str | None = Header(default=None),
 ):
     effective_client_id = client_id
 
@@ -133,6 +140,11 @@ def get_history(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Client not found",
+            )
+        if not crm_service.check_client_pin(client_from_token, x_client_pin):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid access code",
             )
         effective_client_id = client_from_token.id
 

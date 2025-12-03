@@ -64,3 +64,12 @@ class ClientTokenUpdate(BaseModel):
 class ClientTokenUpdateResult(BaseModel):
     clientId: int
     clientToken: str | None
+
+
+class ClientPinUpdate(BaseModel):
+    clientPin: str | None = None
+
+
+class ClientPinUpdateResult(BaseModel):
+    clientId: int
+    hasPin: bool

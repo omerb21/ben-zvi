@@ -38,6 +38,8 @@ def ensure_schema_up_to_date(engine: Engine) -> None:
     # Token used by external client applications to access a single client's data
     if "client_token" not in existing_cols:
         ddl_statements.append("ALTER TABLE client ADD COLUMN client_token TEXT")
+    if "client_pin_hash" not in existing_cols:
+        ddl_statements.append("ALTER TABLE client ADD COLUMN client_pin_hash TEXT")
 
     if not ddl_statements:
         return

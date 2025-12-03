@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Form
 from sqlalchemy.orm import Session
 
@@ -19,9 +21,11 @@ from app.schemas.admin import (
     LegacyCrmClientsImportResult,
     ClientTokenUpdate,
     ClientTokenUpdateResult,
+    ClientPinUpdate,
+    ClientPinUpdateResult,
 )
 from app.services.imports import import_crm_from_excel, import_saving_products_from_gemelnet_xml
-from app.services.crm import clear_crm_data, set_client_token
+from app.services.crm import clear_crm_data, set_client_token, set_client_pin
 from app.services.justification import clear_justification_data
 
 

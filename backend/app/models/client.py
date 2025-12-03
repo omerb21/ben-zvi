@@ -89,6 +89,7 @@ class Client(Base):
 
     # Client-facing token used by external client apps (nullable, unique)
     client_token = Column(String(64), unique=True, index=True, nullable=True)
+    client_pin_hash = Column(String(128), nullable=True)
 
     # Indexes
     __table_args__ = (

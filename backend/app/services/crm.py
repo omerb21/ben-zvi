@@ -1,6 +1,8 @@
 from collections import defaultdict
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
+import hashlib
+import hmac
 
 from sqlalchemy.orm import Session
 
@@ -484,6 +486,39 @@ def set_client_token(db: Session, client_id: int, token: Optional[str]) -> Optio
     db.commit()
     db.refresh(client)
     return client
+
+
+def _hash_pin(pin: str) -> str:
+    normalized = (pin or "").strip()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def set_client_pin(db: Session, client_id: int, pin: Optional[str]) -> Optional[Client]:
+    client = get_client(db, client_id)
+    if not client:
+        return None
+
+    if pin is None:
+        client.client_pin_hash = None
+    else:
+        normalized = pin.strip()
+        if not normalized:
+            client.client_pin_hash = None
+        else:
+            client.client_pin_hash = _hash_pin(normalized)
+
+    db.commit()
+    db.refresh(client)
+    return client
+
+
+def check_client_pin(client: Client, pin: Optional[str]) -> bool:
+    if not client.client_pin_hash:
+        return True
+    if pin is None:
+        return False
+    candidate_hash = _hash_pin(pin)
+    return hmac.compare_digest(client.client_pin_hash, candidate_hash)
 
 
 def update_client(db: Session, client_id: int, update: ClientUpdate) -> Optional[Client]:
