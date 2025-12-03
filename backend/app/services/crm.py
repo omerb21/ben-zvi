@@ -27,11 +27,7 @@ def get_client_by_token(db: Session, token: str) -> Optional[Client]:
     if not token:
         return None
 
-    return (
-        db.query(Client)
-        .filter(Client.client_token == token, Client.is_active.is_(True))
-        .first()
-    )
+    return db.query(Client).filter(Client.client_token == token).first()
 
 
 def create_client(db: Session, client_in: ClientCreate) -> Client:
