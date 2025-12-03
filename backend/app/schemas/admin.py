@@ -73,3 +73,9 @@ class ClientPinUpdate(BaseModel):
 class ClientPinUpdateResult(BaseModel):
     clientId: int
     hasPin: bool
+
+
+class ClientCredentialsResetResult(BaseModel):
+    clientId: int
+    clientToken: str
+    clientPin: str

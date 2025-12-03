@@ -3,6 +3,8 @@ from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 import hashlib
 import hmac
+import secrets
+import string
 
 from sqlalchemy.orm import Session
 
@@ -519,6 +521,37 @@ def check_client_pin(client: Client, pin: Optional[str]) -> bool:
         return False
     candidate_hash = _hash_pin(pin)
     return hmac.compare_digest(client.client_pin_hash, candidate_hash)
+
+
+def reset_client_credentials(
+    db: Session,
+    client_id: int,
+) -> tuple[Optional[Client], Optional[str], Optional[str]]:
+    """Generate and assign a new external token and PIN for a client.
+
+    Returns a tuple of (client, token, pin). If the client does not exist, all
+    values will be None.
+    """
+
+    client = get_client(db, client_id)
+    if not client:
+        return None, None, None
+
+    alphabet = string.ascii_uppercase + string.digits
+    random_part = "".join(secrets.choice(alphabet) for _ in range(16))
+    token = f"C{client.id}-{random_part}"
+
+    pin_value = f"{secrets.randbelow(1_000_000):06d}"
+
+    updated_client = set_client_token(db, client_id, token)
+    if not updated_client:
+        return None, None, None
+
+    updated_client = set_client_pin(db, client_id, pin_value)
+    if not updated_client:
+        return None, None, None
+
+    return updated_client, token, pin_value
 
 
 def update_client(db: Session, client_id: int, update: ClientUpdate) -> Optional[Client]:

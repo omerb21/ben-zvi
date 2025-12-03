@@ -23,9 +23,10 @@ from app.schemas.admin import (
     ClientTokenUpdateResult,
     ClientPinUpdate,
     ClientPinUpdateResult,
+    ClientCredentialsResetResult,
 )
 from app.services.imports import import_crm_from_excel, import_saving_products_from_gemelnet_xml
-from app.services.crm import clear_crm_data, set_client_token, set_client_pin
+from app.services.crm import clear_crm_data, set_client_token, set_client_pin, reset_client_credentials
 from app.services.justification import clear_justification_data
 
 
@@ -226,3 +227,25 @@ def update_client_pin(
         )
 
     return ClientPinUpdateResult(clientId=client.id, hasPin=bool(client.client_pin_hash))
+
+
+@router.post(
+    "/clients/{client_id}/credentials/reset",
+    response_model=ClientCredentialsResetResult,
+)
+def reset_client_credentials_endpoint(
+    client_id: int,
+    db: Session = Depends(get_db),
+) -> ClientCredentialsResetResult:
+    client, token, pin = reset_client_credentials(db, client_id)
+    if not client or token is None or pin is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
+
+    return ClientCredentialsResetResult(
+        clientId=client.id,
+        clientToken=token,
+        clientPin=pin,
+    )
