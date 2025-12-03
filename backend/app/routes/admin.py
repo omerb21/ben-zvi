@@ -193,3 +193,36 @@ def update_client_token(
         )
 
     return ClientTokenUpdateResult(clientId=client.id, clientToken=client.client_token)
+
+
+@router.post("/clients/{client_id}/pin", response_model=ClientPinUpdateResult)
+def update_client_pin(
+    client_id: int,
+    payload: ClientPinUpdate,
+    db: Session = Depends(get_db),
+) -> ClientPinUpdateResult:
+    raw_pin = payload.clientPin
+    normalized_pin: str | None
+
+    if raw_pin is None:
+        normalized_pin = None
+    else:
+        value = raw_pin.strip()
+        if not value:
+            normalized_pin = None
+        else:
+            if not re.fullmatch(r"\d{6}", value):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="clientPin must be a 6-digit numeric code",
+                )
+            normalized_pin = value
+
+    client = set_client_pin(db, client_id, normalized_pin)
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
+
+    return ClientPinUpdateResult(clientId=client.id, hasPin=bool(client.client_pin_hash))
