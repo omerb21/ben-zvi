@@ -42,11 +42,11 @@ class Client(Base):
     employer_name = Column(String(100))
     employer_hp = Column(String(20))
     employer_address = Column(String(200))
-    employer_phone = Column(String(20))
+    employer_phone = Column(String(100))
 
     # Contact information
     email = Column(String(100))
-    phone = Column(String(20))
+    phone = Column(String(100))
 
     # Address
     address_street = Column(String(100))
