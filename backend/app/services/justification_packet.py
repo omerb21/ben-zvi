@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from pathlib import Path
 from typing import List, Tuple
 
@@ -8,6 +10,8 @@ from pypdf import PdfWriter, PdfReader
 from pypdf.generic import NameObject, TextStringObject
 
 from app.models import Client
+
+logger = logging.getLogger(__name__)
 from app.services import justification as justification_service
 from app.services import justification_advice as justification_advice_service
 from app.services import justification_b1 as justification_b1_service
@@ -203,7 +207,7 @@ def generate_client_packet_pdf(
     כל הקבצים נלקחים מתיקיית הייצוא של הלקוח, ובמידת הצורך מופקים מחדש.
     התוצאה נכתבת לקובץ packet_<client_id>.pdf בתיקיית הייצוא ומוחזרת כ‑bytes.
     """
-
+    start_time = time.time()
     export_dir = _get_export_dir(client)
     export_dir.mkdir(parents=True, exist_ok=True)
 
@@ -280,6 +284,8 @@ def generate_client_packet_pdf(
     _debug_dump_packet_fields(packet_path)
 
     data = packet_path.read_bytes()
+    elapsed = time.time() - start_time
+    logger.info(f"[PDF-TIMING] Packet generated in {elapsed:.2f}s, parts={len(parts)}, size={len(data)} bytes")
     return data, packet_filename
 
 

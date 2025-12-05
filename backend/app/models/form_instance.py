@@ -12,7 +12,7 @@ class FormInstance(Base):
     __tablename__ = "form_instance"
 
     id = Column(Integer, primary_key=True)
-    new_product_id = Column(Integer, ForeignKey("new_product.id"), nullable=False)
+    new_product_id = Column(Integer, ForeignKey("new_product.id"), nullable=False, index=True)
     template_filename = Column(String(255), nullable=False)
     generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     status = Column(String(255), nullable=False, default="נוצר")

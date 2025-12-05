@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -7,6 +9,8 @@ import base64
 import os
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from app.models import Client, ExistingProduct, NewProduct
@@ -175,8 +179,10 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
     import subprocess
     from uuid import uuid4
 
+    start_time = time.time()
     wkhtmltopdf_cmd = _get_wkhtmltopdf_cmd()
     if not wkhtmltopdf_cmd:
+        logger.warning("[PDF-TIMING] wkhtmltopdf not found")
         return None
 
     options = {
@@ -219,8 +225,12 @@ def generate_advice_pdf(html: str) -> Optional[bytes]:
             return None
 
         pdf_bytes = output_path.read_bytes()
+        elapsed = time.time() - start_time
+        logger.info(f"[PDF-TIMING] Advice PDF generated in {elapsed:.2f}s, size={len(pdf_bytes)} bytes")
         return pdf_bytes
-    except Exception:
+    except Exception as e:
+        elapsed = time.time() - start_time
+        logger.error(f"[PDF-TIMING] Advice PDF generation failed after {elapsed:.2f}s: {e}")
         return None
     finally:
         try:

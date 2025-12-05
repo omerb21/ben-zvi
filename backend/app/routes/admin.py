@@ -24,9 +24,21 @@ from app.schemas.admin import (
     ClientPinUpdate,
     ClientPinUpdateResult,
     ClientCredentialsResetResult,
+    ClientAccessDisableResult,
+    DatabaseStatsResult,
+)
+from app.models import (
+    Client, Snapshot, ExistingProduct, NewProduct,
+    FormInstance, ClientBeneficiary, ClientSignatureRequest,
 )
 from app.services.imports import import_crm_from_excel, import_saving_products_from_gemelnet_xml
-from app.services.crm import clear_crm_data, set_client_token, set_client_pin, reset_client_credentials
+from app.services.crm import (
+    clear_crm_data,
+    set_client_token,
+    set_client_pin,
+    reset_client_credentials,
+    disable_client_access,
+)
 from app.services.justification import clear_justification_data
 
 
@@ -248,4 +260,39 @@ def reset_client_credentials_endpoint(
         clientId=client.id,
         clientToken=token,
         clientPin=pin,
+    )
+
+
+@router.post(
+    "/clients/{client_id}/access/disable",
+    response_model=ClientAccessDisableResult,
+)
+def disable_client_access_endpoint(
+    client_id: int,
+    db: Session = Depends(get_db),
+) -> ClientAccessDisableResult:
+    client = disable_client_access(db, client_id)
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
+
+    return ClientAccessDisableResult(clientId=client.id, disabled=True)
+
+
+@router.get("/stats", response_model=DatabaseStatsResult)
+def get_database_stats(db: Session = Depends(get_db)) -> DatabaseStatsResult:
+    """Get basic database statistics for admin dashboard."""
+    return DatabaseStatsResult(
+        totalClients=db.query(Client).count(),
+        totalSnapshots=db.query(Snapshot).count(),
+        totalExistingProducts=db.query(ExistingProduct).count(),
+        totalNewProducts=db.query(NewProduct).count(),
+        totalFormInstances=db.query(FormInstance).count(),
+        totalBeneficiaries=db.query(ClientBeneficiary).count(),
+        totalSignatureRequests=db.query(ClientSignatureRequest).count(),
+        pendingSignatureRequests=db.query(ClientSignatureRequest).filter(
+            ClientSignatureRequest.status == "pending"
+        ).count(),
     )

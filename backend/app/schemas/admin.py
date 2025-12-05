@@ -79,3 +79,19 @@ class ClientCredentialsResetResult(BaseModel):
     clientId: int
     clientToken: str
     clientPin: str
+
+
+class ClientAccessDisableResult(BaseModel):
+    clientId: int
+    disabled: bool
+
+
+class DatabaseStatsResult(BaseModel):
+    totalClients: int
+    totalSnapshots: int
+    totalExistingProducts: int
+    totalNewProducts: int
+    totalFormInstances: int
+    totalBeneficiaries: int
+    totalSignatureRequests: int
+    pendingSignatureRequests: int

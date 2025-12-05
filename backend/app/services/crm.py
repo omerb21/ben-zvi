@@ -554,6 +554,21 @@ def reset_client_credentials(
     return updated_client, token, pin_value
 
 
+def disable_client_access(db: Session, client_id: int) -> Optional[Client]:
+    """Disable external client app access by clearing token and PIN for a client.
+
+    After this operation there is no valid client_token for external lookup and no
+    PIN hash stored for the client.
+    """
+
+    client = set_client_token(db, client_id, None)
+    if not client:
+        return None
+
+    client = set_client_pin(db, client_id, None)
+    return client
+
+
 def update_client(db: Session, client_id: int, update: ClientUpdate) -> Optional[Client]:
     client = get_client(db, client_id)
     if not client:

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import io
+import logging
 import secrets
+import time
 from typing import Tuple
 
 from pypdf import PdfReader as PyPdfReader, PdfWriter as PyPdfWriter
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from app.models import Client, ClientSignatureRequest
@@ -160,6 +164,7 @@ def get_request_and_client_for_token(db: Session, token: str) -> Tuple[ClientSig
 
 
 def complete_packet_signature(db: Session, token: str, signature_data_url: str) -> ClientSignatureRequest:
+    start_time = time.time()
     request = db.query(ClientSignatureRequest).filter(ClientSignatureRequest.token == token).first()
     if not request:
         raise ValueError("SIGNATURE_REQUEST_NOT_FOUND")
@@ -261,4 +266,6 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
 
     db.commit()
     db.refresh(request)
+    elapsed = time.time() - start_time
+    logger.info(f"[PDF-TIMING] Signing completed in {elapsed:.2f}s for client_id={client.id}")
     return request

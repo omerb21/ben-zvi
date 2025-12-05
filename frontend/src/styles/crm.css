@@ -836,3 +836,148 @@
   stroke: #ffffff;
   stroke-width: 0.4;
 }
+
+.crm-client-access-panel {
+  margin-top: 0.75rem;
+}
+
+.crm-client-access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.crm-client-access-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.crm-client-access-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 160px;
+}
+
+.crm-client-access-label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.crm-client-access-input {
+  border-radius: 0.4rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
+}
+
+.crm-client-access-hint {
+  font-size: 0.7rem;
+  color: #9ca3af;
+}
+
+.crm-client-access-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.crm-client-access-section {
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  padding: 0.6rem 0.8rem;
+}
+
+.crm-client-access-section.danger {
+  border-color: #fecaca;
+  background-color: #fef2f2;
+}
+
+.crm-client-access-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.3rem;
+}
+
+.crm-client-access-help {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 0.4rem;
+}
+
+.crm-client-access-button {
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  background-color: #f9fafb;
+  color: #374151;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.crm-client-access-button.primary {
+  border-color: #2563eb;
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+.crm-client-access-button.danger {
+  border-color: #f97373;
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.crm-client-access-button:hover {
+  background-color: #e5e7eb;
+}
+
+.crm-client-access-button.primary:hover {
+  background-color: #2563eb;
+}
+
+.crm-client-access-button.danger:hover {
+  background-color: #fecaca;
+}
+
+.crm-client-access-status-area {
+  margin-top: 0.5rem;
+}
+
+.crm-client-access-status {
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.crm-client-access-status.success {
+  background-color: #ecfdf3;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.crm-client-access-status.error {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.crm-client-access-result {
+  border-radius: 0.4rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  background-color: #f9fafb;
+}
+
+.crm-client-access-result-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.15rem 0;
+}
+
+.crm-client-access-result-label {
+  color: #6b7280;
+}

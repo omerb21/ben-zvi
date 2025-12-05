@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -10,7 +10,7 @@ class ExistingProduct(Base):
     __tablename__ = "existing_product"
 
     id = Column(Integer, primary_key=True)
-    client_id = Column(Integer, ForeignKey("client.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("client.id"), nullable=False, index=True)
 
     # Fields from XML
     fund_type = Column(String, nullable=False)
@@ -21,12 +21,17 @@ class ExistingProduct(Base):
     yield_3yr = Column(Float, nullable=True)
 
     # Fields from user
-    personal_number = Column(String, nullable=False, unique=True)
+    personal_number = Column(String, nullable=False, unique=True, index=True)
     management_fee_balance = Column(Float, nullable=True)
     management_fee_contributions = Column(Float, nullable=True)
     accumulated_amount = Column(Float, nullable=True)
     employment_status = Column(String, nullable=True)
     has_regular_contributions = Column(Boolean, nullable=True)
+
+    # Composite index for common lookups
+    __table_args__ = (
+        Index("ix_existing_product_client_personal", "client_id", "personal_number"),
+    )
 
     client = relationship("Client", back_populates="existing_products")
     new_products = relationship("NewProduct", back_populates="existing_product", cascade="all, delete-orphan")

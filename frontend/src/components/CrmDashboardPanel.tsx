@@ -1,5 +1,6 @@
 import type { ChangeEvent, CSSProperties } from "react";
 import type { SummaryResponse, MonthlyChangePoint } from "../api/crmApi";
+import CrmClientAccessPanel from "./CrmClientAccessPanel";
 
 type Props = {
   summary: SummaryResponse;
@@ -196,6 +197,8 @@ function CrmDashboardPanel({
           </div>
         </div>
       </div>
+
+      <CrmClientAccessPanel />
     </section>
   );
 }

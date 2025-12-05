@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -12,8 +12,8 @@ class NewProduct(Base):
     __tablename__ = "new_product"
 
     id = Column(Integer, primary_key=True)
-    client_id = Column(Integer, ForeignKey("client.id"), nullable=False)
-    existing_product_id = Column(Integer, ForeignKey("existing_product.id"), nullable=True)
+    client_id = Column(Integer, ForeignKey("client.id"), nullable=False, index=True)
+    existing_product_id = Column(Integer, ForeignKey("existing_product.id"), nullable=True, index=True)
 
     # Copied fields from existing product
     fund_type = Column(String, nullable=False)
