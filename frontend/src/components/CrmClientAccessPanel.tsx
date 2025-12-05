@@ -7,6 +7,9 @@ import {
   type ClientCredentialsResetResult,
 } from "../api/clientAccessApi";
 
+const BZCLIENT_BASE_URL =
+  import.meta.env.VITE_BZCLIENT_BASE_URL || "https://bzclient.onrender.com";
+
 function CrmClientAccessPanel() {
   const [clientIdInput, setClientIdInput] = useState("");
   const [currentClient, setCurrentClient] = useState<ClientCredentialsResetResult | null>(
@@ -17,6 +20,18 @@ function CrmClientAccessPanel() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  function buildClientUrl(): string | null {
+    if (!currentClient?.clientToken) {
+      return null;
+    }
+    const trimmedToken = currentClient.clientToken.trim();
+    if (!trimmedToken) {
+      return null;
+    }
+    const base = BZCLIENT_BASE_URL.replace(/\/$/, "");
+    return `${base}/?token=${encodeURIComponent(trimmedToken)}`;
+  }
 
   function parseClientId(): number | null {
     const trimmed = clientIdInput.trim();
@@ -172,6 +187,8 @@ function CrmClientAccessPanel() {
     }
   }
 
+  const clientLink = buildClientUrl();
+
   return (
     <section className="crm-panel crm-client-access-panel">
       <h2 className="panel-title">ניהול גישת לקוח לאפליקציית לקוחות</h2>
@@ -301,6 +318,19 @@ function CrmClientAccessPanel() {
               <span className="crm-client-access-result-label">PIN נוכחי:</span>
               <span>{currentClient.clientPin || ""}</span>
             </div>
+            {clientLink && (
+              <div className="crm-client-access-result-row">
+                <span className="crm-client-access-result-label">קישור ללקוח:</span>
+                <a
+                  href={clientLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="crm-client-access-link"
+                >
+                  {clientLink}
+                </a>
+              </div>
+            )}
           </div>
         )}
       </div>

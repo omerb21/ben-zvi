@@ -981,3 +981,13 @@
 .crm-client-access-result-label {
   color: #6b7280;
 }
+
+.crm-client-access-link {
+  color: #2563eb;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.crm-client-access-link:hover {
+  color: #1d4ed8;
+}
