@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import React, { type FormEvent, useMemo, useState } from "react";
 import type {
   ClientSummary,
   Snapshot,
@@ -7,6 +7,13 @@ import type {
   ClientNote,
 } from "../api/crmApi";
 import type { BeneficiaryFormRow } from "../pages/crm/crmBeneficiaries";
+
+interface CanonicalSnapshot {
+  fundCode: string;
+  canonicalSnapshot: Snapshot;
+  totalAmount: number;
+  allSnapshots: Snapshot[];
+}
 
 type HistoryChartPoint = {
   x: number;
@@ -159,6 +166,57 @@ function CrmClientDetailPanel({
   onClearNoteReminder,
   onDeleteNote,
 }: Props) {
+  const [expandedFundCodes, setExpandedFundCodes] = useState<string[]>([]);
+
+  const toggleFundCodeExpansion = (fundCode: string) => {
+    setExpandedFundCodes((current) =>
+      current.includes(fundCode)
+        ? current.filter((code) => code !== fundCode)
+        : [...current, fundCode]
+    );
+  };
+
+  const canonicalSnapshots = useMemo((): CanonicalSnapshot[] => {
+    const byFundCode: Record<string, Snapshot[]> = {};
+
+    // Extract the core fund code from formats like "658-274-196980 (6077380)"
+    // We want just the number in parentheses, or the whole code if no parentheses
+    const extractCoreFundCode = (fullCode: string): string => {
+      const match = fullCode.match(/\((\d+)\)/);
+      if (match) {
+        return match[1];
+      }
+      return fullCode.trim();
+    };
+
+    latestSnapshots.forEach((snapshot) => {
+      const rawCode = snapshot.fundCode || "unknown";
+      const coreCode = extractCoreFundCode(rawCode);
+      if (!byFundCode[coreCode]) {
+        byFundCode[coreCode] = [];
+      }
+      byFundCode[coreCode].push(snapshot);
+    });
+
+    return Object.entries(byFundCode).map(([fundCode, snapshots]) => {
+      const totalAmount = snapshots.reduce((sum, s) => sum + (s.amount || 0), 0);
+
+      const sortedByAmount = [...snapshots].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+      const canonicalSnapshot = sortedByAmount[0];
+
+      return {
+        fundCode,
+        canonicalSnapshot,
+        totalAmount,
+        allSnapshots: sortedByAmount,
+      };
+    });
+  }, [latestSnapshots]);
+
+  const totalCanonicalAmount = useMemo(() => {
+    return canonicalSnapshots.reduce((sum, item) => sum + item.totalAmount, 0);
+  }, [canonicalSnapshots]);
+
   return (
     <section className="crm-panel crm-panel-right">
       <div className="crm-client-detail-header">
@@ -559,29 +617,96 @@ function CrmClientDetailPanel({
                 <th>שם קופה</th>
                 <th>סוג קופה</th>
                 <th>סכום</th>
+                <th className="snapshot-expand-header" />
               </tr>
             </thead>
             <tbody>
-              {latestSnapshots.map((snapshot) => (
-                <tr
-                  key={snapshot.id}
-                  className={
-                    selectedSnapshot && selectedSnapshot.id === snapshot.id
-                      ? "snapshot-row snapshot-row-selected"
-                      : "snapshot-row"
-                  }
-                  onClick={() => onSelectSnapshot(snapshot)}
-                >
-                  <td>{snapshot.snapshotDate}</td>
-                  <td>{snapshot.fundCode}</td>
-                  <td>{snapshot.fundName}</td>
-                  <td>{snapshot.fundType}</td>
-                  <td>{snapshot.amount.toLocaleString()}</td>
+              {canonicalSnapshots.map((canonical) => {
+                const { fundCode, canonicalSnapshot, totalAmount, allSnapshots } = canonical;
+                const isExpanded = expandedFundCodes.includes(fundCode);
+                const hasMultipleNames = allSnapshots.length > 1;
+                const isSelected =
+                  selectedSnapshot &&
+                  allSnapshots.some((s) => s.id === selectedSnapshot.id);
+
+                return (
+                  <React.Fragment key={fundCode}>
+                    <tr
+                      className={`snapshot-row snapshot-row-collapsible${
+                        isSelected ? " snapshot-row-selected" : ""
+                      }${isExpanded ? " snapshot-row-expanded" : ""}`}
+                      onClick={() => onSelectSnapshot(canonicalSnapshot)}
+                    >
+                      <td>{canonicalSnapshot.snapshotDate}</td>
+                      <td>{canonicalSnapshot.fundCode}</td>
+                      <td>
+                        {canonicalSnapshot.fundName}
+                        {hasMultipleNames && (
+                          <span className="snapshot-cell-badge">
+                            +{allSnapshots.length - 1}
+                          </span>
+                        )}
+                      </td>
+                      <td>{canonicalSnapshot.fundType}</td>
+                      <td>{totalAmount.toLocaleString()}</td>
+                      <td
+                        className="snapshot-cell-expand"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (hasMultipleNames) {
+                            toggleFundCodeExpansion(fundCode);
+                          }
+                        }}
+                      >
+                        {hasMultipleNames && (isExpanded ? "▲" : "▼")}
+                      </td>
+                    </tr>
+                    {isExpanded && hasMultipleNames && (
+                      <tr key={`${fundCode}-names`} className="snapshot-row-names">
+                        <td colSpan={6}>
+                          <div className="snapshot-names-list">
+                            <div className="snapshot-names-title">
+                              כל שמות הקופות לקוד {fundCode}:
+                            </div>
+                            <ul className="snapshot-names-items">
+                              {allSnapshots.map((snapshot) => (
+                                <li
+                                  key={snapshot.id}
+                                  className={`snapshot-names-item${
+                                    selectedSnapshot?.id === snapshot.id
+                                      ? " snapshot-names-item-selected"
+                                      : ""
+                                  }`}
+                                  onClick={() => onSelectSnapshot(snapshot)}
+                                >
+                                  <span className="snapshot-names-name">
+                                    {snapshot.fundName || "(ללא שם)"}
+                                  </span>
+                                  <span className="snapshot-names-amount">
+                                    {snapshot.amount.toLocaleString()}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {canonicalSnapshots.length > 0 && (
+                <tr className="snapshot-total-row">
+                  <td colSpan={4} className="snapshot-total-label">
+                    סה"כ יתרות ללקוח
+                  </td>
+                  <td>{totalCanonicalAmount.toLocaleString()}</td>
+                  <td />
                 </tr>
-              ))}
+              )}
               {latestSnapshots.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={5} className="status-text">
+                  <td colSpan={6} className="status-text">
                     אין נתוני מוצרים ללקוח
                   </td>
                 </tr>

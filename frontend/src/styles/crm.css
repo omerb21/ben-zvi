@@ -341,6 +341,104 @@
   background-color: #eff6ff;
 }
 
+.snapshot-row-collapsible {
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.snapshot-row-expanded {
+  background-color: #e0e7ff;
+}
+
+.snapshot-expand-header {
+  width: 40px;
+}
+
+.snapshot-cell-expand {
+  text-align: center;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.7rem;
+}
+
+.snapshot-cell-badge {
+  display: inline-block;
+  margin-right: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background-color: #0b1f3b;
+  color: #facc15;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.snapshot-row-names td {
+  padding: 0.5rem 0.75rem;
+  background-color: #f9fafb;
+}
+
+.snapshot-total-row td {
+  font-weight: 700;
+  background-color: #f3f4f6;
+}
+
+.snapshot-total-label {
+  text-align: right;
+}
+
+.snapshot-names-list {
+  padding: 0.5rem;
+}
+
+.snapshot-names-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0b1f3b;
+  margin-bottom: 0.4rem;
+}
+
+.snapshot-names-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.snapshot-names-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  background-color: #ffffff;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.snapshot-names-item:hover {
+  background-color: #f3f4f6;
+}
+
+.snapshot-names-item-selected {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.snapshot-names-name {
+  color: #111827;
+  font-weight: 500;
+}
+
+.snapshot-names-amount {
+  font-weight: 600;
+  color: #0b1f3b;
+}
+
 .crm-snapshot-create {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;

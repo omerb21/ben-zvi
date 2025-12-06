@@ -1,5 +1,13 @@
+import React, { useMemo, useState } from "react";
 import type { ExistingProduct, SavingProduct } from "../api/justificationApi";
 import type { ClientSummary } from "../api/crmApi";
+
+interface CanonicalExistingProduct {
+  fundCode: string;
+  canonicalProduct: ExistingProduct;
+  totalAmount: number;
+  allProducts: ExistingProduct[];
+}
 
 type Props = {
   existingProducts: ExistingProduct[];
@@ -40,6 +48,61 @@ function JustificationExistingProductsTable({
   onDeleteExistingProduct,
   findMatchingSavingProductForExisting,
 }: Props) {
+  const [expandedFundCodes, setExpandedFundCodes] = useState<string[]>([]);
+
+  const toggleFundCodeExpansion = (fundCode: string) => {
+    setExpandedFundCodes((current) =>
+      current.includes(fundCode)
+        ? current.filter((code) => code !== fundCode)
+        : [...current, fundCode]
+    );
+  };
+
+  const canonicalProducts = useMemo((): CanonicalExistingProduct[] => {
+    const byFundCode: Record<string, ExistingProduct[]> = {};
+
+    // Extract the core fund code from personalNumber (מס' אישי) - same logic as CRM
+    // Format is "(6077380) 827-274-196980" - extract the number in parentheses
+    const extractCoreFundCode = (personalNum: string): string => {
+      const match = personalNum.match(/\((\d+)\)/);
+      if (match) {
+        return match[1];
+      }
+      return personalNum.trim();
+    };
+
+    existingProducts.forEach((product) => {
+      const rawCode = product.personalNumber || "unknown";
+      const coreCode = extractCoreFundCode(rawCode);
+      if (!byFundCode[coreCode]) {
+        byFundCode[coreCode] = [];
+      }
+      byFundCode[coreCode].push(product);
+    });
+
+    return Object.entries(byFundCode).map(([fundCode, products]) => {
+      const totalAmount = products.reduce(
+        (sum, p) => sum + (p.accumulatedAmount || 0),
+        0
+      );
+      const sortedByAmount = [...products].sort(
+        (a, b) => (b.accumulatedAmount || 0) - (a.accumulatedAmount || 0)
+      );
+      const canonicalProduct = sortedByAmount[0];
+
+      return {
+        fundCode,
+        canonicalProduct,
+        totalAmount,
+        allProducts: sortedByAmount,
+      };
+    });
+  }, [existingProducts]);
+
+  const totalCanonicalAmount = useMemo(() => {
+    return canonicalProducts.reduce((sum, item) => sum + item.totalAmount, 0);
+  }, [canonicalProducts]);
+
   return (
     <>
       <div className="existing-products-header">
@@ -82,122 +145,188 @@ function JustificationExistingProductsTable({
             <th>מס' אישי</th>
             <th>יתרה</th>
             <th>פעולות</th>
+            <th className="existing-expand-header" />
           </tr>
         </thead>
         <tbody>
-          {existingProducts.map((product) => {
-            const matchingSavingProduct = findMatchingSavingProductForExisting(product);
-            const hasCompleteCoreData = !!product.personalNumber && !!matchingSavingProduct;
+          {canonicalProducts.map((canonical) => {
+            const { fundCode, canonicalProduct, totalAmount, allProducts } = canonical;
+            const isExpanded = expandedFundCodes.includes(fundCode);
+            const hasMultipleNames = allProducts.length > 1;
+            const isSelected =
+              selectedExistingProduct &&
+              allProducts.some((p) => p.id === selectedExistingProduct.id);
+            const matchingSavingProduct = findMatchingSavingProductForExisting(canonicalProduct);
+            const hasCompleteCoreData = !!canonicalProduct.personalNumber && !!matchingSavingProduct;
 
             return (
-              <tr
-                key={product.id}
-                className={
-                  selectedExistingProduct && selectedExistingProduct.id === product.id
-                    ? "existing-row existing-row-selected"
-                    : "existing-row"
-                }
-                onClick={() => {
-                  onSetSelectedExistingProduct(product);
-                  onSetExistingFormMode("edit");
-                  onSetReplacementExistingId(null);
-                }}
-              >
-                <td className="existing-row-status-cell">
-                  {hasCompleteCoreData && (
-                    <span className="existing-row-status-icon">✔</span>
-                  )}
-                </td>
-                <td>{product.companyName}</td>
-                <td>{product.fundName}</td>
-                <td>{product.fundType}</td>
-                <td>{product.fundCode}</td>
-                <td>{product.personalNumber}</td>
-                <td>
-                  {product.accumulatedAmount != null
-                    ? product.accumulatedAmount.toLocaleString()
-                    : "-"}
-                </td>
-                <td>
-                  <div className="existing-row-actions">
-                    <button
-                      type="button"
-                      className="existing-row-action-button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onSetSelectedExistingProduct(product);
-                        onSetExistingFormMode("edit");
-                        onSetReplacementExistingId(null);
-                        onSetCreateMode("existing");
-                        const match = findMatchingSavingProductForExisting(product);
-                        if (match) {
-                          onSetSelectedFundTypeFilter(match.fundType);
-                          onSetSelectedSavingProduct(match);
-                        } else {
-                          onSetSelectedSavingProduct(null);
-                        }
-                        onSetSavingProductSearch("");
-                      }}
-                    >
-                      עריכה
-                    </button>
-                    <button
-                      type="button"
-                      className="existing-row-action-button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onSetSelectedExistingProduct(product);
-                        onDeleteExistingProduct();
-                      }}
-                    >
-                      מחק
-                    </button>
-                    <button
-                      type="button"
-                      className="existing-row-action-button"
-                      disabled={!selectedClient}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onSetSelectedExistingProduct(product);
-                        onSetReplacementExistingId(product.id);
-                        const match = findMatchingSavingProductForExisting(product);
-                        if (match) {
-                          onSetSelectedFundTypeFilter(match.fundType);
-                          onSetSelectedSavingProduct(match);
-                        } else {
-                          if (product.fundType) {
-                            onSetSelectedFundTypeFilter(product.fundType);
+              <React.Fragment key={fundCode}>
+                <tr
+                  className={`existing-row existing-row-collapsible${
+                    isSelected ? " existing-row-selected" : ""
+                  }${isExpanded ? " existing-row-expanded" : ""}`}
+                  onClick={() => {
+                    onSetSelectedExistingProduct(canonicalProduct);
+                    onSetExistingFormMode("edit");
+                    onSetReplacementExistingId(null);
+                  }}
+                >
+                  <td className="existing-row-status-cell">
+                    {hasCompleteCoreData && (
+                      <span className="existing-row-status-icon">✔</span>
+                    )}
+                  </td>
+                  <td>{canonicalProduct.companyName}</td>
+                  <td>
+                    {canonicalProduct.fundName}
+                    {hasMultipleNames && (
+                      <span className="existing-cell-badge">
+                        +{allProducts.length - 1}
+                      </span>
+                    )}
+                  </td>
+                  <td>{canonicalProduct.fundType}</td>
+                  <td>{canonicalProduct.fundCode}</td>
+                  <td>{canonicalProduct.personalNumber}</td>
+                  <td>{totalAmount.toLocaleString()}</td>
+                  <td>
+                    <div className="existing-row-actions">
+                      <button
+                        type="button"
+                        className="existing-row-action-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSetSelectedExistingProduct(canonicalProduct);
+                          onSetExistingFormMode("edit");
+                          onSetReplacementExistingId(null);
+                          onSetCreateMode("existing");
+                          const match = findMatchingSavingProductForExisting(canonicalProduct);
+                          if (match) {
+                            onSetSelectedFundTypeFilter(match.fundType);
+                            onSetSelectedSavingProduct(match);
+                          } else {
+                            onSetSelectedSavingProduct(null);
                           }
-                          onSetSelectedSavingProduct(null);
-                        }
-                        const accValue =
-                          product.accumulatedAmount != null
-                            ? String(product.accumulatedAmount)
-                            : "";
-                        onSetNewExistingAccumulatedAmount(accValue);
-                        onSetNewExistingEmploymentStatus(product.employmentStatus || "");
-                        onSetNewExistingHasRegularContributions(
-                          product.hasRegularContributions === true
-                            ? "yes"
-                            : product.hasRegularContributions === false
-                            ? "no"
-                            : ""
-                        );
-                        onSetSavingProductSearch("");
-                        onSetExistingFormMode("create");
-                        onSetCreateMode("new");
-                      }}
-                    >
-                      קופה חלופית
-                    </button>
-                  </div>
-                </td>
-              </tr>
+                          onSetSavingProductSearch("");
+                        }}
+                      >
+                        עריכה
+                      </button>
+                      <button
+                        type="button"
+                        className="existing-row-action-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSetSelectedExistingProduct(canonicalProduct);
+                          onDeleteExistingProduct();
+                        }}
+                      >
+                        מחק
+                      </button>
+                      <button
+                        type="button"
+                        className="existing-row-action-button"
+                        disabled={!selectedClient}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSetSelectedExistingProduct(canonicalProduct);
+                          onSetReplacementExistingId(canonicalProduct.id);
+                          const match = findMatchingSavingProductForExisting(canonicalProduct);
+                          if (match) {
+                            onSetSelectedFundTypeFilter(match.fundType);
+                            onSetSelectedSavingProduct(match);
+                          } else {
+                            if (canonicalProduct.fundType) {
+                              onSetSelectedFundTypeFilter(canonicalProduct.fundType);
+                            }
+                            onSetSelectedSavingProduct(null);
+                          }
+                          const accValue =
+                            canonicalProduct.accumulatedAmount != null
+                              ? String(canonicalProduct.accumulatedAmount)
+                              : "";
+                          onSetNewExistingAccumulatedAmount(accValue);
+                          onSetNewExistingEmploymentStatus(canonicalProduct.employmentStatus || "");
+                          onSetNewExistingHasRegularContributions(
+                            canonicalProduct.hasRegularContributions === true
+                              ? "yes"
+                              : canonicalProduct.hasRegularContributions === false
+                              ? "no"
+                              : ""
+                          );
+                          onSetSavingProductSearch("");
+                          onSetExistingFormMode("create");
+                          onSetCreateMode("new");
+                        }}
+                      >
+                        קופה חלופית
+                      </button>
+                    </div>
+                  </td>
+                  <td
+                    className="existing-cell-expand"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (hasMultipleNames) {
+                        toggleFundCodeExpansion(fundCode);
+                      }
+                    }}
+                  >
+                    {hasMultipleNames && (isExpanded ? "▲" : "▼")}
+                  </td>
+                </tr>
+                {isExpanded && hasMultipleNames && (
+                  <tr className="existing-row-names">
+                    <td colSpan={9}>
+                      <div className="existing-names-list">
+                        <div className="existing-names-title">
+                          כל שמות הקופות לקוד {fundCode}:
+                        </div>
+                        <ul className="existing-names-items">
+                          {allProducts.map((product) => (
+                            <li
+                              key={product.id}
+                              className={`existing-names-item${
+                                selectedExistingProduct?.id === product.id
+                                  ? " existing-names-item-selected"
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                onSetSelectedExistingProduct(product);
+                                onSetExistingFormMode("edit");
+                                onSetReplacementExistingId(null);
+                              }}
+                            >
+                              <span className="existing-names-name">
+                                {product.fundName || "(ללא שם)"}
+                              </span>
+                              <span className="existing-names-amount">
+                                {product.accumulatedAmount != null
+                                  ? product.accumulatedAmount.toLocaleString()
+                                  : "-"}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             );
           })}
+          {canonicalProducts.length > 0 && (
+            <tr className="existing-total-row">
+              <td colSpan={6} className="existing-total-label">
+                סה"כ יתרות ללקוח
+              </td>
+              <td>{totalCanonicalAmount.toLocaleString()}</td>
+              <td colSpan={2} />
+            </tr>
+          )}
           {existingProducts.length === 0 && !loading && selectedClient && (
             <tr>
-              <td colSpan={8} className="status-text">
+              <td colSpan={9} className="status-text">
                 אין מוצרים קיימים ללקוח זה
               </td>
             </tr>

@@ -222,8 +222,24 @@ function CrmPageRoot({ onOpenJustification }: Props) {
   });
   const totalSourcesValue = sourcesSet.size;
 
-  const latestSnapshotsByFund: Record<string, Snapshot> = {};
+  // First, find the latest month across all snapshots
+  let latestMonth = "";
   snapshots.forEach((snapshot) => {
+    const month = (snapshot.snapshotDate || "").slice(0, 7); // "YYYY-MM"
+    if (month > latestMonth) {
+      latestMonth = month;
+    }
+  });
+
+  // Filter snapshots to only include those from the latest month
+  const snapshotsFromLatestMonth = snapshots.filter((snapshot) => {
+    const month = (snapshot.snapshotDate || "").slice(0, 7);
+    return month === latestMonth;
+  });
+
+  // Now pick the latest snapshot per fundCode within the latest month
+  const latestSnapshotsByFund: Record<string, Snapshot> = {};
+  snapshotsFromLatestMonth.forEach((snapshot) => {
     const key = snapshot.fundCode;
     const existing = latestSnapshotsByFund[key];
     if (!existing || snapshot.snapshotDate > existing.snapshotDate) {

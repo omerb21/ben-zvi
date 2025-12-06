@@ -99,6 +99,100 @@
   background-color: #eff6ff;
 }
 
+.saving-row-collapsible {
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.saving-row-expanded {
+  background-color: #e0e7ff;
+}
+
+.saving-table-expand-header {
+  width: 40px;
+}
+
+.saving-cell-expand {
+  text-align: center;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.7rem;
+}
+
+.saving-cell-badge {
+  display: inline-block;
+  margin-right: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background-color: #0b1f3b;
+  color: #facc15;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.saving-row-names td {
+  padding: 0.5rem 0.75rem;
+  background-color: #f9fafb;
+}
+
+.saving-names-list {
+  padding: 0.5rem;
+}
+
+.saving-names-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0b1f3b;
+  margin-bottom: 0.4rem;
+}
+
+.saving-names-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.saving-names-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  background-color: #ffffff;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.saving-names-item:hover {
+  background-color: #f3f4f6;
+}
+
+.saving-names-item-selected {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.saving-names-name {
+  color: #111827;
+  font-weight: 500;
+}
+
+.saving-names-company {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.saving-names-yield {
+  font-weight: 600;
+  color: #0b1f3b;
+}
+
 .existing-row {
   cursor: pointer;
 }
@@ -116,6 +210,104 @@
   display: inline-block;
   font-size: 0.8rem;
   color: #16a34a;
+}
+
+.existing-row-collapsible {
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.existing-row-expanded {
+  background-color: #e0e7ff;
+}
+
+.existing-expand-header {
+  width: 40px;
+}
+
+.existing-cell-expand {
+  text-align: center;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.7rem;
+}
+
+.existing-cell-badge {
+  display: inline-block;
+  margin-right: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background-color: #0b1f3b;
+  color: #facc15;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.existing-row-names td {
+  padding: 0.5rem 0.75rem;
+  background-color: #f9fafb;
+}
+
+.existing-names-list {
+  padding: 0.5rem;
+}
+
+.existing-names-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0b1f3b;
+  margin-bottom: 0.4rem;
+}
+
+.existing-names-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.existing-names-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  background-color: #ffffff;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.existing-names-item:hover {
+  background-color: #f3f4f6;
+}
+
+.existing-names-item-selected {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.existing-names-name {
+  color: #111827;
+  font-weight: 500;
+}
+
+.existing-names-amount {
+  font-weight: 600;
+  color: #0b1f3b;
+}
+
+.existing-total-row td {
+  font-weight: 700;
+  background-color: #f3f4f6;
+}
+
+.existing-total-label {
+  text-align: right;
 }
 
 .just-client-search {
