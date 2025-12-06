@@ -167,6 +167,7 @@ function CrmClientDetailPanel({
   onDeleteNote,
 }: Props) {
   const [expandedFundCodes, setExpandedFundCodes] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<"details" | "beneficiaries">("details");
 
   const toggleFundCodeExpansion = (fundCode: string) => {
     setExpandedFundCodes((current) =>
@@ -254,7 +255,26 @@ function CrmClientDetailPanel({
           <div className="snapshots-header">
             <div className="snapshots-client-name">{selectedClient.fullName}</div>
             <div className="snapshots-client-id">{selectedClient.idNumber}</div>
+            <div className="snapshots-client-db-id">מזהה מערכת: {selectedClient.id}</div>
           </div>
+
+          <div className="crm-detail-tabs">
+            <button
+              type="button"
+              className={`crm-detail-tab${activeTab === "details" ? " crm-detail-tab-active" : ""}`}
+              onClick={() => setActiveTab("details")}
+            >
+              פרטי לקוח
+            </button>
+            <button
+              type="button"
+              className={`crm-detail-tab${activeTab === "beneficiaries" ? " crm-detail-tab-active" : ""}`}
+              onClick={() => setActiveTab("beneficiaries")}
+            >
+              מוטבים
+            </button>
+          </div>
+          {activeTab === "details" && (
           <div className="crm-client-edit">
             <h3 className="panel-subtitle">פרטי לקוח</h3>
             <div className="crm-client-edit-grid">
@@ -413,7 +433,9 @@ function CrmClientDetailPanel({
               שמירת פרטי לקוח
             </button>
           </div>
+          )}
 
+          {activeTab === "beneficiaries" && (
           <div className="crm-beneficiaries">
             <h3 className="panel-subtitle">מוטבים</h3>
             <table className="crm-beneficiaries-table">
@@ -533,7 +555,15 @@ function CrmClientDetailPanel({
                 ))}
               </tbody>
             </table>
+            <button
+              type="button"
+              className="crm-client-edit-button"
+              onClick={onSaveClientDetails}
+            >
+              שמירת מוטבים
+            </button>
           </div>
+          )}
 
           <div className="crm-snapshot-create">
             <div className="crm-snapshot-create-grid">
