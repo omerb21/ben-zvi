@@ -17,7 +17,7 @@ import {
   buildKitPdfUrl,
 } from "../../api/justificationApi";
 import { importGemelNetXml, clearJustificationData } from "../../api/adminApi";
-import { Client, ClientSummary, fetchClientSummaries, fetchClient } from "../../api/crmApi";
+import { Client, ClientSummary, Snapshot, fetchClientSummaries, fetchClient, fetchClientSnapshots } from "../../api/crmApi";
 import "../../styles/justification.css";
 import JustificationTabs from "../../components/JustificationTabs";
 import JustificationMarketDashboard from "../../components/JustificationMarketDashboard";
@@ -60,6 +60,7 @@ function JustificationPageRoot({
   const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
   const [clientFilter, setClientFilter] = useState("");
   const [existingProducts, setExistingProducts] = useState<ExistingProduct[]>([]);
+  const [crmSnapshots, setCrmSnapshots] = useState<Snapshot[]>([]);
   const [selectedExistingProduct, setSelectedExistingProduct] =
     useState<ExistingProduct | null>(null);
   const [newProducts, setNewProducts] = useState<NewProduct[]>([]);
@@ -209,6 +210,7 @@ function JustificationPageRoot({
   useEffect(() => {
     if (!selectedClient) {
       setExistingProducts([]);
+      setCrmSnapshots([]);
       setNewProducts([]);
       setSelectedExistingProduct(null);
       setSelectedNewProduct(null);
@@ -223,11 +225,13 @@ function JustificationPageRoot({
       fetchExistingProductsForClient(selectedClient.id),
       fetchNewProductsForClient(selectedClient.id),
       fetchClient(selectedClient.id),
+      fetchClientSnapshots(selectedClient.id),
     ])
-      .then(([existingProductsData, newProductsData, clientDetails]) => {
+      .then(([existingProductsData, newProductsData, clientDetails, snapshotsData]) => {
         setExistingProducts(existingProductsData);
         setNewProducts(newProductsData);
         setSelectedClientDetails(clientDetails);
+        setCrmSnapshots(snapshotsData);
         setError(null);
       })
       .catch(() => {
@@ -596,6 +600,7 @@ function JustificationPageRoot({
           )}
           <JustificationExistingProductsSection
             existingProducts={existingProducts}
+            crmSnapshots={crmSnapshots}
             selectedExistingProduct={selectedExistingProduct}
             loading={loading}
             selectedClient={selectedClient}

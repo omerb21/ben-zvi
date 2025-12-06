@@ -1,16 +1,18 @@
 import React, { useMemo, useState } from "react";
 import type { ExistingProduct, SavingProduct } from "../api/justificationApi";
-import type { ClientSummary } from "../api/crmApi";
+import type { ClientSummary, Snapshot } from "../api/crmApi";
 
 interface CanonicalExistingProduct {
   fundCode: string;
   canonicalProduct: ExistingProduct;
   totalAmount: number;
+  crmAmount: number;
   allProducts: ExistingProduct[];
 }
 
 type Props = {
   existingProducts: ExistingProduct[];
+  crmSnapshots: Snapshot[];
   selectedExistingProduct: ExistingProduct | null;
   loading: boolean;
   selectedClient: ClientSummary | null;
@@ -32,6 +34,7 @@ type Props = {
 
 function JustificationExistingProductsTable({
   existingProducts,
+  crmSnapshots,
   selectedExistingProduct,
   loading,
   selectedClient,
@@ -57,6 +60,41 @@ function JustificationExistingProductsTable({
         : [...current, fundCode]
     );
   };
+
+  // Build CRM amounts map from snapshots (latest month only, grouped by core fund code)
+  const crmAmountsByFundCode = useMemo((): Record<string, number> => {
+    // Extract core fund code from CRM fundCode format like "658-274-196980 (6077380)"
+    const extractCoreFundCode = (fullCode: string): string => {
+      const match = fullCode.match(/\((\d+)\)/);
+      if (match) {
+        return match[1];
+      }
+      return fullCode.trim();
+    };
+
+    // Find the latest month across all snapshots
+    let latestMonth = "";
+    crmSnapshots.forEach((snapshot) => {
+      const month = (snapshot.snapshotDate || "").slice(0, 7);
+      if (month > latestMonth) {
+        latestMonth = month;
+      }
+    });
+
+    // Filter to latest month and sum by core fund code
+    const amountsByCode: Record<string, number> = {};
+    crmSnapshots
+      .filter((s) => (s.snapshotDate || "").slice(0, 7) === latestMonth)
+      .forEach((snapshot) => {
+        const coreCode = extractCoreFundCode(snapshot.fundCode || "");
+        if (!amountsByCode[coreCode]) {
+          amountsByCode[coreCode] = 0;
+        }
+        amountsByCode[coreCode] += snapshot.amount || 0;
+      });
+
+    return amountsByCode;
+  }, [crmSnapshots]);
 
   const canonicalProducts = useMemo((): CanonicalExistingProduct[] => {
     const byFundCode: Record<string, ExistingProduct[]> = {};
@@ -90,17 +128,25 @@ function JustificationExistingProductsTable({
       );
       const canonicalProduct = sortedByAmount[0];
 
+      // Get CRM amount for this fund code
+      const crmAmount = crmAmountsByFundCode[fundCode] || 0;
+
       return {
         fundCode,
         canonicalProduct,
         totalAmount,
+        crmAmount,
         allProducts: sortedByAmount,
       };
     });
-  }, [existingProducts]);
+  }, [existingProducts, crmAmountsByFundCode]);
 
   const totalCanonicalAmount = useMemo(() => {
-    return canonicalProducts.reduce((sum, item) => sum + item.totalAmount, 0);
+    return canonicalProducts.reduce((sum, item) => {
+      // Use CRM amount if available, otherwise fall back to totalAmount
+      const amount = item.crmAmount > 0 ? item.crmAmount : item.totalAmount;
+      return sum + amount;
+    }, 0);
   }, [canonicalProducts]);
 
   return (
@@ -150,7 +196,7 @@ function JustificationExistingProductsTable({
         </thead>
         <tbody>
           {canonicalProducts.map((canonical) => {
-            const { fundCode, canonicalProduct, totalAmount, allProducts } = canonical;
+            const { fundCode, canonicalProduct, totalAmount, crmAmount, allProducts } = canonical;
             const isExpanded = expandedFundCodes.includes(fundCode);
             const hasMultipleNames = allProducts.length > 1;
             const isSelected =
@@ -188,7 +234,7 @@ function JustificationExistingProductsTable({
                   <td>{canonicalProduct.fundType}</td>
                   <td>{canonicalProduct.fundCode}</td>
                   <td>{canonicalProduct.personalNumber}</td>
-                  <td>{totalAmount.toLocaleString()}</td>
+                  <td>{crmAmount > 0 ? crmAmount.toLocaleString() : totalAmount.toLocaleString()}</td>
                   <td>
                     <div className="existing-row-actions">
                       <button

@@ -1,11 +1,12 @@
 import type { ExistingProduct, SavingProduct } from "../api/justificationApi";
-import type { ClientSummary } from "../api/crmApi";
+import type { ClientSummary, Snapshot } from "../api/crmApi";
 import JustificationExistingProductsTable from "./JustificationExistingProductsTable";
 import JustificationExistingProductCreatePanel from "./JustificationExistingProductCreatePanel";
 import JustificationExistingProductEditPanel from "./JustificationExistingProductEditPanel";
 
 type Props = {
   existingProducts: ExistingProduct[];
+  crmSnapshots: Snapshot[];
   selectedExistingProduct: ExistingProduct | null;
   loading: boolean;
   selectedClient: ClientSummary | null;
@@ -59,6 +60,7 @@ type Props = {
 
 function JustificationExistingProductsSectionRoot({
   existingProducts,
+  crmSnapshots,
   selectedExistingProduct,
   loading,
   selectedClient,
@@ -111,6 +113,7 @@ function JustificationExistingProductsSectionRoot({
     <div className="existing-products-section">
       <JustificationExistingProductsTable
         existingProducts={existingProducts}
+        crmSnapshots={crmSnapshots}
         selectedExistingProduct={selectedExistingProduct}
         loading={loading}
         selectedClient={selectedClient}
