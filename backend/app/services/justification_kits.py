@@ -30,6 +30,7 @@ COMPANY_FOLDER_MAP: Dict[str, str] = {
     "מור": "mor",
     "אינפיניטי": "nfty",
     "ילין לפידות": "yl",
+    "הראל": "harel",
 }
 
 
