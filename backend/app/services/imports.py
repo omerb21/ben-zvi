@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Dict
+from typing import Dict, List
 from pathlib import Path
 import sys
 
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from xml.etree import ElementTree as ET
 
 from app.models import Client, Snapshot, SavingProduct
+from app.schemas.justification import SavingProductCreate
 from app.utils.source_names import get_source_display_name
 from app.utils.id_normalization import normalize_id_number
 
@@ -330,3 +331,52 @@ def import_saving_products_from_gemelnet_xml(db: Session, file_bytes: bytes) -> 
         "rowsProcessed": rows_processed,
         "duplicatesSkipped": duplicates_skipped,
     }
+
+
+def sync_saving_products_batch(db: Session, products: List[SavingProductCreate]) -> Dict[str, int]:
+    """Sync a batch of saving products (upsert)."""
+    existing = db.query(SavingProduct).all()
+    # Index by fund_code which should be unique enough for updates
+    index: dict[str, SavingProduct] = {}
+    for sp in existing:
+        if sp.fund_code:
+            index[sp.fund_code] = sp
+    
+    created = 0
+    updated = 0
+    
+    for p in products:
+        sp = index.get(p.fundCode)
+        if sp:
+            # Update
+            changed = False
+            if sp.fund_type != p.fundType: sp.fund_type = p.fundType; changed = True
+            if sp.company_name != p.companyName: sp.company_name = p.companyName; changed = True
+            if sp.fund_name != p.fundName: sp.fund_name = p.fundName; changed = True
+            # Update yields only if provided (not None)
+            if p.yield1yr is not None and sp.yield_1yr != p.yield1yr: sp.yield_1yr = p.yield1yr; changed = True
+            if p.yield3yr is not None and sp.yield_3yr != p.yield3yr: sp.yield_3yr = p.yield3yr; changed = True
+            if p.riskLevel is not None and sp.risk_level != p.riskLevel: sp.risk_level = p.riskLevel; changed = True
+            if p.guaranteedReturn is not None and sp.guaranteed_return != p.guaranteedReturn: sp.guaranteed_return = p.guaranteedReturn; changed = True
+            
+            if changed:
+                updated += 1
+        else:
+            # Create
+            sp = SavingProduct(
+                fund_type=p.fundType,
+                company_name=p.companyName,
+                fund_name=p.fundName,
+                fund_code=p.fundCode,
+                yield_1yr=p.yield1yr,
+                yield_3yr=p.yield3yr,
+                risk_level=p.riskLevel,
+                guaranteed_return=p.guaranteedReturn,
+            )
+            db.add(sp)
+            index[p.fundCode] = sp
+            created += 1
+            
+    db.commit()
+    return {"created": created, "updated": updated}
+

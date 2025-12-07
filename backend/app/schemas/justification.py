@@ -18,6 +18,17 @@ class SavingProductRead(BaseModel):
         from_attributes = True
 
 
+class SavingProductCreate(BaseModel):
+    fundType: str
+    companyName: str
+    fundName: str
+    fundCode: str
+    yield1yr: Optional[float] = None
+    yield3yr: Optional[float] = None
+    riskLevel: Optional[int] = None
+    guaranteedReturn: Optional[str] = None
+
+
 class ExistingProductRead(BaseModel):
     id: int
     clientId: int

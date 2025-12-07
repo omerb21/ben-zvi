@@ -1,4 +1,5 @@
 import re
+from typing import List, Dict
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Form
 from sqlalchemy.orm import Session
@@ -27,11 +28,17 @@ from app.schemas.admin import (
     ClientAccessDisableResult,
     DatabaseStatsResult,
 )
+from app.schemas.justification import SavingProductCreate
 from app.models import (
     Client, Snapshot, ExistingProduct, NewProduct,
     FormInstance, ClientBeneficiary, ClientSignatureRequest,
+    SavingProduct,
 )
-from app.services.imports import import_crm_from_excel, import_saving_products_from_gemelnet_xml
+from app.services.imports import (
+    import_crm_from_excel,
+    import_saving_products_from_gemelnet_xml,
+    sync_saving_products_batch,
+)
 from app.services.crm import (
     clear_crm_data,
     set_client_token,
@@ -296,3 +303,14 @@ def get_database_stats(db: Session = Depends(get_db)) -> DatabaseStatsResult:
             ClientSignatureRequest.status == "pending"
         ).count(),
     )
+
+
+@router.post("/sync-market-products")
+def sync_market_products_endpoint(
+    products: List[SavingProductCreate],
+    db: Session = Depends(get_db),
+):
+    """Sync a batch of market products (SavingProducts) to the DB."""
+    result = sync_saving_products_batch(db, products)
+    return result
+
