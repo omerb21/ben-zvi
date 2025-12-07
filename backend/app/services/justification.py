@@ -115,24 +115,17 @@ def list_existing_products_view_for_client(
 ) -> List[Dict[str, Any]]:
     """Return existing products for justification UI.
 
-    Combines real ExistingProduct rows (manually entered / migrated) with
-    virtual products derived from CRM snapshots and saving products.
+    Combines real ExistingProduct rows (manually entered / migrated).
+    Previously derived virtual products from CRM snapshots, but this logic is now
+    moved to on-demand sync (sync_client_products_from_crm).
     """
 
     # Real existing products from justification DB
     real_products = list_existing_products_for_client(db, client_id)
 
     items: List[Dict[str, Any]] = []
-    # Use a key to avoid duplicating products when we also derive them from snapshots
-    seen_keys: set[tuple[str, str, str]] = set()
 
     for p in real_products:
-        key = (
-            (p.fund_code or "").strip(),
-            (p.fund_name or "").strip(),
-            (p.fund_type or "").strip(),
-        )
-        seen_keys.add(key)
         items.append(
             {
                 "id": p.id,
@@ -153,200 +146,7 @@ def list_existing_products_view_for_client(
             }
         )
 
-    # Derive additional products from CRM snapshots
-    snapshots = (
-        db.query(Snapshot)
-        .filter(Snapshot.client_id == client_id, Snapshot.is_active.is_(True))
-        .all()
-    )
-    if not snapshots:
-        return items
-
-    # For each (fund_code, fund_number) keep the latest snapshot by date
-    latest_by_key: Dict[tuple[str, str], Snapshot] = {}
-    for s in snapshots:
-        fund_code = (s.fund_code or "").strip()
-        fund_number = (s.fund_number or "").strip()
-        if not fund_code and not fund_number:
-            continue
-        key = (fund_code, fund_number)
-        current = latest_by_key.get(key)
-        if current is None or (s.snapshot_date or "") > (current.snapshot_date or ""):
-            latest_by_key[key] = s
-
-    if not latest_by_key:
-        return items
-
-    # Load all saving products once for code and name+company matching
-    saving_products = db.query(SavingProduct).all()
-    saving_by_code: Dict[str, SavingProduct] = {}
-    for sp in saving_products:
-        code = (sp.fund_code or "").strip()
-        if code and code not in saving_by_code:
-            saving_by_code[code] = sp
-
-    virtual_id = -1
-    for (fund_code, fund_number), snap in latest_by_key.items():
-        key = (
-            (fund_code or "").strip(),
-            (snap.fund_name or "").strip(),
-            (snap.fund_type or "").strip(),
-        )
-        if key in seen_keys:
-            continue
-
-        # Try to resolve the product from the market table (SavingProduct)
-        # 1. Prefer match by fund name + company (derived from source), as in the old system
-        sp = None
-        if snap.fund_name and snap.source:
-            expected_company = get_source_display_name(snap.source or "") or ""
-            fund_name_raw = (snap.fund_name or "").strip()
-
-            def _norm_company(value: str) -> str:
-                return "".join(
-                    ch for ch in value.strip().lower() if not ch.isspace() and ch not in {"-", "'", '"'}
-                )
-
-            expected_norm = _norm_company(expected_company)
-            for candidate in saving_products:
-                if (candidate.fund_name or "").strip() != fund_name_raw:
-                    continue
-                cand_norm = _norm_company(candidate.company_name or "")
-                if not cand_norm or not expected_norm:
-                    continue
-                if cand_norm.startswith(expected_norm) or expected_norm.startswith(cand_norm):
-                    sp = candidate
-                    break
-
-        # 2. Fallback: try to match by fund code if we still did not find a product
-        if sp is None:
-            clean_code = (fund_code or "").strip()
-            if clean_code:
-                sp = saving_by_code.get(clean_code)
-
-        fund_type = (snap.fund_type or (sp.fund_type if sp else "")) or ""
-        fund_name = (snap.fund_name or (sp.fund_name if sp else "")) or ""
-        company_name = (sp.company_name if sp else get_source_display_name(snap.source or "")) or ""
-
-        if not fund_name and not company_name and not fund_type:
-            # Not enough information to show a meaningful product
-            continue
-
-        personal_number = fund_number or fund_code or f"CRM-{client_id}-{abs(virtual_id)}"
-
-        amount = float(snap.amount or 0.0)
-
-        items.append(
-            {
-                "id": virtual_id,
-                "client_id": client_id,
-                "fund_type": fund_type,
-                "company_name": company_name,
-                "fund_name": fund_name,
-                # Prefer the official market fund code from SavingProduct when available
-                "fund_code": (sp.fund_code if sp and sp.fund_code else (fund_code or fund_number or "")),
-                "yield_1yr": sp.yield_1yr if sp else None,
-                "yield_3yr": sp.yield_3yr if sp else None,
-                "personal_number": personal_number,
-                "management_fee_balance": amount,
-                "management_fee_contributions": None,
-                "accumulated_amount": amount,
-                "employment_status": None,
-                "has_regular_contributions": None,
-                "is_virtual": True,
-            }
-        )
-        virtual_id -= 1
-
-    # Local canonicalization by personal number: group multiple tracks of the same
-    # personal_number into a single row with aggregated balance and the name of
-    # the track that has the highest balance.
-    by_personal: Dict[str, List[Dict[str, Any]]] = {}
-    standalone_items: List[Dict[str, Any]] = []
-
-    for item in items:
-        raw_personal = (item.get("personal_number") or "").strip()
-        if not raw_personal:
-            standalone_items.append(item)
-            continue
-
-        # Canonical personal key:
-        # - If the value contains parentheses, group by the value inside the first pair
-        #   of parentheses (e.g. "(6077389) 627-274-19096" -> "6077389").
-        # - Otherwise, group by the full trimmed string.
-        canonical = raw_personal
-        start = raw_personal.find("(")
-        end = raw_personal.find(")", start + 1) if start != -1 else -1
-        if start != -1 and end != -1 and end > start + 1:
-            inner = raw_personal[start + 1 : end].strip()
-            if inner:
-                canonical = inner
-
-        if canonical not in by_personal:
-            by_personal[canonical] = []
-        by_personal[canonical].append(item)
-
-    grouped: List[Dict[str, Any]] = []
-
-    # First keep items without personal number as-is
-    grouped.extend(standalone_items)
-
-    # Then aggregate items that share the same personal number
-    for personal, bucket in by_personal.items():
-        if len(bucket) == 1:
-            grouped.append(bucket[0])
-            continue
-
-        total_amount = 0.0
-        best_item: Dict[str, Any] | None = None
-        best_amount = -1.0
-
-        for it in bucket:
-            amount_val = it.get("accumulated_amount")
-            try:
-                numeric_amount = float(amount_val) if amount_val is not None else 0.0
-            except Exception:
-                numeric_amount = 0.0
-
-            total_amount += numeric_amount
-
-            if best_item is None or numeric_amount > best_amount:
-                best_item = it
-                best_amount = numeric_amount
-
-        if best_item is None:
-            # Fallback: if something went wrong, just extend all items as-is
-            grouped.extend(bucket)
-            continue
-
-        # Clone the representative item and overwrite the balance fields with the
-        # aggregated balance across all tracks for this personal number.
-        rep = dict(best_item)
-        rep["accumulated_amount"] = total_amount
-        rep["management_fee_balance"] = total_amount
-
-        # If at least one item in the group can be mapped to a SavingProduct by
-        # fund_code, prefer the canonical market data for company, fund name,
-        # type and code from that SavingProduct.
-        canonical_sp: SavingProduct | None = None
-        for it in bucket:
-            code_val = (str(it.get("fund_code") or "").strip())
-            if not code_val:
-                continue
-            sp_match = saving_by_code.get(code_val)
-            if sp_match is not None:
-                canonical_sp = sp_match
-                break
-
-        if canonical_sp is not None:
-            rep["company_name"] = canonical_sp.company_name or ""
-            rep["fund_name"] = canonical_sp.fund_name or ""
-            rep["fund_type"] = canonical_sp.fund_type or ""
-            rep["fund_code"] = canonical_sp.fund_code or ""
-
-        grouped.append(rep)
-
-    return grouped
+    return items
 
 
 def list_new_products_for_client(db: Session, client_id: int) -> List[NewProduct]:
@@ -523,3 +323,208 @@ def clear_justification_data(db: Session) -> dict[str, int]:
         "deletedNewProducts": deleted_new_products,
         "deletedFormInstances": deleted_form_instances,
     }
+
+
+def sync_client_products_from_crm(db: Session, client_id: int) -> int:
+    """Sync CRM snapshots to existing products for a client.
+
+    This takes the latest snapshots, groups them by personal number (canonicalization),
+    matches them with market products, and then upserts them into the ExistingProduct table.
+    """
+    # 1. Fetch active snapshots for client
+    snapshots = (
+        db.query(Snapshot)
+        .filter(Snapshot.client_id == client_id, Snapshot.is_active.is_(True))
+        .all()
+    )
+    if not snapshots:
+        return 0
+
+    # 2. Keep latest snapshot per (fund_code, fund_number)
+    latest_by_key: Dict[tuple[str, str], Snapshot] = {}
+    for s in snapshots:
+        fund_code = (s.fund_code or "").strip()
+        fund_number = (s.fund_number or "").strip()
+        if not fund_code and not fund_number:
+            continue
+        key = (fund_code, fund_number)
+        current = latest_by_key.get(key)
+        if current is None or (s.snapshot_date or "") > (current.snapshot_date or ""):
+            latest_by_key[key] = s
+
+    if not latest_by_key:
+        return 0
+
+    # 3. Load saving products for matching
+    saving_products = db.query(SavingProduct).all()
+    saving_by_code: Dict[str, SavingProduct] = {}
+    for sp in saving_products:
+        code = (sp.fund_code or "").strip()
+        if code and code not in saving_by_code:
+            saving_by_code[code] = sp
+
+    # 4. Create intermediate items
+    items: List[Dict[str, Any]] = []
+    
+    for (fund_code, fund_number), snap in latest_by_key.items():
+        # Match logic (copied from list_existing_products_view_for_client)
+        sp = None
+        if snap.fund_name and snap.source:
+            expected_company = get_source_display_name(snap.source or "") or ""
+            fund_name_raw = (snap.fund_name or "").strip()
+
+            def _norm_company(value: str) -> str:
+                return "".join(
+                    ch for ch in value.strip().lower() if not ch.isspace() and ch not in {"-", "'", '"'}
+                )
+
+            expected_norm = _norm_company(expected_company)
+            for candidate in saving_products:
+                if (candidate.fund_name or "").strip() != fund_name_raw:
+                    continue
+                cand_norm = _norm_company(candidate.company_name or "")
+                if not cand_norm or not expected_norm:
+                    continue
+                if cand_norm.startswith(expected_norm) or expected_norm.startswith(cand_norm):
+                    sp = candidate
+                    break
+
+        if sp is None:
+            clean_code = (fund_code or "").strip()
+            if clean_code:
+                sp = saving_by_code.get(clean_code)
+
+        fund_type = (snap.fund_type or (sp.fund_type if sp else "")) or ""
+        fund_name = (snap.fund_name or (sp.fund_name if sp else "")) or ""
+        company_name = (sp.company_name if sp else get_source_display_name(snap.source or "")) or ""
+
+        if not fund_name and not company_name and not fund_type:
+            continue
+
+        # Use fund_code as personal_number basis if fund_number is missing, but prefer original raw value
+        personal_number = fund_number or fund_code
+        
+        # Fallback for missing or placeholder personal numbers to avoid uniqueness constraint violations
+        if not personal_number or personal_number.strip() in ["לא זמין", "לא ידוע", "-"]:
+             # Create a deterministic synthetic ID based on the snapshot key properties
+             import hashlib
+             key_str = f"{fund_code}|{fund_number}|{fund_name}|{fund_type}"
+             hash_part = hashlib.md5(key_str.encode("utf-8")).hexdigest()[:8]
+             personal_number = f"CRM-{client_id}-{hash_part}"
+
+        amount = float(snap.amount or 0.0)
+
+        items.append({
+            "fund_type": fund_type,
+            "company_name": company_name,
+            "fund_name": fund_name,
+            "fund_code": (sp.fund_code if sp and sp.fund_code else (fund_code or fund_number or "")),
+            "yield_1yr": sp.yield_1yr if sp else None,
+            "yield_3yr": sp.yield_3yr if sp else None,
+            "personal_number": personal_number,
+            "accumulated_amount": amount,
+            "management_fee_balance": amount,
+            "management_fee_contributions": None,
+            "employment_status": None,
+            "has_regular_contributions": None,
+            "raw_fund_code": fund_code, # Keep for matching
+        })
+
+    # 5. Group by canonical personal number
+    by_personal: Dict[str, List[Dict[str, Any]]] = {}
+    for item in items:
+        raw_personal = (item.get("personal_number") or "").strip()
+        if not raw_personal:
+            continue
+
+        canonical = raw_personal
+        start = raw_personal.find("(")
+        end = raw_personal.find(")", start + 1) if start != -1 else -1
+        if start != -1 and end != -1 and end > start + 1:
+            inner = raw_personal[start + 1 : end].strip()
+            if inner:
+                canonical = inner
+
+        if canonical not in by_personal:
+            by_personal[canonical] = []
+        by_personal[canonical].append(item)
+
+    count_updated = 0
+
+    # 6. Upsert into DB
+    for personal_key, bucket in by_personal.items():
+        if not bucket:
+            continue
+            
+        # Aggregate amounts
+        total_amount = sum(float(it.get("accumulated_amount") or 0.0) for it in bucket)
+        
+        # Pick best item for metadata (one with highest amount)
+        best_item = max(bucket, key=lambda x: float(x.get("accumulated_amount") or 0.0))
+        
+        # Determine the final personal number to store.
+        # We need to be consistent. If we already have a product with this canonical key, use its personal_number.
+        # Otherwise, use the best_item's personal_number.
+        
+        # Check if product exists (by canonical match)
+        # Since we can't easily query canonical in SQL, we fetch all for client and filter in python,
+        # or we just try to find exact match on personal_number from the bucket.
+        # But wait, existing products might have different formatting.
+        
+        # Strategy: 
+        # 1. Fetch all existing products for client.
+        # 2. Calculate canonical key for each.
+        # 3. Find match.
+        
+        existing_products = list_existing_products_for_client(db, client_id)
+        target_product = None
+        
+        for ep in existing_products:
+            ep_personal = (ep.personal_number or "").strip()
+            ep_canonical = ep_personal
+            start = ep_personal.find("(")
+            end = ep_personal.find(")", start + 1) if start != -1 else -1
+            if start != -1 and end != -1 and end > start + 1:
+                inner = ep_personal[start + 1 : end].strip()
+                if inner:
+                    ep_canonical = inner
+            
+            if ep_canonical == personal_key:
+                target_product = ep
+                break
+        
+        if target_product:
+            # Update
+            target_product.accumulated_amount = total_amount
+            target_product.management_fee_balance = total_amount
+            # Only update other fields if they are seemingly valid in the new data
+            if best_item["company_name"]: target_product.company_name = best_item["company_name"]
+            if best_item["fund_name"]: target_product.fund_name = best_item["fund_name"]
+            if best_item["fund_type"]: target_product.fund_type = best_item["fund_type"]
+            if best_item["fund_code"]: target_product.fund_code = best_item["fund_code"]
+            if best_item["yield_1yr"]: target_product.yield_1yr = best_item["yield_1yr"]
+            if best_item["yield_3yr"]: target_product.yield_3yr = best_item["yield_3yr"]
+            
+        else:
+            # Create
+            target_product = ExistingProduct(
+                client_id=client_id,
+                fund_type=best_item["fund_type"],
+                company_name=best_item["company_name"],
+                fund_name=best_item["fund_name"],
+                fund_code=best_item["fund_code"],
+                yield_1yr=best_item["yield_1yr"],
+                yield_3yr=best_item["yield_3yr"],
+                personal_number=best_item["personal_number"], # Use the raw one from the best item
+                management_fee_balance=total_amount,
+                management_fee_contributions=best_item["management_fee_contributions"],
+                accumulated_amount=total_amount,
+                employment_status=best_item["employment_status"],
+                has_regular_contributions=best_item["has_regular_contributions"],
+            )
+            db.add(target_product)
+        
+        count_updated += 1
+    
+    db.commit()
+    return count_updated

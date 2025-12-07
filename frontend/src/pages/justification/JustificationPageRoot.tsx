@@ -15,6 +15,7 @@ import {
   buildAdvicePdfUrl,
   buildB1PdfUrl,
   buildKitPdfUrl,
+  syncClientProductsFromCrm,
 } from "../../api/justificationApi";
 import { importGemelNetXml, clearJustificationData } from "../../api/adminApi";
 import { Client, ClientSummary, Snapshot, fetchClientSummaries, fetchClient, fetchClientSnapshots } from "../../api/crmApi";
@@ -144,6 +145,25 @@ function JustificationPageRoot({
     setPacketTrimInput,
   } = useJustificationPdfAndPackets(selectedClient, newProducts);
   useAdobePdfViewer();
+
+  const handleSyncFromCrm = () => {
+    if (!selectedClient) return;
+    setLoading(true);
+    syncClientProductsFromCrm(selectedClient.id)
+      .then(() => {
+        return fetchExistingProductsForClient(selectedClient.id);
+      })
+      .then((products) => {
+        setExistingProducts(products);
+      })
+      .catch((err) => {
+        console.error(err);
+        setError("שגיאה בסנכרון מוצרים מ-CRM");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
 
   const handlePreviewAdvicePdf = () => {
     if (!selectedClient) {
@@ -604,6 +624,7 @@ function JustificationPageRoot({
             selectedExistingProduct={selectedExistingProduct}
             loading={loading}
             selectedClient={selectedClient}
+            onSyncFromCrm={handleSyncFromCrm}
             existingFormMode={existingFormMode}
             createMode={createMode}
             replacementExistingId={replacementExistingId}

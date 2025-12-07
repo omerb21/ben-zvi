@@ -53,6 +53,7 @@ type Props = {
   onCreateNewProduct: (existingProductIdOverride?: number | null) => void;
   onUpdateExistingProduct: () => void;
   onDeleteExistingProduct: () => void;
+  onSyncFromCrm: () => void;
   findMatchingSavingProductForExisting: (
     product: ExistingProduct | null
   ) => SavingProduct | null;
@@ -107,6 +108,7 @@ function JustificationExistingProductsSectionRoot({
   onCreateNewProduct,
   onUpdateExistingProduct,
   onDeleteExistingProduct,
+  onSyncFromCrm,
   findMatchingSavingProductForExisting,
 }: Props) {
   return (
@@ -117,6 +119,7 @@ function JustificationExistingProductsSectionRoot({
         selectedExistingProduct={selectedExistingProduct}
         loading={loading}
         selectedClient={selectedClient}
+        onSyncFromCrm={onSyncFromCrm}
         onSetExistingFormMode={onSetExistingFormMode}
         onSetReplacementExistingId={onSetReplacementExistingId}
         onSetSelectedExistingProduct={onSetSelectedExistingProduct}

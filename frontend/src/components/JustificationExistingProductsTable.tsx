@@ -27,6 +27,7 @@ type Props = {
   onSetNewExistingEmploymentStatus: (value: string) => void;
   onSetNewExistingHasRegularContributions: (value: string) => void;
   onDeleteExistingProduct: () => void;
+  onSyncFromCrm: () => void;
   findMatchingSavingProductForExisting: (
     product: ExistingProduct | null
   ) => SavingProduct | null;
@@ -49,6 +50,7 @@ function JustificationExistingProductsTable({
   onSetNewExistingEmploymentStatus,
   onSetNewExistingHasRegularContributions,
   onDeleteExistingProduct,
+  onSyncFromCrm,
   findMatchingSavingProductForExisting,
 }: Props) {
   const [expandedFundCodes, setExpandedFundCodes] = useState<string[]>([]);
@@ -165,6 +167,14 @@ function JustificationExistingProductsTable({
             }}
           >
             צור קופה קיימת
+          </button>
+          <button
+            type="button"
+            className="existing-row-action-button"
+            disabled={!selectedClient}
+            onClick={onSyncFromCrm}
+          >
+            סנכרן מ-CRM
           </button>
           <button
             type="button"

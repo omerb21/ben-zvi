@@ -236,6 +236,16 @@ export async function fetchExistingProductsForClient(
   return response.data;
 }
 
+export async function syncClientProductsFromCrm(
+  clientId: number
+): Promise<{ detail: string }> {
+  const response = await httpClient.post<{ detail: string }>(
+    `/api/v1/justification/clients/${clientId}/sync-crm`,
+    {}
+  );
+  return response.data;
+}
+
 export async function createExistingProductForClient(
   clientId: number,
   payload: ExistingProductCreatePayload
