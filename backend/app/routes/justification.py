@@ -65,6 +65,45 @@ def create_existing_product_for_client(
      return to_existing_product_read(product, is_virtual=False)
 
 
+@router.post(
+    "/clients/{client_id}/sync-crm",
+    status_code=status.HTTP_200_OK,
+)
+def sync_client_products_from_crm(
+    client_id: int,
+    db: Session = Depends(get_db),
+):
+    client = crm_service.get_client(db, client_id)
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
+
+    count = justification_service.sync_client_products_from_crm(db, client_id)
+    return {"detail": f"Synced {count} products from CRM"}
+
+
+@router.post(
+    "/sync-all-crm",
+    status_code=status.HTTP_200_OK,
+)
+def sync_all_clients_from_crm(
+    db: Session = Depends(get_db),
+):
+    clients = crm_service.list_clients(db)
+    total_products = 0
+    client_count = 0
+    for client in clients:
+        count = justification_service.sync_client_products_from_crm(db, client.id)
+        total_products += count
+        client_count += 1
+
+    return {
+        "detail": f"Synced {total_products} products from CRM across {client_count} clients",
+    }
+
+
 @router.get(
     "/clients/{client_id}/existing-products",
     response_model=List[ExistingProductRead],
