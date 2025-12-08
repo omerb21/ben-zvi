@@ -7,6 +7,7 @@ import type {
   ClientNote,
 } from "../api/crmApi";
 import type { BeneficiaryFormRow } from "../pages/crm/crmBeneficiaries";
+import { isoToDmy } from "../utils/dateFormat";
 
 interface CanonicalSnapshot {
   fundCode: string;
@@ -317,9 +318,11 @@ function CrmClientDetailPanel({
               <div className="crm-client-edit-field">
                 <label className="crm-client-edit-label">תאריך לידה</label>
                 <input
-                  type="date"
+                  type="text"
+                  lang="he-IL"
                   className="crm-client-edit-input"
-                  value={editBirthDate}
+                  placeholder="dd/mm/yyyy"
+                  value={isoToDmy(editBirthDate)}
                   onChange={(event) => onEditBirthDateChange(event.target.value)}
                 />
               </div>
@@ -483,9 +486,11 @@ function CrmClientDetailPanel({
                     </td>
                     <td>
                       <input
-                        type="date"
+                        type="text"
+                        lang="he-IL"
                         className="crm-beneficiaries-input"
-                        value={row.birthDate}
+                        placeholder="dd/mm/yyyy"
+                        value={isoToDmy(row.birthDate)}
                         onChange={(event) =>
                           onBeneficiaryChange(
                             row.index,
@@ -605,6 +610,7 @@ function CrmClientDetailPanel({
               />
               <input
                 type="date"
+                lang="he-IL"
                 className="crm-snapshot-input"
                 value={newSnapshotDate}
                 onChange={(event) =>
@@ -667,7 +673,7 @@ function CrmClientDetailPanel({
                       }${isExpanded ? " snapshot-row-expanded" : ""}`}
                       onClick={() => onSelectSnapshot(canonicalSnapshot)}
                     >
-                      <td>{canonicalSnapshot.snapshotDate}</td>
+                      <td>{isoToDmy(canonicalSnapshot.snapshotDate)}</td>
                       <td>{canonicalSnapshot.fundCode}</td>
                       <td>
                         {canonicalSnapshot.fundName}
@@ -802,7 +808,7 @@ function CrmClientDetailPanel({
                   <tbody>
                     {fundHistory.map((row) => (
                       <tr key={row.date + row.source}>
-                        <td>{row.date}</td>
+                        <td>{isoToDmy(row.date)}</td>
                         <td>{row.amount.toLocaleString()}</td>
                         <td>{row.source}</td>
                         <td>
@@ -841,6 +847,7 @@ function CrmClientDetailPanel({
               <div className="crm-note-form-row">
                 <input
                   type="date"
+                  lang="he-IL"
                   className="crm-note-date"
                   value={newNoteReminder}
                   onChange={(event) =>
@@ -858,12 +865,12 @@ function CrmClientDetailPanel({
                 <li key={note.id} className="crm-note-item">
                   <div className="crm-note-text">{note.note}</div>
                   <div className="crm-note-meta">
-                    <span>{note.createdAt}</span>
+                    <span>{isoToDmy(note.createdAt)}</span>
                     {note.reminderAt && (
-                      <span>תזכורת: {note.reminderAt}</span>
+                      <span>תזכורת: {isoToDmy(note.reminderAt)}</span>
                     )}
                     {note.dismissedAt && (
-                      <span>נסגרה: {note.dismissedAt}</span>
+                      <span>נסגרה: {isoToDmy(note.dismissedAt)}</span>
                     )}
                   </div>
                   <div className="crm-note-actions">

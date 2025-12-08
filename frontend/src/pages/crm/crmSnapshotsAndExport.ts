@@ -6,6 +6,7 @@ import type {
 import { fetchFundHistory, createSnapshotForClient } from "../../api/crmApi";
 import httpClient from "../../api/httpClient";
 import type { Dispatch, SetStateAction } from "react";
+import { isoToDmy } from "../../utils/dateFormat";
 
 export type SelectSnapshotArgs = {
   snapshot: Snapshot;
@@ -164,7 +165,7 @@ export function exportClientReportAction({
     const fundType = (snapshot as any).fundType || "";
     const source = (snapshot as any).source || "";
     return [
-      snapshot.snapshotDate || "",
+      isoToDmy(snapshot.snapshotDate || ""),
       snapshot.fundCode || "",
       fundName,
       fundType,

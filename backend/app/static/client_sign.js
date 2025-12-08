@@ -2,6 +2,7 @@
   function setupSignaturePad() {
     var canvas = document.getElementById("signature-canvas");
     var clearBtn = document.getElementById("clear-signature");
+    var pasteBtn = document.getElementById("paste-signature");
     var submitBtn = document.getElementById("submit-signature");
     var statusEl = document.getElementById("status-message");
     var signedLink = document.getElementById("signed-packet-link");
@@ -88,6 +89,119 @@
       hasDrawn = false;
       statusEl.textContent = "";
       statusEl.className = "status-message";
+    });
+
+    // פונקציה לציור תמונה על הקנבס
+    function drawImageOnCanvas(img) {
+      var rect = canvas.getBoundingClientRect();
+      var canvasWidth = rect.width;
+      var canvasHeight = rect.height;
+
+      // חישוב יחס גודל כדי להתאים את התמונה לקנבס
+      var imgRatio = img.width / img.height;
+      var canvasRatio = canvasWidth / canvasHeight;
+
+      var drawWidth, drawHeight, offsetX, offsetY;
+
+      if (imgRatio > canvasRatio) {
+        // התמונה רחבה יותר יחסית - התאם לרוחב
+        drawWidth = canvasWidth * 0.9;
+        drawHeight = drawWidth / imgRatio;
+      } else {
+        // התמונה גבוהה יותר יחסית - התאם לגובה
+        drawHeight = canvasHeight * 0.9;
+        drawWidth = drawHeight * imgRatio;
+      }
+
+      // מרכז את התמונה
+      offsetX = (canvasWidth - drawWidth) / 2;
+      offsetY = (canvasHeight - drawHeight) / 2;
+
+      // נקה את הקנבס וצייר את התמונה
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      ctx.fillStyle = "#fafafa";
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+      hasDrawn = true;
+      statusEl.textContent = "התמונה הודבקה בהצלחה";
+      statusEl.className = "status-message status-success";
+    }
+
+    // פונקציה לטיפול בהדבקה מהקליפבורד
+    function handlePasteFromClipboard() {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        statusEl.textContent = "הדפדפן לא תומך בהדבקה מהקליפבורד";
+        statusEl.className = "status-message status-error";
+        return;
+      }
+
+      navigator.clipboard.read().then(function (items) {
+        for (var i = 0; i < items.length; i++) {
+          var item = items[i];
+          var imageType = item.types.find(function (type) {
+            return type.startsWith("image/");
+          });
+
+          if (imageType) {
+            item.getType(imageType).then(function (blob) {
+              var img = new Image();
+              img.onload = function () {
+                drawImageOnCanvas(img);
+                URL.revokeObjectURL(img.src);
+              };
+              img.onerror = function () {
+                statusEl.textContent = "שגיאה בטעינת התמונה";
+                statusEl.className = "status-message status-error";
+                URL.revokeObjectURL(img.src);
+              };
+              img.src = URL.createObjectURL(blob);
+            }).catch(function () {
+              statusEl.textContent = "שגיאה בקריאת התמונה מהקליפבורד";
+              statusEl.className = "status-message status-error";
+            });
+            return;
+          }
+        }
+        statusEl.textContent = "לא נמצאה תמונה בקליפבורד";
+        statusEl.className = "status-message status-error";
+      }).catch(function (err) {
+        // אם אין הרשאה, ננסה דרך paste event
+        statusEl.textContent = "נא להעתיק תמונה ללוח (Ctrl+C) ואז ללחוץ שוב";
+        statusEl.className = "status-message status-error";
+      });
+    }
+
+    // כפתור הדבקה
+    if (pasteBtn) {
+      pasteBtn.addEventListener("click", handlePasteFromClipboard);
+    }
+
+    // תמיכה בהדבקה ישירה עם Ctrl+V על הקנבס או הדף
+    document.addEventListener("paste", function (e) {
+      var items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          e.preventDefault();
+          var blob = items[i].getAsFile();
+          if (blob) {
+            var img = new Image();
+            img.onload = function () {
+              drawImageOnCanvas(img);
+              URL.revokeObjectURL(img.src);
+            };
+            img.onerror = function () {
+              statusEl.textContent = "שגיאה בטעינת התמונה";
+              statusEl.className = "status-message status-error";
+              URL.revokeObjectURL(img.src);
+            };
+            img.src = URL.createObjectURL(blob);
+          }
+          return;
+        }
+      }
     });
 
     submitBtn.addEventListener("click", function () {

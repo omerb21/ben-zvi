@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react";
 import type { Client, ClientSummary } from "../api/crmApi";
+import { isoToDmy } from "../utils/dateFormat";
 
 type Props = {
   clients: ClientSummary[];
@@ -131,7 +132,9 @@ function JustificationClientHeader({
           <div className="just-client-details-row">
             <span className="just-client-details-label">תאריך לידה:</span>
             <span className="just-client-details-value">
-              {selectedClientDetails.birthDate || "-"}
+              {selectedClientDetails.birthDate
+                ? isoToDmy(selectedClientDetails.birthDate)
+                : "-"}
             </span>
           </div>
           <div className="just-client-details-row">

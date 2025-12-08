@@ -58,6 +58,12 @@ h1 {
 
 .signature-title {
   font-size: 16px;
+  margin: 0 0 4px 0;
+}
+
+.signature-hint {
+  font-size: 12px;
+  color: #666;
   margin: 0 0 8px 0;
 }
 
@@ -81,6 +87,31 @@ h1 {
   padding: 6px 14px;
   font-size: 14px;
   cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #f8f8f8;
+}
+
+.button-row button:hover {
+  background-color: #e8e8e8;
+}
+
+#paste-signature {
+  background-color: #e3f2fd;
+  border-color: #90caf9;
+}
+
+#paste-signature:hover {
+  background-color: #bbdefb;
+}
+
+#submit-signature {
+  background-color: #e8f5e9;
+  border-color: #a5d6a7;
+}
+
+#submit-signature:hover {
+  background-color: #c8e6c9;
 }
 
 .status-message {

@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>חתימה על מסמכים</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='client_sign.css') }}?v=3" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='client_sign.css') }}?v=4" />
 </head>
 <body>
   <div class="page-container">
@@ -25,9 +25,11 @@
 
     <div class="signature-section">
       <p class="signature-title">חתימת {{ client_name }}</p>
+      <p class="signature-hint">ניתן לצייר חתימה בתיבה או להדביק תמונת חתימה מהקליפבורד</p>
       <canvas id="signature-canvas"></canvas>
       <div class="button-row">
         <button id="clear-signature" type="button">נקה חתימה</button>
+        <button id="paste-signature" type="button">הדבק תמונה</button>
         <button id="submit-signature" type="button">שלח חתימה</button>
       </div>
       <div id="status-message" class="status-message"></div>
@@ -45,6 +47,6 @@
       signedPacketUrl: "{{ signed_packet_url }}",
     };
   </script>
-  <script src="{{ url_for('static', filename='client_sign.js') }}?v=4"></script>
+  <script src="{{ url_for('static', filename='client_sign.js') }}?v=5"></script>
 </body>
 </html>

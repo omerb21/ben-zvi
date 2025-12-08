@@ -9,6 +9,7 @@ import type {
   ClientCreatePayload,
   ClientUpdatePayload,
 } from "../../api/crmApi";
+import { dmyToIso } from "../../utils/dateFormat";
 import {
   fetchClient,
   fetchClientSnapshots,
@@ -224,7 +225,10 @@ export function createClientAction({
     payload.phone = newClientPhone.trim();
   }
   if (newClientBirthDate.trim()) {
-    payload.birthDate = newClientBirthDate.trim();
+    const birthIso = dmyToIso(newClientBirthDate.trim());
+    if (birthIso) {
+      payload.birthDate = birthIso;
+    }
   }
   if (newClientGender.trim()) {
     payload.gender = newClientGender.trim();
@@ -358,7 +362,10 @@ export function saveClientDetailsAction({
     payload.addressPostalCode = editAddressPostalCode.trim();
   }
   if (editBirthDate.trim()) {
-    payload.birthDate = editBirthDate.trim();
+    const birthIso = dmyToIso(editBirthDate.trim());
+    if (birthIso) {
+      payload.birthDate = birthIso;
+    }
   }
   if (editGender.trim()) {
     payload.gender = editGender.trim();
@@ -383,7 +390,7 @@ export function saveClientDetailsAction({
     const firstName = row.firstName.trim();
     const lastName = row.lastName.trim();
     const idNumber = row.idNumber.trim();
-    const birthDate = row.birthDate.trim();
+    const birthDateText = row.birthDate.trim();
     const address = row.address.trim();
     const relation = row.relation.trim();
     const percentageText = row.percentage.trim();
@@ -399,7 +406,7 @@ export function saveClientDetailsAction({
       firstName,
       lastName,
       idNumber,
-      birthDate,
+      birthDate: birthDateText ? dmyToIso(birthDateText) ?? birthDateText : "",
       address,
       relation,
       percentage: percentageValue,

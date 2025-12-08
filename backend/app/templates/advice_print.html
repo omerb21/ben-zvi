@@ -660,11 +660,14 @@
         </tr>
       </thead>
       <tbody>
-        {% for product in client.existing_products %}
-        <tr>
-          <td style="border: 1px solid #000; padding: 8px; text-align: center;">{{ product.fund_name }}</td>
-        </tr>
-        {% endfor %}
+        {# Existing products that remain after replacements (state "new") #}
+        {% if client.existing_products_state_new is defined %}
+          {% for product in client.existing_products_state_new %}
+          <tr>
+            <td style="border: 1px solid #000; padding: 8px; text-align: center;">{{ product.fund_name }}</td>
+          </tr>
+          {% endfor %}
+        {% endif %}
         {% for product in client.new_products %}
         <tr>
           <td style="border: 1px solid #000; padding: 8px; text-align: center;">{{ product.fund_name }}</td>

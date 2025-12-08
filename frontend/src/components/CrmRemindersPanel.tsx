@@ -1,4 +1,5 @@
 import type { Reminder } from "../api/crmApi";
+import { isoToDmy } from "../utils/dateFormat";
 
 type Props = {
   reminders: Reminder[];
@@ -31,7 +32,7 @@ function CrmRemindersPanel({
             </div>
             <div className="crm-reminder-meta">
               <span>{reminder.clientName}</span>
-              {reminder.reminderAt && <span>עד {reminder.reminderAt}</span>}
+              {reminder.reminderAt && <span>עד {isoToDmy(reminder.reminderAt)}</span>}
             </div>
             <div className="crm-reminder-actions">
               <button

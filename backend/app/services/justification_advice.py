@@ -17,6 +17,7 @@ from app.models import Client, ExistingProduct, NewProduct
 from app.services import justification_b1 as justification_b1_service
 from app.services import justification_forms as justification_forms_service
 from app.services import justification_advice_tables as advice_tables_service
+from app.services.justification_kits import _fmt_date as _fmt_date_for_advice
 
 
 def _to_hebrew_marital_status(value: str | None) -> str:
@@ -132,14 +133,58 @@ def build_advice_html(db: Session, client: Client, include_print_button: bool = 
     employment_status_he = _derive_employment_status_he(client)
     insurance_needs_he = _derive_insurance_needs_he(client)
 
+    existing_products_list = list(client.existing_products or [])
+    new_products_list = list(client.new_products or [])
+
+    # DEBUG: Log all products and their links
+    logger.info(f"[ADVICE-DEBUG] Client {client.id}: {len(existing_products_list)} existing, {len(new_products_list)} new")
+    for ex in existing_products_list:
+        linked_new = getattr(ex, 'new_products', []) or []
+        logger.info(f"[ADVICE-DEBUG] ExistingProduct id={ex.id} fund={ex.fund_name} has {len(linked_new)} linked new products")
+    for np in new_products_list:
+        logger.info(f"[ADVICE-DEBUG] NewProduct id={np.id} fund={np.fund_name} existing_product_id={np.existing_product_id}")
+
+    # Existing products that remain in the "new" state (i.e. not replaced).
+    # A product is considered "replaced" when there is at least one new
+    # product that is explicitly linked to it via existing_product_id,
+    # regardless of fund type.
+    # 
+    # We use two methods to identify replaced products:
+    # 1. Check existing_product_id on each new product
+    # 2. Check the new_products relationship on each existing product
+    replaced_existing_ids = set()
+    
+    # Method 1: Check existing_product_id on new products
+    for np in new_products_list:
+        ep_id = np.existing_product_id
+        if ep_id is not None:
+            replaced_existing_ids.add(ep_id)
+    
+    # Method 2: Check new_products relationship on existing products
+    for ex in existing_products_list:
+        if hasattr(ex, 'new_products') and ex.new_products:
+            replaced_existing_ids.add(ex.id)
+
+    logger.info(f"[ADVICE-DEBUG] Replaced existing IDs: {replaced_existing_ids}")
+
+    remaining_existing_products = [
+        ex
+        for ex in existing_products_list
+        if ex.id not in replaced_existing_ids
+    ]
+    
+    logger.info(f"[ADVICE-DEBUG] Remaining (not replaced): {[ex.id for ex in remaining_existing_products]}")
+
     client_view: Dict[str, Any] = {
         "first_name": client.first_name or "",
         "last_name": client.last_name or "",
         "national_id": client.id_number or "",
         "date_of_birth": client.birth_date,
+        "date_of_birth_text": _fmt_date_for_advice(client.birth_date),
         "retirement_income": None,
-        "existing_products": list(client.existing_products or []),
-        "new_products": list(client.new_products or []),
+        "existing_products": existing_products_list,
+        "new_products": new_products_list,
+        "existing_products_state_new": remaining_existing_products,
     }
 
     if marital_status_he:

@@ -101,9 +101,10 @@ function CrmClientListPanel({
             onChange={(e) => onChangeNewClientEmail(e.target.value)}
           />
           <input
-            type="date"
+            type="text"
+            lang="he-IL"
             className="crm-new-client-input"
-            placeholder="תאריך לידה"
+            placeholder="תאריך לידה (dd/mm/yyyy)"
             value={newClientBirthDate}
             onChange={(e) => onChangeNewClientBirthDate(e.target.value)}
           />

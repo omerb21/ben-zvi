@@ -297,6 +297,9 @@ def _sync_new_products_for_client(
         if isinstance(existing_product_id, int):
             remote_ep = remote_existing_by_id.get(existing_product_id)
             if remote_ep is not None:
+                local_ep = None
+                
+                # Try to find by personal_number first
                 personal_number_ep = (remote_ep.get("personalNumber") or "").strip()
                 if personal_number_ep:
                     local_ep = (
@@ -307,8 +310,26 @@ def _sync_new_products_for_client(
                         )
                         .first()
                     )
-                    if local_ep is not None:
-                        row.existing_product_id = local_ep.id
+                
+                # Fallback: try to find by fund_code + company_name + fund_name
+                if local_ep is None:
+                    fund_code_ep = (remote_ep.get("fundCode") or "").strip()
+                    company_name_ep = (remote_ep.get("companyName") or "").strip()
+                    fund_name_ep = (remote_ep.get("fundName") or "").strip()
+                    if fund_code_ep and company_name_ep:
+                        local_ep = (
+                            db.query(ExistingProduct)
+                            .filter(
+                                ExistingProduct.client_id == local_client.id,
+                                ExistingProduct.fund_code == fund_code_ep,
+                                ExistingProduct.company_name == company_name_ep,
+                                ExistingProduct.fund_name == fund_name_ep,
+                            )
+                            .first()
+                        )
+                
+                if local_ep is not None:
+                    row.existing_product_id = local_ep.id
 
 
 def sync_all_clients_from_remote(base_url: str | None = None) -> None:
