@@ -157,8 +157,33 @@ export function useJustificationPdfAndPackets(
     if (!selectedClient) {
       return;
     }
-    const url = buildKitPdfUrl(selectedClient.id, product.id);
-    window.open(url, "_blank");
+
+    const clientId = selectedClient.id;
+    const viewUrl = buildKitPdfUrl(clientId, product.id);
+
+    void (async () => {
+      // קודם מנסים לפתוח קיט קיים, בלי יצירה כבדה
+      try {
+        const existingResponse = await fetch(viewUrl);
+        if (existingResponse.ok) {
+          await openPdfTabFromResponse(existingResponse);
+          return;
+        }
+      } catch {
+        // אם יש שגיאה ברשת, נעבור לנסיון יצירה למטה
+      }
+
+      // אם אין קיט קיים, מנסים להפיק קיט חדש ואז לפתוח אותו
+      try {
+        await handleGenerateKitPdf(product);
+        const generatedResponse = await fetch(viewUrl);
+        if (generatedResponse.ok) {
+          await openPdfTabFromResponse(generatedResponse);
+        }
+      } catch {
+        // בשלב זה אין טיפול הודעות ייעודי לקיט בודד; השגיאה פשוט לא תפתח קובץ
+      }
+    })();
   };
 
   const handleGenerateAllKits = async () => {

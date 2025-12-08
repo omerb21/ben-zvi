@@ -10,6 +10,49 @@ type Props = {
   onClientChange: (clientId: number | null) => void;
 };
 
+function toHebrewGender(value: string | null | undefined): string {
+  const raw = (value || "").trim();
+  if (!raw) {
+    return "-";
+  }
+
+  const lowered = raw.toLowerCase();
+  if (lowered === "male") {
+    return "זכר";
+  }
+  if (lowered === "female") {
+    return "נקבה";
+  }
+  if (lowered === "other") {
+    return "אחר";
+  }
+
+  return raw;
+}
+
+function toHebrewMaritalStatus(value: string | null | undefined): string {
+  const raw = (value || "").trim();
+  if (!raw) {
+    return "-";
+  }
+
+  const lowered = raw.toLowerCase();
+  if (lowered === "single" || lowered === "unmarried") {
+    return "רווק/ה";
+  }
+  if (lowered === "married") {
+    return "נשוי/ה";
+  }
+  if (lowered === "divorced") {
+    return "גרוש/ה";
+  }
+  if (lowered === "widowed" || lowered === "widow" || lowered === "widower") {
+    return "אלמן/ה";
+  }
+
+  return raw;
+}
+
 function JustificationClientHeader({
   clients,
   selectedClientId,
@@ -94,13 +137,13 @@ function JustificationClientHeader({
           <div className="just-client-details-row">
             <span className="just-client-details-label">מין:</span>
             <span className="just-client-details-value">
-              {selectedClientDetails.gender || "-"}
+              {toHebrewGender(selectedClientDetails.gender)}
             </span>
           </div>
           <div className="just-client-details-row">
             <span className="just-client-details-label">סטטוס:</span>
             <span className="just-client-details-value">
-              {selectedClientDetails.maritalStatus || "-"}
+              {toHebrewMaritalStatus(selectedClientDetails.maritalStatus)}
             </span>
           </div>
           <div className="just-client-details-row">

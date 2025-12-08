@@ -185,28 +185,40 @@ def build_common_fields(client: Client) -> Dict[str, Any]:
         }
     )
 
-    payload.update(
-        {
-            "male": _rb(client.gender == "זכר"),
-            "Male": _rb(client.gender == "זכר"),
-            "female": _rb(client.gender == "נקבה"),
-            "Female": _rb(client.gender == "נקבה"),
-            "client_gender_male": _rb(client.gender == "זכר"),
-            "client_gender_female": _rb(client.gender == "נקבה"),
-        }
-    )
+    gender_raw = (getattr(client, "gender", None) or "").strip()
+    gender_lower = gender_raw.lower()
+    is_male = gender_raw == "זכר" or gender_lower in {"male", "m"}
+    is_female = gender_raw == "נקבה" or gender_lower in {"female", "f"}
 
     payload.update(
         {
-            "single": _rb(client.marital_status in ("רווק", "רווקה")),
-            "Single": _rb(client.marital_status in ("רווק", "רווקה")),
-            "married": _rb(client.marital_status == "נשוי"),
-            "Married": _rb(client.marital_status == "נשוי"),
-            "divorced": _rb(client.marital_status == "גרוש"),
-            "Divorced": _rb(client.marital_status == "גרוש"),
-            "widowed": _rb(client.marital_status == "אלמן"),
-            "client_married": _rb(client.marital_status == "נשוי"),
-            "client_single": _rb(client.marital_status == "רווק"),
+            "male": _rb(is_male),
+            "Male": _rb(is_male),
+            "female": _rb(is_female),
+            "Female": _rb(is_female),
+            "client_gender_male": _rb(is_male),
+            "client_gender_female": _rb(is_female),
+        }
+    )
+
+    ms_raw = (getattr(client, "marital_status", None) or "").strip()
+    ms_lower = ms_raw.lower()
+    is_single = ms_raw in {"רווק", "רווקה"} or ms_lower in {"single", "unmarried"}
+    is_married = ms_raw in {"נשוי", "נשוי/ה", "נשוי/אה"} or ms_lower == "married"
+    is_divorced = ms_raw in {"גרוש", "גרושה"} or ms_lower == "divorced"
+    is_widowed = ms_raw in {"אלמן", "אלמנה"} or ms_lower in {"widowed", "widow", "widower"}
+
+    payload.update(
+        {
+            "single": _rb(is_single),
+            "Single": _rb(is_single),
+            "married": _rb(is_married),
+            "Married": _rb(is_married),
+            "divorced": _rb(is_divorced),
+            "Divorced": _rb(is_divorced),
+            "widowed": _rb(is_widowed),
+            "client_married": _rb(is_married),
+            "client_single": _rb(is_single),
         }
     )
 

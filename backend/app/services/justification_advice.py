@@ -19,6 +19,45 @@ from app.services import justification_forms as justification_forms_service
 from app.services import justification_advice_tables as advice_tables_service
 
 
+def _to_hebrew_marital_status(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+
+    lowered = text.lower()
+    if lowered in {"single", "unmarried"}:
+        return "רווק/ה"
+    if lowered == "married":
+        return "נשוי/ה"
+    if lowered == "divorced":
+        return "גרוש/ה"
+    if lowered in {"widowed", "widow", "widower"}:
+        return "אלמן/ה"
+
+    return text
+
+
+def _derive_employment_status_he(client: Client) -> str:
+    # Prefer explicit flags on the unified Client model. If none apply, return
+    # an empty string so the template can show its Hebrew fallback.
+    try:
+        if getattr(client, "self_employed", False):
+            return "עצמאי"
+        if getattr(client, "current_employer_exists", False):
+            return "שכיר"
+    except Exception:
+        return ""
+
+    return ""
+
+
+def _derive_insurance_needs_he(_client: Client) -> str:
+    # Currently there is no structured field for insurance needs on Client.
+    # Return an empty string so the template can substitute a Hebrew fallback
+    # ("לא צוין").
+    return ""
+
+
 # Cache for static resources - loaded once at module level
 _TEMPLATES_ENV: Optional[Environment] = None
 _LOGO_DATA_URL: Optional[str] = None
@@ -89,18 +128,26 @@ def build_advice_html(db: Session, client: Client, include_print_button: bool = 
     tables = advice_tables_service.build_tables(client)
     coverage_tables = advice_tables_service.build_coverage_tables(db, client, tables)
 
+    marital_status_he = _to_hebrew_marital_status(getattr(client, "marital_status", None))
+    employment_status_he = _derive_employment_status_he(client)
+    insurance_needs_he = _derive_insurance_needs_he(client)
+
     client_view: Dict[str, Any] = {
         "first_name": client.first_name or "",
         "last_name": client.last_name or "",
         "national_id": client.id_number or "",
         "date_of_birth": client.birth_date,
-        "marital_status": client.marital_status or "",
-        "employment_status": None,
         "retirement_income": None,
-        "insurance_needs": None,
         "existing_products": list(client.existing_products or []),
         "new_products": list(client.new_products or []),
     }
+
+    if marital_status_he:
+        client_view["marital_status"] = marital_status_he
+    if employment_status_he:
+        client_view["employment_status"] = employment_status_he
+    if insurance_needs_he:
+        client_view["insurance_needs"] = insurance_needs_he
 
     env = _get_templates_env()
     template = env.get_template("advice/print.html")
