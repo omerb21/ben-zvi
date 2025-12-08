@@ -91,6 +91,8 @@ export type CreateNewProductArgs = {
   selectedSavingProduct: SavingProduct | null;
   selectedExistingProduct: ExistingProduct | null;
   newExistingAccumulatedAmount: string;
+  newExistingManagementFeeBalance: string;
+  newExistingManagementFeeContributions: string;
   newExistingEmploymentStatus: string;
   newExistingHasRegularContributions: string;
   existingProductIdOverride?: number | null;
@@ -109,6 +111,8 @@ export function createNewProductAction({
   selectedSavingProduct,
   selectedExistingProduct,
   newExistingAccumulatedAmount,
+  newExistingManagementFeeBalance,
+  newExistingManagementFeeContributions,
   newExistingEmploymentStatus,
   newExistingHasRegularContributions,
   existingProductIdOverride,
@@ -135,6 +139,15 @@ export function createNewProductAction({
     ? Number(accumulatedRaw.replace(/,/g, ""))
     : null;
 
+  const mgmtBalanceRaw = newExistingManagementFeeBalance.trim();
+  const mgmtBalanceValue = mgmtBalanceRaw
+    ? Number(mgmtBalanceRaw.replace(/,/g, ""))
+    : null;
+  const mgmtContribRaw = newExistingManagementFeeContributions.trim();
+  const mgmtContribValue = mgmtContribRaw
+    ? Number(mgmtContribRaw.replace(/,/g, ""))
+    : null;
+
   const employmentStatus = newExistingEmploymentStatus.trim() || null;
   let hasRegularContributions: boolean | null = null;
   if (newExistingHasRegularContributions === "yes") {
@@ -155,8 +168,8 @@ export function createNewProductAction({
     yield1yr: selectedSavingProduct.yield1yr ?? null,
     yield3yr: selectedSavingProduct.yield3yr ?? null,
     personalNumber: null,
-    managementFeeBalance: null,
-    managementFeeContributions: null,
+    managementFeeBalance: mgmtBalanceValue,
+    managementFeeContributions: mgmtContribValue,
     accumulatedAmount: accumulatedValue,
     employmentStatus,
     hasRegularContributions,

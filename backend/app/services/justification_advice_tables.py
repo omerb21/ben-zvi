@@ -11,6 +11,21 @@ from app.models import Client, ExistingProduct, NewProduct
 INTEREST_RATE = 0.03
 
 
+def normalize_fund_type(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+
+    if text in {"גמל", "קופת גמל"}:
+        return "גמל"
+    if text in {"גמל להשקעה", "קופת גמל להשקעה"}:
+        return "גמל להשקעה"
+    if text in {"השתלמות", "קרן השתלמות"}:
+        return "השתלמות"
+
+    return text
+
+
 def years_to_67(birth: date) -> int:
     return max(0, 67 - (date.today().year - birth.year))
 
@@ -28,8 +43,10 @@ def fee_cost(balance: float | None, fee_pct: float | None, years: int) -> float:
 
 
 def has_replacement(existing_product: ExistingProduct) -> bool:
+    existing_type = normalize_fund_type(existing_product.fund_type)
     return any(
-        new.fund_type == existing_product.fund_type for new in existing_product.new_products
+        normalize_fund_type(new.fund_type) == existing_type
+        for new in existing_product.new_products
     )
 
 
@@ -51,12 +68,14 @@ def build_existing_row(client: Client, ex: ExistingProduct) -> Dict[str, Any]:
     ):
         fund_name = f"{fund_name} (מס' קופה: {ex.personal_number})"
 
+    norm_type = normalize_fund_type(ex.fund_type)
+
     return {
         "id": ex.id,
         "recommendation": "לבטל"
-        if ex.fund_type in ["גמל", "גמל להשקעה", "השתלמות"] and has_replacement(ex)
+        if norm_type in ["גמל", "גמל להשקעה", "השתלמות"] and has_replacement(ex)
         else "להשאיר",
-        "product_type": f"קופת {ex.fund_type}",
+        "product_type": f"קופת {norm_type}",
         "company_name": ex.company_name,
         "fund_name": fund_name,
         "track_name": fund_name,
@@ -94,10 +113,12 @@ def build_new_row(
     ):
         fund_name = f"{fund_name} (מס' קופה: {new.personal_number})"
 
+    norm_type = normalize_fund_type(new.fund_type)
+
     return {
         "id": new.id,
         "recommendation": "להצטרף",
-        "product_type": f"קופת {new.fund_type}",
+        "product_type": f"קופת {norm_type}",
         "company_name": new.company_name,
         "fund_name": fund_name,
         "track_name": fund_name,
@@ -189,10 +210,12 @@ def filter_pairs(client: Client) -> List[Tuple[ExistingProduct, List[NewProduct]
     result: List[Tuple[ExistingProduct, List[NewProduct]]] = []
 
     for existing in client.existing_products:
+        existing_type = normalize_fund_type(existing.fund_type)
         new_products = [
             np
             for np in client.new_products
-            if np.existing_product_id == existing.id and np.fund_type == existing.fund_type
+            if np.existing_product_id == existing.id
+            and normalize_fund_type(np.fund_type) == existing_type
         ]
         result.append((existing, new_products))
 
@@ -214,7 +237,7 @@ def build_tables(client: Client) -> List[List[Dict[str, Any]]]:
         )
 
         alternatives_rows: List[Dict[str, Any]] = []
-        if standalone_new.fund_type == "גמל":
+        if normalize_fund_type(standalone_new.fund_type) == "גמל":
             temp_existing = type(
                 "obj",
                 (object,),
@@ -250,7 +273,7 @@ def build_tables(client: Client) -> List[List[Dict[str, Any]]]:
             count = float(len(new_list))
             share_amount = total / count if count > 0 else 0.0
 
-        if ex.fund_type == "גמל":
+        if normalize_fund_type(ex.fund_type) == "גמל":
             if new_list:
                 existing_row = build_existing_row(client, ex)
                 existing_row["track_name"] = (
@@ -413,7 +436,7 @@ def build_coverage_table_rows(
         rows.append(make_row(existing, "להשאיר" if not new else "להצטרף"))
         if new:
             rows.append(make_row(new, "להצטרף"))
-        if existing.fund_type == "גמל" and add_alternatives:
+        if normalize_fund_type(existing.fund_type) == "גמל" and add_alternatives:
             for alt_row in STATIC_ROWS_COVERAGE:
                 rows.append(make_row(alt_row, alt_row["recommendation"]))
 
@@ -452,7 +475,8 @@ def build_coverage_tables(
                             new_products.append(new_product)
 
             add_alternatives = (
-                existing_product.fund_type == "גמל" and not alternatives_added
+                normalize_fund_type(existing_product.fund_type) == "גמל"
+                and not alternatives_added
             )
             if add_alternatives:
                 alternatives_added = True
@@ -477,10 +501,11 @@ def build_coverage_tables(
                 None,
                 product,
                 add_alternatives=(
-                    product.fund_type == "גמל" and not alternatives_added
+                    normalize_fund_type(product.fund_type) == "גמל"
+                    and not alternatives_added
                 ),
             )
-            if product.fund_type == "גמל":
+            if normalize_fund_type(product.fund_type) == "גמל":
                 alternatives_added = True
             coverage_tables.append(coverage_rows)
 

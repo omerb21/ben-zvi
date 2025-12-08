@@ -453,6 +453,8 @@ function JustificationPageRoot({
       selectedSavingProduct,
       selectedExistingProduct,
       newExistingAccumulatedAmount,
+      newExistingManagementFeeBalance,
+      newExistingManagementFeeContributions,
       newExistingEmploymentStatus,
       newExistingHasRegularContributions,
       existingProductIdOverride,

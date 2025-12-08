@@ -950,20 +950,62 @@ def download_client_packet_for_sign(
         return RedirectResponse(url=signed_packet_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     export_dir = justification_b1_service._get_client_export_dir(client)
-    packet_path = export_dir / request_obj.packet_filename
+    packet_filename = request_obj.packet_filename or f"packet_{client.id}.pdf"
+    packet_path = export_dir / packet_filename
+
+    pdf_bytes: bytes | None = None
 
     if not packet_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client packet PDF not found",
-        )
+        # The original packet file might have been lost (e.g. after a redeploy or filesystem reset).
+        # In that case we try to regenerate a fresh base packet so that existing signing links remain usable.
+        try:
+            pdf_bytes, new_filename = justification_packet_service.generate_client_packet_pdf(
+                db, client, generate_missing=True
+            )
+        except ValueError as exc:
+            message = str(exc)
+            if message == "NO_PDFS_FOR_CLIENT_PACKET":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No PDFs available to build client packet",
+                )
+            if message == "NO_PAGES_IN_CLIENT_PACKET":
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Client packet PDF contains no pages",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Client packet generation failed",
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Client packet generation failed",
+            )
+
+        # Persist regenerated filename on the signature request so future calls use the new packet file.
+        if new_filename and new_filename != request_obj.packet_filename:
+            request_obj.packet_filename = new_filename
+            db.commit()
+            db.refresh(request_obj)
+
+        packet_path = export_dir / new_filename
+
+        if not packet_path.is_file():
+            # Safeguard: if for some reason the regenerated file is not present, fall back to 404.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Client packet PDF not found",
+            )
 
     id_part = client.id_number or str(client.id)
     ascii_id_part = "".join(ch for ch in id_part if ch.isascii() and ch.isalnum()) or str(client.id)
     ascii_filename = f"packet_{ascii_id_part}.pdf"
 
     try:
-        pdf_bytes = packet_path.read_bytes()
+        if pdf_bytes is None:
+            pdf_bytes = packet_path.read_bytes()
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -423,7 +423,7 @@ def sync_client_products_from_crm(db: Session, client_id: int) -> int:
             "yield_3yr": sp.yield_3yr if sp else None,
             "personal_number": personal_number,
             "accumulated_amount": amount,
-            "management_fee_balance": amount,
+            "management_fee_balance": None,
             "management_fee_contributions": None,
             "employment_status": None,
             "has_regular_contributions": None,
@@ -496,7 +496,14 @@ def sync_client_products_from_crm(db: Session, client_id: int) -> int:
         if target_product:
             # Update
             target_product.accumulated_amount = total_amount
-            target_product.management_fee_balance = total_amount
+            # target_product.management_fee_balance = total_amount
+
+            # Self-healing: fix data corruption from previous sync bug where fee was set to amount.
+            # If fee is suspiciously large (> 100) or equals the amount, reset it to None.
+            current_fee = target_product.management_fee_balance or 0.0
+            if current_fee > 100 and (current_fee == total_amount or current_fee == target_product.accumulated_amount):
+                target_product.management_fee_balance = None
+            
             # Only update other fields if they are seemingly valid in the new data
             if best_item["company_name"]: target_product.company_name = best_item["company_name"]
             if best_item["fund_name"]: target_product.fund_name = best_item["fund_name"]
@@ -516,7 +523,7 @@ def sync_client_products_from_crm(db: Session, client_id: int) -> int:
                 yield_1yr=best_item["yield_1yr"],
                 yield_3yr=best_item["yield_3yr"],
                 personal_number=best_item["personal_number"], # Use the raw one from the best item
-                management_fee_balance=total_amount,
+                management_fee_balance=None,
                 management_fee_contributions=best_item["management_fee_contributions"],
                 accumulated_amount=total_amount,
                 employment_status=best_item["employment_status"],

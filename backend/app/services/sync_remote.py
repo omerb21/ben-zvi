@@ -215,9 +215,17 @@ def _sync_existing_products_for_client(db: Session, local_client: Client, remote
         row.fund_code = item.get("fundCode") or ""
         row.yield_1yr = item.get("yield1yr")
         row.yield_3yr = item.get("yield3yr")
-        row.management_fee_balance = item.get("managementFeeBalance")
+        
+        # Sanitize management fee: if it equals the accumulated amount (corruption), reset to None
+        raw_fee = item.get("managementFeeBalance")
+        raw_amount = item.get("accumulatedAmount")
+        if raw_fee is not None and raw_amount is not None and raw_fee > 100 and abs(raw_fee - raw_amount) < 1.0:
+             row.management_fee_balance = None
+        else:
+             row.management_fee_balance = raw_fee
+
         row.management_fee_contributions = item.get("managementFeeContributions")
-        row.accumulated_amount = item.get("accumulatedAmount")
+        row.accumulated_amount = raw_amount
         row.employment_status = item.get("employmentStatus")
         row.has_regular_contributions = item.get("hasRegularContributions")
 
