@@ -953,9 +953,20 @@ def download_client_packet_for_sign(
     packet_filename = request_obj.packet_filename or f"packet_{client.id}.pdf"
     packet_path = export_dir / packet_filename
 
+    is_edited_packet = packet_filename.endswith("_edited.pdf")
+
     pdf_bytes: bytes | None = None
 
     if not packet_path.is_file():
+        if is_edited_packet:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=(
+                    "Edited client packet PDF not found for this signing request; "
+                    "please regenerate the edited packet and create a new signing link"
+                ),
+            )
+
         # The original packet file might have been lost (e.g. after a redeploy or filesystem reset).
         # In that case we try to regenerate a fresh base packet so that existing signing links remain usable.
         try:
