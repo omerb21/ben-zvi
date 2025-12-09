@@ -66,6 +66,7 @@ def _get_b1_pdf_candidates(client: Client) -> List[Path]:
 def _get_kit_pdf_paths_for_client(
     db: Session,
     client: Client,
+    generate_missing: bool = False,
 ) -> List[Path]:
     """החזרת קובצי קיט קיימים ללקוח, אחד לכל קופה קיימת לכל היותר.
 
@@ -99,6 +100,14 @@ def _get_kit_pdf_paths_for_client(
         new_product_id = product.id
         edited_path = export_dir / f"kit_{new_product_id}_edited.pdf"
         auto_path = export_dir / f"kit_{client.id}_{new_product_id}.pdf"
+
+        if generate_missing and not edited_path.is_file() and not auto_path.is_file():
+            try:
+                justification_kits_service.generate_kit_pdf_for_new_product(
+                    db, client.id, new_product_id
+                )
+            except Exception:
+                pass
 
         if edited_path.is_file():
             kit_paths.append(edited_path)
@@ -231,12 +240,19 @@ def generate_client_packet_pdf(
 
     # 2. B1 (edited/base) – לוקחים גרסה אחת בלבד לחבילה, אם קיימת
     b1_candidates = _get_b1_pdf_candidates(client)
+    if not b1_candidates and generate_missing:
+        try:
+            justification_b1_service.generate_b1_pdf_for_client(client)
+            b1_candidates = _get_b1_pdf_candidates(client)
+        except Exception:
+            pass
+
     if b1_candidates:
         # העדפה ראשונה לערוך (edited), אחרת בסיסי
         parts.append(b1_candidates[0])
 
     # 3. Kits – קיטים קיימים בלבד, אחד לכל קופה קיימת לכל היותר
-    kit_paths = _get_kit_pdf_paths_for_client(db, client)
+    kit_paths = _get_kit_pdf_paths_for_client(db, client, generate_missing=generate_missing)
     parts.extend(kit_paths)
 
     # אם אין אף מסמך – זו שגיאה לוגית

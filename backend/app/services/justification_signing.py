@@ -117,6 +117,11 @@ def create_packet_signature_request(db: Session, client_id: int) -> ClientSignat
     else:
         raise ValueError("CLIENT_PACKET_PDF_NOT_FOUND")
 
+    db.query(ClientSignatureRequest).filter(
+        ClientSignatureRequest.client_id == client_id,
+        ClientSignatureRequest.status == "pending"
+    ).delete()
+
     token = secrets.token_urlsafe(32)
 
     request = ClientSignatureRequest(
