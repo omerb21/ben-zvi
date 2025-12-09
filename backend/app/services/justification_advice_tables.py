@@ -53,10 +53,21 @@ def has_replacement(existing_product: ExistingProduct) -> bool:
 def build_existing_row(client: Client, ex: ExistingProduct) -> Dict[str, Any]:
     yrs = years_to_67(client.birth_date)
     accumulated = ex.accumulated_amount or 0.0
+    raw_fee_pct = ex.management_fee_balance
+    if (
+        raw_fee_pct is not None
+        and accumulated
+        and raw_fee_pct > 100
+        and abs(raw_fee_pct - accumulated) < 1.0
+    ):
+        safe_fee_pct = None
+    else:
+        safe_fee_pct = raw_fee_pct
+
     fv67 = fv(balance=accumulated, years=yrs)
     fee = fee_cost(
         balance=accumulated,
-        fee_pct=ex.management_fee_balance / 100 if ex.management_fee_balance else 0,
+        fee_pct=(safe_fee_pct / 100.0) if safe_fee_pct else 0,
         years=yrs,
     )
 
@@ -83,7 +94,7 @@ def build_existing_row(client: Client, ex: ExistingProduct) -> Dict[str, Any]:
         "yield_1yr": f"{ex.yield_1yr or ''}%" if ex.yield_1yr is not None else "אין נתון",
         "yield_3yr": f"{ex.yield_3yr or ''}%" if ex.yield_3yr is not None else "אין נתון",
         "mgmt_fee_dep": ex.management_fee_contributions or "",
-        "mgmt_fee_bal": ex.management_fee_balance or "",
+        "mgmt_fee_bal": safe_fee_pct or "",
         "balance": f"{accumulated:,.0f}" if accumulated else "לא רלוונטי",
         "forecast": f"גיל פרישה 67 הון צפוי ללא הפקדות {fv67:,.0f}₪ דמי ניהול של {fee:,.0f}₪",
         "cost": "",
