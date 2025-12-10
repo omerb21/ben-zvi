@@ -8,6 +8,7 @@ from typing import Optional
 
 from pdfrw import PageMerge, PdfReader, PdfWriter
 from pypdf import PdfReader as PyPdfReader, PdfWriter as PyPdfWriter
+from pypdf.generic import NameObject
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -531,6 +532,65 @@ def apply_signature_to_sig_fields(
 
 
 def flatten_form_fields(source_pdf_bytes: bytes) -> bytes:
-    # החזרה למצב הקודם: לא משטחים בפועל את ה-PDF, רק מחזירים את הקובץ המקורי.
-    # זה מוודא שהחתימה פועלת כמו בעבר, ללא שינוי באופן הרינדור של כרום/Adobe.
-    return source_pdf_bytes
+    """"משטיח" את שדות החתימה בלבד בקובץ החתום.
+
+    הרעיון כאן הוא:
+    - להשאיר את שדות הטופס האחרים (טקסט, צ'קבוקסים וכו') כפי שהם.
+    - להסיר מהעמודים את ה-annotations של שדות החתימה (FT=/Sig או שם שמזוהה
+      כחתימה), אחרי שכבר ציירנו מעליהם את תמונת החתימה.
+
+    בצורה זו, הלקוח יראה את החתימה כתמונה סטטית על גבי הטופס, בלי ששדה
+    חתימה אינטראקטיבי "ריק" יסתיר אותה בחלק מהצופים (Chrome/Adobe).
+    """
+
+    if not source_pdf_bytes:
+        return source_pdf_bytes
+
+    try:
+        reader = PyPdfReader(io.BytesIO(source_pdf_bytes))
+    except Exception:
+        # אם הקריאה נכשלה, לא לשנות את הקובץ.
+        return source_pdf_bytes
+
+    if not reader.pages:
+        return source_pdf_bytes
+
+    writer = PyPdfWriter()
+    writer.clone_document_from_reader(reader)
+
+    # עבור על כל העמודים והסר מהם annotations שהם שדות חתימה.
+    for page in writer.pages:
+        try:
+            annots = page.get("/Annots")
+            if not annots:
+                continue
+
+            new_annots = []
+            for annot_ref in annots:
+                try:
+                    # _is_signature_field יודע לבד להתמודד גם עם ref וגם עם object
+                    if _is_signature_field(annot_ref):
+                        continue
+                except Exception:
+                    # במקרה של בעיית קריאה בשדה, לא ננסה למחוק אותו.
+                    pass
+                new_annots.append(annot_ref)
+
+            if new_annots:
+                page[NameObject("/Annots")] = new_annots
+            else:
+                # אם אין יותר annotations בעמוד – מחק את המפתח לגמרי.
+                if "/Annots" in page:
+                    del page[NameObject("/Annots")]
+        except Exception:
+            # לא מפילים את כל התהליך על עמוד בעייתי אחד.
+            continue
+
+    out_buf = io.BytesIO()
+    try:
+        writer.write(out_buf)
+    except Exception:
+        # אם כתיבה נכשלה מכל סיבה, נחזיר את הקובץ המקורי.
+        return source_pdf_bytes
+
+    return out_buf.getvalue()
