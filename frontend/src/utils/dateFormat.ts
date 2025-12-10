@@ -2,27 +2,62 @@ export function isoToDmy(value: string | null | undefined): string {
   if (!value) {
     return "";
   }
+
   const text = String(value).trim();
-  if (text.length < 10) {
-    return text;
+  if (!text) {
+    return "";
   }
-  const year = text.slice(0, 4);
-  const month = text.slice(5, 7);
-  const day = text.slice(8, 10);
-  if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month) || !/^\d{2}$/.test(day)) {
-    return text;
-  }
-  const base = `${day}/${month}/${year}`;
 
-  // If there is a time component like YYYY-MM-DD HH:MM:SS, keep only HH:MM
-  if (text.length > 10) {
-    const timePart = text.slice(11, 16);
-    if (/^\d{2}:\d{2}$/.test(timePart)) {
-      return `${base} ${timePart}`;
+  // 1) תאריכים בפורמט ISO: YYYY-MM-DD או YYYY-MM-DD HH:MM:SS
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const base = `${day}/${month}/${year}`;
+
+    // אם יש רכיב שעה (HH:MM) נשאיר אותו בצד ימין
+    if (text.length > 10) {
+      const timePart = text.slice(11, 16);
+      if (/^\d{2}:\d{2}$/.test(timePart)) {
+        return `${base} ${timePart}`;
+      }
     }
+
+    return base;
   }
 
-  return base;
+  // 2) תמיכה בנתונים ישנים שנשמרו כ-MM/DD/YYYY –
+  //    ממיר אותם ל-DD/MM/YYYY כאשר זה חד-משמעי (חודש <= 12, יום > 12).
+  const legacyMatch = text.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/);
+  if (legacyMatch) {
+    const [, firstRaw, secondRaw, yearRaw] = legacyMatch;
+    const first = Number.parseInt(firstRaw, 10);
+    const second = Number.parseInt(secondRaw, 10);
+    const yearNum = Number.parseInt(yearRaw, 10);
+
+    if (
+      Number.isFinite(first) &&
+      Number.isFinite(second) &&
+      Number.isFinite(yearNum) &&
+      first >= 1 &&
+      first <= 12 &&
+      second >= 1 &&
+      second <= 31 &&
+      second > 12
+    ) {
+      // נניח שמדובר ב-MM/DD/YYYY ונחליף ל-DD/MM/YYYY
+      const yearStr = yearNum.toString().padStart(4, "0");
+      const monthStr = first.toString().padStart(2, "0");
+      const dayStr = second.toString().padStart(2, "0");
+      return `${dayStr}/${monthStr}/${yearStr}`;
+    }
+
+    // אם המבנה לא תואם לדפוס חד-משמעי של MM/DD/YYYY (למשל כבר DD/MM/YYYY
+    // או מקרה אמביוולנטי), נשאיר את הטקסט כפי שהוא.
+    return text;
+  }
+
+  // עבור כל שאר המקרים, לא ניגע בטקסט כדי לא לשבור נתונים לא צפויים.
+  return text;
 }
 
 export function dmyToIso(value: string | null | undefined): string | null {
