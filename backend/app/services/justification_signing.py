@@ -229,10 +229,14 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
             # be caught by the check below.
             pass
 
-    if not packet_path.is_file():
-        raise ValueError("CLIENT_PACKET_PDF_NOT_FOUND")
+    source_bytes: bytes | None = None
 
-    source_bytes = packet_path.read_bytes()
+    if packet_path.is_file():
+        source_bytes = packet_path.read_bytes()
+    elif getattr(request, "packet_pdf_data", None):
+        source_bytes = request.packet_pdf_data
+    else:
+        raise ValueError("CLIENT_PACKET_PDF_NOT_FOUND")
 
     # לחבילה ערוכה: הוסף חתימת לקוח לדפי ההנמקה (overlay)
     if packet_path != base_packet_path:
