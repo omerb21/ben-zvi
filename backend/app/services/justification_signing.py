@@ -209,18 +209,25 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
     except Exception:
         pass
 
+    # Decide whether we have an edited packet persisted in the DB.
+    use_db_packet_bytes = bool(getattr(request, "packet_pdf_data", None))
+
     # Determine which packet file we are signing.
-    if request.packet_filename:
+    # For edited packets that were persisted to the DB, we treat them as
+    # the edited packet regardless of whether the file still exists on disk.
+    if use_db_packet_bytes:
+        packet_path = edited_packet_path
+    elif request.packet_filename:
         packet_path = export_dir / request.packet_filename
     elif edited_packet_path.is_file():
         packet_path = edited_packet_path
     else:
         packet_path = base_packet_path
 
-    # If we are signing the auto-generated base packet, rebuild it now
-    # so that it reflects the latest advice/B1/kits, including the
-    # newly signed advice PDF.
-    if packet_path == base_packet_path:
+    # If we are signing the auto-generated base packet (no DB-backed
+    # edited packet), rebuild it now so that it reflects the latest
+    # advice/B1/kits, including the newly signed advice PDF.
+    if not use_db_packet_bytes and packet_path == base_packet_path:
         try:
             justification_packet_service.generate_client_packet_pdf(db, client, generate_missing=True)
         except Exception:
@@ -231,42 +238,34 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
 
     source_bytes: bytes | None = None
 
-    if packet_path.is_file():
-        source_bytes = packet_path.read_bytes()
-    elif getattr(request, "packet_pdf_data", None):
+    if use_db_packet_bytes:
         source_bytes = request.packet_pdf_data
+    elif packet_path.is_file():
+        source_bytes = packet_path.read_bytes()
     else:
         raise ValueError("CLIENT_PACKET_PDF_NOT_FOUND")
 
+    is_edited_packet = use_db_packet_bytes or packet_path != base_packet_path
+
     # לחבילה ערוכה: הוסף חתימת לקוח לדפי ההנמקה (overlay)
-    if packet_path != base_packet_path:
+    if is_edited_packet:
         advice_path = justification_packet_service._get_advice_pdf_path(client)
         if advice_path.is_file():
             try:
-                advice_bytes = advice_path.read_bytes()
-                advice_reader = PyPdfReader(io.BytesIO(advice_bytes))
+                advice_reader = PyPdfReader(io.BytesIO(advice_path.read_bytes()))
                 advice_page_count = len(advice_reader.pages)
-
-                packet_reader = PyPdfReader(io.BytesIO(source_bytes))
-                writer = PyPdfWriter()
-
-                for page in advice_reader.pages:
-                    writer.add_page(page)
-
-                total_pages = len(packet_reader.pages)
-                for idx in range(advice_page_count, total_pages):
-                    writer.add_page(packet_reader.pages[idx])
-
-                out_buf = io.BytesIO()
-                writer.write(out_buf)
-                source_bytes = out_buf.getvalue()
+                source_bytes = _add_signature_overlay_to_advice_pages(
+                    source_bytes,
+                    signature_data_url,
+                    advice_page_count,
+                )
             except Exception:
                 pass
 
     # לחבילה ערוכה: השתמש בחבילה המקורית כ-reference כדי לקבל מיקומי חתימות
     # שאולי אבדו בעריכה ב-Adobe
     reference_pdf_bytes = None
-    if packet_path != base_packet_path and base_packet_path.is_file():
+    if is_edited_packet and base_packet_path.is_file():
         try:
             reference_pdf_bytes = base_packet_path.read_bytes()
         except Exception:
