@@ -262,14 +262,30 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
             except Exception:
                 pass
 
-    # לחבילה ערוכה: השתמש בחבילה המקורית כ-reference כדי לקבל מיקומי חתימות
-    # שאולי אבדו בעריכה ב-Adobe
+    # לחבילה ערוכה: השתמש תמיד בחבילה המקורית כ-reference כדי לקבל מיקומי
+    # חתימות שאולי אבדו בעריכה ב-Adobe. אם קובץ החבילה המקורי לא קיים יותר
+    # (למשל אחרי אתחול שרת או מחיקה של תיקיית הייצוא), נבנה אותו מחדש
+    # מגזרת הטפסים (הנמקה, B1, קיטים) לפני הקריאה.
     reference_pdf_bytes = None
-    if is_edited_packet and base_packet_path.is_file():
-        try:
-            reference_pdf_bytes = base_packet_path.read_bytes()
-        except Exception:
-            pass
+    if is_edited_packet:
+        if not base_packet_path.is_file():
+            try:
+                # בונה מחדש את החבילה הבסיסית לקבצי הייצוא בלבד; הקובץ עליו
+                # חותמים בפועל נשאר החבילה הערוכה/העלאה מהלקוח.
+                justification_packet_service.generate_client_packet_pdf(
+                    db,
+                    client,
+                    generate_missing=True,
+                )
+            except Exception:
+                # אם הבנייה נכשלת, נמשיך פשוט בלי reference – כמו קודם אחרי כשל.
+                pass
+
+        if base_packet_path.is_file():
+            try:
+                reference_pdf_bytes = base_packet_path.read_bytes()
+            except Exception:
+                reference_pdf_bytes = None
 
     signed_bytes = justification_forms_service.apply_signature_to_sig_fields(
         source_bytes,
