@@ -243,13 +243,23 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
         advice_path = justification_packet_service._get_advice_pdf_path(client)
         if advice_path.is_file():
             try:
-                advice_reader = PyPdfReader(io.BytesIO(advice_path.read_bytes()))
+                advice_bytes = advice_path.read_bytes()
+                advice_reader = PyPdfReader(io.BytesIO(advice_bytes))
                 advice_page_count = len(advice_reader.pages)
-                source_bytes = _add_signature_overlay_to_advice_pages(
-                    source_bytes,
-                    signature_data_url,
-                    advice_page_count,
-                )
+
+                packet_reader = PyPdfReader(io.BytesIO(source_bytes))
+                writer = PyPdfWriter()
+
+                for page in advice_reader.pages:
+                    writer.add_page(page)
+
+                total_pages = len(packet_reader.pages)
+                for idx in range(advice_page_count, total_pages):
+                    writer.add_page(packet_reader.pages[idx])
+
+                out_buf = io.BytesIO()
+                writer.write(out_buf)
+                source_bytes = out_buf.getvalue()
             except Exception:
                 pass
 
