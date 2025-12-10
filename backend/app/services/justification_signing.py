@@ -110,8 +110,14 @@ def create_packet_signature_request(db: Session, client_id: int) -> ClientSignat
 
     export_dir, base_packet_path, edited_packet_path, _ = _get_packet_paths_for_client(client)
 
+    packet_pdf_data = None
+
     if edited_packet_path.is_file():
         packet_path = edited_packet_path
+        try:
+            packet_pdf_data = edited_packet_path.read_bytes()
+        except Exception:
+            packet_pdf_data = None
     elif base_packet_path.is_file():
         packet_path = base_packet_path
     else:
@@ -128,7 +134,9 @@ def create_packet_signature_request(db: Session, client_id: int) -> ClientSignat
         client_id=client.id,
         token=token,
         packet_filename=packet_path.name,
+        signed_packet_filename=None,
         status="pending",
+        packet_pdf_data=packet_pdf_data,
     )
     db.add(request)
     db.commit()

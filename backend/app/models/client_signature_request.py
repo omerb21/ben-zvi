@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, LargeBinary
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,6 +21,7 @@ class ClientSignatureRequest(Base):
     token = Column(String(128), nullable=False, unique=True, index=True)
     packet_filename = Column(String(255), nullable=False)
     signed_packet_filename = Column(String(255), nullable=True)
+    packet_pdf_data = Column(LargeBinary, nullable=True)
 
     status = Column(String(32), nullable=False, default="pending")
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
