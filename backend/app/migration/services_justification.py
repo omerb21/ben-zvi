@@ -14,6 +14,45 @@ from app.migration.legacy_justification import (
 )
 
 
+def _build_clients_by_id_number(db: Session) -> dict[str, Client]:
+    clients_by_id_number: dict[str, Client] = {}
+    for existing in db.query(Client).all():
+        key_source = existing.id_number or existing.id_number_raw
+        key = normalize_id_number(key_source)
+        if not key:
+            continue
+        if key not in clients_by_id_number:
+            clients_by_id_number[key] = existing
+    return clients_by_id_number
+
+
+def _build_client_full_name(first_name: str | None, last_name: str | None, fallback: str) -> str:
+    return ((first_name or "") + " " + (last_name or "")).strip() or fallback
+
+
+def _create_client_from_legacy(
+    legacy_client: JustClient,
+    *,
+    raw_id: str | None,
+    id_number: str,
+    full_name: str,
+) -> Client:
+    return Client(
+        id_number_raw=raw_id,
+        id_number=id_number,
+        full_name=full_name,
+        first_name=legacy_client.first_name,
+        last_name=legacy_client.last_name,
+        gender=legacy_client.gender,
+        marital_status=legacy_client.marital_status,
+        email=legacy_client.email,
+        phone=legacy_client.phone,
+        address_city=legacy_client.city,
+        address_street=legacy_client.street,
+        address_postal_code=legacy_client.zip_code,
+    )
+
+
 def migrate_justification_clients_only(
     db: Session,
     justification_url: str | None = None,
@@ -33,14 +72,7 @@ def migrate_justification_clients_only(
     updated_clients = 0
 
     try:
-        clients_by_id_number: dict[str, Client] = {}
-        for existing in db.query(Client).all():
-            key_source = existing.id_number or existing.id_number_raw
-            key = normalize_id_number(key_source)
-            if not key:
-                continue
-            if key not in clients_by_id_number:
-                clients_by_id_number[key] = existing
+        clients_by_id_number = _build_clients_by_id_number(db)
 
         legacy_clients = source_session.query(JustClient).all()
 
@@ -50,28 +82,20 @@ def migrate_justification_clients_only(
             if not id_number:
                 continue
 
-            full_name = (
-                ((legacy_client.first_name or "") + " " + (legacy_client.last_name or ""))
-                .strip()
-                or id_number
+            full_name = _build_client_full_name(
+                legacy_client.first_name,
+                legacy_client.last_name,
+                id_number,
             )
 
             client = clients_by_id_number.get(id_number)
 
             if client is None:
-                client = Client(
-                    id_number_raw=raw_id,
+                client = _create_client_from_legacy(
+                    legacy_client,
+                    raw_id=raw_id,
                     id_number=id_number,
                     full_name=full_name,
-                    first_name=legacy_client.first_name,
-                    last_name=legacy_client.last_name,
-                    gender=legacy_client.gender,
-                    marital_status=legacy_client.marital_status,
-                    email=legacy_client.email,
-                    phone=legacy_client.phone,
-                    address_city=legacy_client.city,
-                    address_street=legacy_client.street,
-                    address_postal_code=legacy_client.zip_code,
                 )
                 db.add(client)
                 db.flush()
@@ -142,14 +166,7 @@ def migrate_justification(db: Session, justification_url: str | None = None) -> 
     created_form_instances = 0
 
     try:
-        clients_by_id_number: dict[str, Client] = {}
-        for client in db.query(Client).all():
-            key_source = client.id_number or client.id_number_raw
-            key = normalize_id_number(key_source)
-            if not key:
-                continue
-            if key not in clients_by_id_number:
-                clients_by_id_number[key] = client
+        clients_by_id_number = _build_clients_by_id_number(db)
 
         legacy_to_new_client_id: dict[int, int] = {}
 
@@ -160,24 +177,20 @@ def migrate_justification(db: Session, justification_url: str | None = None) -> 
             if not id_number:
                 continue
 
-            full_name = ((legacy_client.first_name or "") + " " + (legacy_client.last_name or "")).strip() or id_number
+            full_name = _build_client_full_name(
+                legacy_client.first_name,
+                legacy_client.last_name,
+                id_number,
+            )
 
             client = clients_by_id_number.get(id_number)
 
             if client is None:
-                client = Client(
-                    id_number_raw=raw_id,
+                client = _create_client_from_legacy(
+                    legacy_client,
+                    raw_id=raw_id,
                     id_number=id_number,
                     full_name=full_name,
-                    first_name=legacy_client.first_name,
-                    last_name=legacy_client.last_name,
-                    gender=legacy_client.gender,
-                    marital_status=legacy_client.marital_status,
-                    email=legacy_client.email,
-                    phone=legacy_client.phone,
-                    address_city=legacy_client.city,
-                    address_street=legacy_client.street,
-                    address_postal_code=legacy_client.zip_code,
                 )
                 db.add(client)
                 db.flush()

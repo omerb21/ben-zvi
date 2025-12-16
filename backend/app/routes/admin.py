@@ -47,9 +47,55 @@ from app.services.crm import (
     disable_client_access,
 )
 from app.services.justification import clear_justification_data
+from app.utils.http_exceptions import raise_client_not_found as _raise_client_not_found
+from app.utils.uploads import read_upload_bytes as _read_upload_bytes
 
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+def _ensure_client_or_404(client: Client | None) -> Client:
+    if not client:
+        _raise_client_not_found()
+    return client
+
+
+async def _read_upload_or_400(file: UploadFile, *, empty_detail: str) -> bytes:
+    contents = await _read_upload_bytes(file)
+    if not contents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=empty_detail,
+        )
+    return contents
+
+
+def _normalize_client_pin_or_422(raw_pin: str | None) -> str | None:
+    if raw_pin is None:
+        return None
+
+    value = raw_pin.strip()
+    if not value:
+        return None
+
+    if not re.fullmatch(r"\d{6}", value):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="clientPin must be a 6-digit numeric code",
+        )
+
+    return value
+
+
+def _count_rows(db: Session, model, where=None) -> int:
+    query = db.query(model)
+    if where is not None:
+        query = query.filter(where)
+    return query.count()
+
+
+def _get_result_count(result: dict, key: str) -> int:
+    return result.get(key, 0)
 
 
 @router.post("/migrate-mini-crm", response_model=MiniCrmMigrationResult)
@@ -62,9 +108,9 @@ def run_mini_crm_migration(db: Session = Depends(get_db)) -> MiniCrmMigrationRes
     """
     result = migrate_mini_crm(db)
     return MiniCrmMigrationResult(
-        createdClients=result.get("created_clients", 0),
-        reusedClients=result.get("reused_clients", 0),
-        createdSnapshots=result.get("created_snapshots", 0),
+        createdClients=_get_result_count(result, "created_clients"),
+        reusedClients=_get_result_count(result, "reused_clients"),
+        createdSnapshots=_get_result_count(result, "created_snapshots"),
     )
 
 
@@ -79,12 +125,12 @@ def run_justification_migration(
     """
     result = migrate_justification(db)
     return JustificationMigrationResult(
-        createdClients=result.get("created_clients", 0),
-        reusedClients=result.get("reused_clients", 0),
-        createdSavingProducts=result.get("created_saving_products", 0),
-        createdExistingProducts=result.get("created_existing_products", 0),
-        createdNewProducts=result.get("created_new_products", 0),
-        createdFormInstances=result.get("created_form_instances", 0),
+        createdClients=_get_result_count(result, "created_clients"),
+        reusedClients=_get_result_count(result, "reused_clients"),
+        createdSavingProducts=_get_result_count(result, "created_saving_products"),
+        createdExistingProducts=_get_result_count(result, "created_existing_products"),
+        createdNewProducts=_get_result_count(result, "created_new_products"),
+        createdFormInstances=_get_result_count(result, "created_form_instances"),
     )
 
 
@@ -101,9 +147,9 @@ def run_justification_clients_migration(
     """
     result = migrate_justification_clients_only(db)
     return JustificationClientsOnlyMigrationResult(
-        createdClients=result.get("created_clients", 0),
-        updatedClients=result.get("updated_clients", 0),
-        reusedClients=result.get("reused_clients", 0),
+        createdClients=_get_result_count(result, "created_clients"),
+        updatedClients=_get_result_count(result, "updated_clients"),
+        reusedClients=_get_result_count(result, "reused_clients"),
     )
 
 
@@ -135,10 +181,10 @@ def run_legacy_crm_clients_migration(
         ) from exc
 
     return LegacyCrmClientsImportResult(
-        createdClients=result.get("created_clients", 0),
-        updatedClients=result.get("updated_clients", 0),
-        reusedClients=result.get("reused_clients", 0),
-        rowsProcessed=result.get("rows_processed", 0),
+        createdClients=_get_result_count(result, "created_clients"),
+        updatedClients=_get_result_count(result, "updated_clients"),
+        reusedClients=_get_result_count(result, "reused_clients"),
+        rowsProcessed=_get_result_count(result, "rows_processed"),
     )
 
 
@@ -148,12 +194,7 @@ async def import_crm_excel(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> CrmExcelImportResult:
-    contents = await file.read()
-    if not contents:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Empty Excel file uploaded",
-        )
+    contents = await _read_upload_or_400(file, empty_detail="Empty Excel file uploaded")
     try:
         result = import_crm_from_excel(db, "", contents, snapshot_month, file.filename)
     except ValueError as exc:
@@ -170,13 +211,7 @@ async def import_gemelnet_xml(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> GemelNetImportResult:
-    contents = await file.read()
-    if not contents:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Empty XML file uploaded",
-        )
-
+    contents = await _read_upload_or_400(file, empty_detail="Empty XML file uploaded")
     result = import_saving_products_from_gemelnet_xml(db, contents)
     return GemelNetImportResult(**result)
 
@@ -205,12 +240,7 @@ def update_client_token(
     payload: ClientTokenUpdate,
     db: Session = Depends(get_db),
 ) -> ClientTokenUpdateResult:
-    client = set_client_token(db, client_id, payload.clientToken)
-    if not client:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found",
-        )
+    client = _ensure_client_or_404(set_client_token(db, client_id, payload.clientToken))
 
     return ClientTokenUpdateResult(clientId=client.id, clientToken=client.client_token)
 
@@ -221,29 +251,9 @@ def update_client_pin(
     payload: ClientPinUpdate,
     db: Session = Depends(get_db),
 ) -> ClientPinUpdateResult:
-    raw_pin = payload.clientPin
-    normalized_pin: str | None
+    normalized_pin = _normalize_client_pin_or_422(payload.clientPin)
 
-    if raw_pin is None:
-        normalized_pin = None
-    else:
-        value = raw_pin.strip()
-        if not value:
-            normalized_pin = None
-        else:
-            if not re.fullmatch(r"\d{6}", value):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="clientPin must be a 6-digit numeric code",
-                )
-            normalized_pin = value
-
-    client = set_client_pin(db, client_id, normalized_pin)
-    if not client:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found",
-        )
+    client = _ensure_client_or_404(set_client_pin(db, client_id, normalized_pin))
 
     return ClientPinUpdateResult(clientId=client.id, hasPin=bool(client.client_pin_hash))
 
@@ -258,10 +268,7 @@ def reset_client_credentials_endpoint(
 ) -> ClientCredentialsResetResult:
     client, token, pin = reset_client_credentials(db, client_id)
     if not client or token is None or pin is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found",
-        )
+        _raise_client_not_found()
 
     return ClientCredentialsResetResult(
         clientId=client.id,
@@ -278,12 +285,7 @@ def disable_client_access_endpoint(
     client_id: int,
     db: Session = Depends(get_db),
 ) -> ClientAccessDisableResult:
-    client = disable_client_access(db, client_id)
-    if not client:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found",
-        )
+    client = _ensure_client_or_404(disable_client_access(db, client_id))
 
     return ClientAccessDisableResult(clientId=client.id, disabled=True)
 
@@ -292,16 +294,18 @@ def disable_client_access_endpoint(
 def get_database_stats(db: Session = Depends(get_db)) -> DatabaseStatsResult:
     """Get basic database statistics for admin dashboard."""
     return DatabaseStatsResult(
-        totalClients=db.query(Client).count(),
-        totalSnapshots=db.query(Snapshot).count(),
-        totalExistingProducts=db.query(ExistingProduct).count(),
-        totalNewProducts=db.query(NewProduct).count(),
-        totalFormInstances=db.query(FormInstance).count(),
-        totalBeneficiaries=db.query(ClientBeneficiary).count(),
-        totalSignatureRequests=db.query(ClientSignatureRequest).count(),
-        pendingSignatureRequests=db.query(ClientSignatureRequest).filter(
-            ClientSignatureRequest.status == "pending"
-        ).count(),
+        totalClients=_count_rows(db, Client),
+        totalSnapshots=_count_rows(db, Snapshot),
+        totalExistingProducts=_count_rows(db, ExistingProduct),
+        totalNewProducts=_count_rows(db, NewProduct),
+        totalFormInstances=_count_rows(db, FormInstance),
+        totalBeneficiaries=_count_rows(db, ClientBeneficiary),
+        totalSignatureRequests=_count_rows(db, ClientSignatureRequest),
+        pendingSignatureRequests=_count_rows(
+            db,
+            ClientSignatureRequest,
+            where=(ClientSignatureRequest.status == "pending"),
+        ),
     )
 
 

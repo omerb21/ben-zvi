@@ -1,5 +1,6 @@
 import React, { type ChangeEvent, useMemo, useState } from "react";
 import type { SavingProduct } from "../api/justificationApi";
+import { getCoreFundCode } from "../utils/fundCode";
 
 type Props = {
   savingProducts: SavingProduct[];
@@ -53,11 +54,7 @@ function JustificationMarketDashboard({
 
     // Extract the core fund code from formats like "658-274-196980 (6077380)"
     const extractCoreFundCode = (fullCode: string): string => {
-      const match = fullCode.match(/\((\d+)\)/);
-      if (match) {
-        return match[1];
-      }
-      return fullCode.trim();
+      return getCoreFundCode(fullCode);
     };
 
     savingProducts.forEach((product) => {

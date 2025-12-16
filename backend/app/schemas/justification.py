@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class SavingProductRead(BaseModel):
@@ -14,8 +14,7 @@ class SavingProductRead(BaseModel):
     riskLevel: Optional[int] = None
     guaranteedReturn: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SavingProductCreate(BaseModel):
@@ -46,8 +45,7 @@ class ExistingProductRead(BaseModel):
     hasRegularContributions: Optional[bool] = None
     isVirtual: Optional[bool] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ExistingProductCreate(BaseModel):
@@ -104,8 +102,7 @@ class NewProductRead(NewProductBase):
     clientId: int
     existingProductId: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FormInstanceBase(BaseModel):
@@ -123,8 +120,7 @@ class FormInstanceRead(FormInstanceBase):
     id: int
     newProductId: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FormOverlayPayload(BaseModel):

@@ -25,22 +25,24 @@ def _iso_or_none(value: Optional[date]) -> Optional[str]:
         return None
 
 
+def _to_beneficiary_read(b) -> ClientBeneficiaryRead:
+    return ClientBeneficiaryRead(
+        id=b.id,
+        index=b.index,
+        firstName=b.first_name or "",
+        lastName=b.last_name or "",
+        idNumber=b.id_number or "",
+        birthDate=_iso_or_none(b.birth_date) or "",
+        address=b.address or "",
+        relation=b.relation or "",
+        percentage=float(b.percentage or 0.0),
+    )
+
+
 def to_client_read(client: Client) -> ClientRead:
     beneficiaries: List[ClientBeneficiaryRead] = []
     for b in sorted(getattr(client, "beneficiaries", []) or [], key=lambda x: x.index or 0):
-        beneficiaries.append(
-            ClientBeneficiaryRead(
-                id=b.id,
-                index=b.index,
-                firstName=b.first_name or "",
-                lastName=b.last_name or "",
-                idNumber=b.id_number or "",
-                birthDate=_iso_or_none(b.birth_date) or "",
-                address=b.address or "",
-                relation=b.relation or "",
-                percentage=float(b.percentage or 0.0),
-            )
-        )
+        beneficiaries.append(_to_beneficiary_read(b))
 
     return ClientRead(
         id=client.id,

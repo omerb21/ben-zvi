@@ -4,12 +4,15 @@ Tests for admin endpoints including database stats.
 import pytest
 
 
+pytestmark = pytest.mark.anyio
+
+
 class TestAdminStats:
     """Test admin statistics endpoint."""
 
-    def test_get_stats_empty_db(self, client):
+    async def test_get_stats_empty_db(self, client):
         """Test stats endpoint on empty database."""
-        response = client.get("/api/v1/admin/stats")
+        response = await client.get("/api/v1/admin/stats")
         assert response.status_code == 200
         data = response.json()
         assert data["totalClients"] == 0
@@ -21,10 +24,10 @@ class TestAdminStats:
         assert data["totalSignatureRequests"] == 0
         assert data["pendingSignatureRequests"] == 0
 
-    def test_get_stats_with_data(self, client):
+    async def test_get_stats_with_data(self, client):
         """Test stats endpoint after creating some data."""
         # Create a client
-        client.post(
+        await client.post(
             "/api/v1/crm/clients",
             json={
                 "idNumber": "123456789",
@@ -33,7 +36,7 @@ class TestAdminStats:
             }
         )
 
-        response = client.get("/api/v1/admin/stats")
+        response = await client.get("/api/v1/admin/stats")
         assert response.status_code == 200
         data = response.json()
         assert data["totalClients"] == 1

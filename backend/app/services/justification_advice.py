@@ -17,46 +17,24 @@ from app.models import Client, ExistingProduct, NewProduct
 from app.services import justification_b1 as justification_b1_service
 from app.services import justification_forms as justification_forms_service
 from app.services import justification_advice_tables as advice_tables_service
+from app.services import justification_advice_render as _advice_render
+from app.services import justification_advice_pdf as _advice_pdf
 from app.services.justification_kits import _fmt_date as _fmt_date_for_advice
+from app.utils.filepaths import get_client_justification_filename
+from app.utils.paths import get_backend_root as _get_backend_root
+from app.utils.fs import ensure_dir as _ensure_dir
 
 
 def _to_hebrew_marital_status(value: str | None) -> str:
-    text = (value or "").strip()
-    if not text:
-        return ""
-
-    lowered = text.lower()
-    if lowered in {"single", "unmarried"}:
-        return "רווק/ה"
-    if lowered == "married":
-        return "נשוי/ה"
-    if lowered == "divorced":
-        return "גרוש/ה"
-    if lowered in {"widowed", "widow", "widower"}:
-        return "אלמן/ה"
-
-    return text
+    return _advice_render._to_hebrew_marital_status(value)
 
 
 def _derive_employment_status_he(client: Client) -> str:
-    # Prefer explicit flags on the unified Client model. If none apply, return
-    # an empty string so the template can show its Hebrew fallback.
-    try:
-        if getattr(client, "self_employed", False):
-            return "עצמאי"
-        if getattr(client, "current_employer_exists", False):
-            return "שכיר"
-    except Exception:
-        return ""
-
-    return ""
+    return _advice_render._derive_employment_status_he(client)
 
 
 def _derive_insurance_needs_he(_client: Client) -> str:
-    # Currently there is no structured field for insurance needs on Client.
-    # Return an empty string so the template can substitute a Hebrew fallback
-    # ("לא צוין").
-    return ""
+    return _advice_render._derive_insurance_needs_he(_client)
 
 
 # Cache for static resources - loaded once at module level
@@ -68,273 +46,64 @@ _WKHTMLTOPDF_CMD: Optional[str] = None
 _WKHTMLTOPDF_CHECKED = False
 
 
+def _get_client_export_dir(client: Client) -> Path:
+    return _advice_render._get_client_export_dir(client)
+
+
+def _get_advice_pdf_output_path(client: Client) -> Path:
+    return _advice_pdf._get_advice_pdf_output_path(client)
+
+
+def _encode_file_as_data_url(path: Path, mime_type: str) -> str:
+    return _advice_render._encode_file_as_data_url(path, mime_type)
+
+
+def _safe_encode_file_as_data_url(path: Path, mime_type: str, *, log_message: str) -> str:
+    return _advice_render._safe_encode_file_as_data_url(path, mime_type, log_message=log_message)
+
+
 def _get_templates_env() -> Environment:
     global _TEMPLATES_ENV
-    if _TEMPLATES_ENV is not None:
-        return _TEMPLATES_ENV
-    
-    base_dir = Path(__file__).resolve().parent.parent
-    templates_dir = base_dir / "templates"
-    env = Environment(
-        loader=FileSystemLoader(str(templates_dir)),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-
-    def _url_for(endpoint: str, filename: str) -> str:
-        if endpoint == "static":
-            return f"/static/{filename}"
-        return filename
-
-    env.globals["url_for"] = _url_for
+    env = _advice_render._get_templates_env()
     _TEMPLATES_ENV = env
     return env
 
 
 def _load_static_resources():
-    """Load static resources (logo, signature) once and cache them."""
     global _LOGO_DATA_URL, _SIGNATURE_DATA_URL, _STATIC_RESOURCES_LOADED
-    
-    if _STATIC_RESOURCES_LOADED:
-        return _LOGO_DATA_URL, _SIGNATURE_DATA_URL
-    
-    base_dir = Path(__file__).resolve().parent.parent
-    
-    # Load logo
-    logo_path = base_dir / "static" / "logo.png"
-    try:
-        if logo_path.is_file():
-            logo_bytes = logo_path.read_bytes()
-            logo_b64 = base64.b64encode(logo_bytes).decode("ascii")
-            _LOGO_DATA_URL = f"data:image/png;base64,{logo_b64}"
-    except Exception:
-        _LOGO_DATA_URL = ""
-    
-    # Load signature
-    primary_sign_path = base_dir / "static" / "signature.jpg"
-    fallback_sign_path = base_dir / "static" / "sign.jpg"
-    try:
-        sign_path = primary_sign_path if primary_sign_path.is_file() else fallback_sign_path
-        if sign_path.is_file():
-            sign_bytes = sign_path.read_bytes()
-            sign_b64 = base64.b64encode(sign_bytes).decode("ascii")
-            _SIGNATURE_DATA_URL = f"data:image/jpeg;base64,{sign_b64}"
-    except Exception:
-        _SIGNATURE_DATA_URL = ""
-    
-    _STATIC_RESOURCES_LOADED = True
-    return _LOGO_DATA_URL or "", _SIGNATURE_DATA_URL or ""
+    logo, signature = _advice_render._load_static_resources()
+    _LOGO_DATA_URL = _advice_render._LOGO_DATA_URL
+    _SIGNATURE_DATA_URL = _advice_render._SIGNATURE_DATA_URL
+    _STATIC_RESOURCES_LOADED = _advice_render._STATIC_RESOURCES_LOADED
+    return logo, signature
+
+
+def _load_client_signature_data_url(client: Client) -> str:
+    return _advice_render._load_client_signature_data_url(client)
+
+
+def _get_replaced_existing_ids(existing_products_list, new_products_list) -> set:
+    return _advice_render._get_replaced_existing_ids(existing_products_list, new_products_list)
 
 
 def build_advice_html(db: Session, client: Client, include_print_button: bool = True) -> str:
-    tables = advice_tables_service.build_tables(client)
-    coverage_tables = advice_tables_service.build_coverage_tables(db, client, tables)
-
-    marital_status_he = _to_hebrew_marital_status(getattr(client, "marital_status", None))
-    employment_status_he = _derive_employment_status_he(client)
-    insurance_needs_he = _derive_insurance_needs_he(client)
-
-    existing_products_list = list(client.existing_products or [])
-    new_products_list = list(client.new_products or [])
-
-    # DEBUG: Log all products and their links
-    logger.info(f"[ADVICE-DEBUG] Client {client.id}: {len(existing_products_list)} existing, {len(new_products_list)} new")
-    for ex in existing_products_list:
-        linked_new = getattr(ex, 'new_products', []) or []
-        logger.info(f"[ADVICE-DEBUG] ExistingProduct id={ex.id} fund={ex.fund_name} has {len(linked_new)} linked new products")
-    for np in new_products_list:
-        logger.info(f"[ADVICE-DEBUG] NewProduct id={np.id} fund={np.fund_name} existing_product_id={np.existing_product_id}")
-
-    # Existing products that remain in the "new" state (i.e. not replaced).
-    # A product is considered "replaced" when there is at least one new
-    # product that is explicitly linked to it via existing_product_id,
-    # regardless of fund type.
-    # 
-    # We use two methods to identify replaced products:
-    # 1. Check existing_product_id on each new product
-    # 2. Check the new_products relationship on each existing product
-    replaced_existing_ids = set()
-    
-    # Method 1: Check existing_product_id on new products
-    for np in new_products_list:
-        ep_id = np.existing_product_id
-        if ep_id is not None:
-            replaced_existing_ids.add(ep_id)
-    
-    # Method 2: Check new_products relationship on existing products
-    for ex in existing_products_list:
-        if hasattr(ex, 'new_products') and ex.new_products:
-            replaced_existing_ids.add(ex.id)
-
-    logger.info(f"[ADVICE-DEBUG] Replaced existing IDs: {replaced_existing_ids}")
-
-    remaining_existing_products = [
-        ex
-        for ex in existing_products_list
-        if ex.id not in replaced_existing_ids
-    ]
-    
-    logger.info(f"[ADVICE-DEBUG] Remaining (not replaced): {[ex.id for ex in remaining_existing_products]}")
-
-    client_view: Dict[str, Any] = {
-        "first_name": client.first_name or "",
-        "last_name": client.last_name or "",
-        "national_id": client.id_number or "",
-        "date_of_birth": client.birth_date,
-        "date_of_birth_text": _fmt_date_for_advice(client.birth_date),
-        "retirement_income": None,
-        "existing_products": existing_products_list,
-        "new_products": new_products_list,
-        "existing_products_state_new": remaining_existing_products,
-    }
-
-    if marital_status_he:
-        client_view["marital_status"] = marital_status_he
-    if employment_status_he:
-        client_view["employment_status"] = employment_status_he
-    if insurance_needs_he:
-        client_view["insurance_needs"] = insurance_needs_he
-
-    env = _get_templates_env()
-    template = env.get_template("advice/print.html")
-    now = date.today()
-
-    # Use cached static resources
-    logo_data_url, signature_data_url = _load_static_resources()
-
-    # Client signature (from signing flow), if available as PNG in the
-    # client's export directory. This is used to render the client's
-    # signature image in the advice document at the designated locations.
-    client_signature_data_url = ""
-    try:
-        export_dir = justification_b1_service._get_client_export_dir(client)
-        client_sig_path = export_dir / "client_signature.png"
-        if client_sig_path.is_file():
-            client_sig_bytes = client_sig_path.read_bytes()
-            client_sig_b64 = base64.b64encode(client_sig_bytes).decode("ascii")
-            client_signature_data_url = f"data:image/png;base64,{client_sig_b64}"
-    except Exception:
-        client_signature_data_url = ""
-
-    html = template.render(
-        client=client_view,
-        tables=tables,
-        coverage_tables=coverage_tables,
-        now=now,
-        logo_data_url=logo_data_url,
-        signature_data_url=signature_data_url,
-        client_signature_data_url=client_signature_data_url,
-        show_print_button=include_print_button,
-    )
-    return html
+    return _advice_render.build_advice_html(db, client, include_print_button=include_print_button)
 
 
 def _get_wkhtmltopdf_cmd() -> Optional[str]:
-    """Find wkhtmltopdf command path once and cache it."""
     global _WKHTMLTOPDF_CMD, _WKHTMLTOPDF_CHECKED
-    
-    if _WKHTMLTOPDF_CHECKED:
-        return _WKHTMLTOPDF_CMD
-    
-    import shutil
-    
-    backend_root = Path(__file__).resolve().parent.parent.parent
-    is_windows = os.name == "nt"
-    
-    # Try PATH first
-    cmd = shutil.which("wkhtmltopdf")
-    if cmd:
-        _WKHTMLTOPDF_CMD = cmd
-        _WKHTMLTOPDF_CHECKED = True
-        return cmd
-    
-    # Try known paths
-    candidate_paths: list[Path] = []
-    if is_windows:
-        candidate_paths.extend([
-            backend_root / "bin" / "wkhtmltopdf.exe",
-            Path(r"C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
-            Path(r"C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe"),
-        ])
-    else:
-        candidate_paths.append(backend_root / "bin" / "wkhtmltopdf")
-    
-    for candidate in candidate_paths:
-        if candidate.is_file():
-            _WKHTMLTOPDF_CMD = str(candidate)
-            break
-    
-    _WKHTMLTOPDF_CHECKED = True
-    return _WKHTMLTOPDF_CMD
+    cmd = _advice_pdf._get_wkhtmltopdf_cmd()
+    _WKHTMLTOPDF_CMD = _advice_pdf._WKHTMLTOPDF_CMD
+    _WKHTMLTOPDF_CHECKED = _advice_pdf._WKHTMLTOPDF_CHECKED
+    return cmd
+
+
+def _safe_unlink(path: Path) -> None:
+    return _advice_pdf._safe_unlink(path)
 
 
 def generate_advice_pdf(html: str) -> Optional[bytes]:
-    import subprocess
-    from uuid import uuid4
-
-    start_time = time.time()
-    wkhtmltopdf_cmd = _get_wkhtmltopdf_cmd()
-    if not wkhtmltopdf_cmd:
-        logger.warning("[PDF-TIMING] wkhtmltopdf not found")
-        return None
-
-    options = {
-        "page-size": "A4",
-        "encoding": "UTF-8",
-        "load-error-handling": "ignore",
-    }
-
-    backend_root = Path(__file__).resolve().parent.parent.parent
-    runtime_dir = backend_root / "advice_runtime"
-    try:
-        runtime_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        return None
-
-    html_name = f"advice_{uuid4().hex}.html"
-    pdf_name = html_name.replace(".html", ".pdf")
-    input_path = runtime_dir / html_name
-    output_path = runtime_dir / pdf_name
-
-    try:
-        input_path.write_text(html, encoding="utf-8")
-
-        cmd = [wkhtmltopdf_cmd]
-        for key, value in options.items():
-            cmd.extend([f"--{key}", str(value)])
-        cmd.extend([str(input_path), str(output_path)])
-
-        result = subprocess.run(
-            cmd,
-            cwd=str(runtime_dir),
-            capture_output=True,
-            text=True,
-        )
-
-        if result.returncode != 0:
-            return None
-
-        if not output_path.is_file():
-            return None
-
-        pdf_bytes = output_path.read_bytes()
-        elapsed = time.time() - start_time
-        logger.info(f"[PDF-TIMING] Advice PDF generated in {elapsed:.2f}s, size={len(pdf_bytes)} bytes")
-        return pdf_bytes
-    except Exception as e:
-        elapsed = time.time() - start_time
-        logger.error(f"[PDF-TIMING] Advice PDF generation failed after {elapsed:.2f}s: {e}")
-        return None
-    finally:
-        try:
-            if input_path.is_file():
-                input_path.unlink()
-        except Exception:
-            pass
-        try:
-            if output_path.is_file():
-                output_path.unlink()
-        except Exception:
-            pass
+    return _advice_pdf.generate_advice_pdf(html)
 
 
 def save_advice_pdf_for_client(db: Session, client: Client) -> None:
@@ -345,35 +114,4 @@ def save_advice_pdf_for_client(db: Session, client: Client) -> None:
     Used after the client has signed, so that the advice PDF can
     include the client's signature image when available.
     """
-
-    display_name = client.full_name or client.id_number or f"client_{client.id}"
-    safe_name_chars: List[str] = []
-    for ch in display_name:
-        if ch.isalnum() or "\u0590" <= ch <= "\u05FF":
-            safe_name_chars.append(ch)
-        else:
-            safe_name_chars.append("_")
-    safe_name = "".join(safe_name_chars)
-
-    ascii_safe_name_chars: List[str] = []
-    for ch in safe_name:
-        if ch.isascii() and (ch.isalnum() or ch in "-_"):
-            ascii_safe_name_chars.append(ch)
-        else:
-            ascii_safe_name_chars.append("_")
-    ascii_safe_name = "".join(ascii_safe_name_chars) or f"client_{client.id}"
-
-    filename = f"justification_{ascii_safe_name}.pdf"
-
-    export_dir = justification_b1_service._get_client_export_dir(client)
-    save_path = export_dir / filename
-
-    html = build_advice_html(db, client)
-    pdf_bytes = generate_advice_pdf(html)
-    if pdf_bytes is None:
-        return
-
-    try:
-        save_path.write_bytes(pdf_bytes)
-    except Exception:
-        pass
+    return _advice_pdf.save_advice_pdf_for_client(db, client)

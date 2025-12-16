@@ -9,6 +9,7 @@ import {
   createPacketSignRequest,
   uploadPacketPdf,
   trimPacketPdf,
+  deleteClientExports,
 } from "../../api/justificationApi";
 import type { ClientSummary } from "../../api/crmApi";
 
@@ -355,7 +356,6 @@ export function useJustificationPdfAndPackets(
     setClientExportsIsError(false);
 
     try {
-      const { deleteClientExports } = await import("../../api/justificationApi");
       await deleteClientExports(selectedClient.id);
       setClientExportsIsError(false);
       setClientExportsStatus("כל קבצי ה-PDF של הלקוח נמחקו בהצלחה");

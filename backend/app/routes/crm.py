@@ -25,6 +25,12 @@ from app.services.client_report import (
     generate_client_report_pdf,
     render_client_report_html,
 )
+from app.utils.filepaths import build_fs_safe_name as _build_fs_safe_name
+from app.utils.http_headers import build_attachment_pdf_headers as _build_pdf_attachment_headers
+from app.utils.http_exceptions import raise_client_not_found as _raise_client_not_found
+from app.utils.http_exceptions import raise_not_found as _raise_not_found
+from app.utils.http_exceptions import raise_invalid_access_code as _raise_invalid_access_code
+from app.routes.client_helpers import get_client_or_404 as _get_client_or_404
 from app.utils.crm_mappers import (
     to_client_read,
     to_snapshot_read,
@@ -41,6 +47,49 @@ from app.utils.crm_mappers import (
 router = APIRouter(prefix="/api/v1/crm", tags=["crm"])
 
 
+def _raise_note_not_found() -> None:
+    _raise_not_found("Note not found")
+
+
+def _ensure_note_or_404(note):
+    if not note:
+        _raise_note_not_found()
+    return note
+
+
+def _pdf_attachment_response(pdf_bytes: bytes, filename: str) -> Response:
+    headers = _build_pdf_attachment_headers(filename)
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+def _build_client_report_pdf_filename(display_name: str | None, client_id: int) -> str:
+    value = (display_name or "").strip()
+    if not value:
+        value = f"client_{client_id}"
+
+    safe_name = _build_fs_safe_name(value, f"client_{client_id}")
+    return f"client_report_{safe_name}.pdf"
+
+
+def _resolve_effective_client_id_from_headers(
+    db: Session,
+    client_id: int | None,
+    x_client_token: str | None,
+    x_client_pin: str | None,
+) -> int | None:
+    effective_client_id = client_id
+
+    if x_client_token:
+        client_from_token = crm_service.get_client_by_token(db, x_client_token)
+        if not client_from_token:
+            _raise_client_not_found()
+        if not crm_service.check_client_pin(client_from_token, x_client_pin):
+            _raise_invalid_access_code()
+        effective_client_id = client_from_token.id
+
+    return effective_client_id
+
+
 @router.get("/clients", response_model=List[ClientRead])
 def list_clients(db: Session = Depends(get_db)):
     clients = crm_service.list_clients(db)
@@ -49,9 +98,7 @@ def list_clients(db: Session = Depends(get_db)):
 
 @router.get("/clients/{client_id}", response_model=ClientRead)
 def get_client(client_id: int, db: Session = Depends(get_db)):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    client = _get_client_or_404(db, client_id)
     return to_client_read(client)
 
 
@@ -71,25 +118,13 @@ def list_client_snapshots(
     x_client_token: str | None = Header(default=None),
     x_client_pin: str | None = Header(default=None),
 ):
-    effective_client_id = client_id
-
-    if x_client_token:
-        client_from_token = crm_service.get_client_by_token(db, x_client_token)
-        if not client_from_token:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Client not found",
-            )
-        if not crm_service.check_client_pin(client_from_token, x_client_pin):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid access code",
-            )
-        effective_client_id = client_from_token.id
-
-    client = crm_service.get_client(db, effective_client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    effective_client_id = _resolve_effective_client_id_from_headers(
+        db,
+        client_id,
+        x_client_token,
+        x_client_pin,
+    )
+    client = _get_client_or_404(db, int(effective_client_id))
 
     snapshots = crm_service.list_client_snapshots(db, effective_client_id)
     return [to_snapshot_read(snapshot) for snapshot in snapshots]
@@ -105,9 +140,7 @@ def create_client_snapshot(
     snapshot_in: SnapshotCreate,
     db: Session = Depends(get_db),
 ):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    client = _get_client_or_404(db, client_id)
 
     snapshot = crm_service.create_snapshot_for_client(db, client, snapshot_in)
     return to_snapshot_read(snapshot)
@@ -132,21 +165,12 @@ def get_history(
     x_client_token: str | None = Header(default=None),
     x_client_pin: str | None = Header(default=None),
 ):
-    effective_client_id = client_id
-
-    if x_client_token:
-        client_from_token = crm_service.get_client_by_token(db, x_client_token)
-        if not client_from_token:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Client not found",
-            )
-        if not crm_service.check_client_pin(client_from_token, x_client_pin):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid access code",
-            )
-        effective_client_id = client_from_token.id
+    effective_client_id = _resolve_effective_client_id_from_headers(
+        db,
+        client_id,
+        x_client_token,
+        x_client_pin,
+    )
 
     items = crm_service.get_history(db, effective_client_id)
     return to_history_points(items)
@@ -170,9 +194,7 @@ def list_client_summaries(month: Optional[str] = None, db: Session = Depends(get
 
 @router.get("/clients/{client_id}/notes", response_model=List[NoteRead])
 def list_client_notes(client_id: int, db: Session = Depends(get_db)):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    _get_client_or_404(db, client_id)
     notes = crm_service.list_client_notes(db, client_id)
     return [to_note_read(n) for n in notes]
 
@@ -183,9 +205,7 @@ def create_client_note(
     note_in: NoteCreate,
     db: Session = Depends(get_db),
 ):
-    client = crm_service.get_client(db, client_id)
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    _get_client_or_404(db, client_id)
 
     note = crm_service.create_client_note(db, client_id, note_in.note, note_in.reminderAt)
     return to_note_read(note)
@@ -193,17 +213,13 @@ def create_client_note(
 
 @router.post("/clients/{client_id}/notes/{note_id}/dismiss", response_model=NoteRead)
 def dismiss_client_note(client_id: int, note_id: int, db: Session = Depends(get_db)):
-    note = crm_service.dismiss_client_note(db, client_id, note_id)
-    if not note:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+    note = _ensure_note_or_404(crm_service.dismiss_client_note(db, client_id, note_id))
     return to_note_read(note)
 
 
 @router.post("/clients/{client_id}/notes/{note_id}/clear-reminder", response_model=NoteRead)
 def clear_note_reminder(client_id: int, note_id: int, db: Session = Depends(get_db)):
-    note = crm_service.clear_note_reminder(db, client_id, note_id)
-    if not note:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+    note = _ensure_note_or_404(crm_service.clear_note_reminder(db, client_id, note_id))
     return to_note_read(note)
 
 
@@ -211,7 +227,7 @@ def clear_note_reminder(client_id: int, note_id: int, db: Session = Depends(get_
 def delete_client_note(client_id: int, note_id: int, db: Session = Depends(get_db)):
     ok = crm_service.delete_client_note(db, client_id, note_id)
     if not ok:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        _raise_note_not_found()
     return {"status": "ok"}
 
 
@@ -225,7 +241,7 @@ def list_global_reminders(db: Session = Depends(get_db)):
 def update_client(client_id: int, client_update: ClientUpdate, db: Session = Depends(get_db)):
     client = crm_service.update_client(db, client_id, client_update)
     if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        _raise_client_not_found()
     return to_client_read(client)
 
 
@@ -233,10 +249,7 @@ def update_client(client_id: int, client_update: ClientUpdate, db: Session = Dep
 def delete_client(client_id: int, db: Session = Depends(get_db)):
     ok = crm_service.delete_client(db, client_id)
     if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found",
-        )
+        _raise_client_not_found()
     return {"status": "ok"}
 
 
@@ -251,16 +264,10 @@ def download_client_report_pdf(
             db, client_id, month
         )
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found",
-        )
+        _raise_client_not_found()
 
     if not rows:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No data found for this client",
-        )
+        _raise_not_found("No data found for this client")
 
     html = render_client_report_html(
         client=client_data,
@@ -270,24 +277,12 @@ def download_client_report_pdf(
     )
     pdf_bytes = generate_client_report_pdf(html)
 
-    display_name = (
-        client_data.get("full_name")
-        or client_data.get("id_number")
-        or f"client_{client_id}"
+    filename = _build_client_report_pdf_filename(
+        client_data.get("full_name") or client_data.get("id_number"),
+        client_id,
     )
-    safe_name_chars = []
-    for ch in display_name:
-        if ch.isalnum() or "\u0590" <= ch <= "\u05FF":
-            safe_name_chars.append(ch)
-        else:
-            safe_name_chars.append("_")
-    safe_name = "".join(safe_name_chars)
-    filename = f"client_report_{safe_name}.pdf"
 
     if pdf_bytes is None:
         return Response(content=html, media_type="text/html; charset=utf-8")
 
-    headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"',
-    }
-    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    return _pdf_attachment_response(pdf_bytes, filename)

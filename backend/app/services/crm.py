@@ -1,4 +1,3 @@
-from collections import defaultdict
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 import hashlib
@@ -11,16 +10,95 @@ from sqlalchemy.orm import Session
 from app.models import Client, Snapshot, ClientNote, ClientBeneficiary
 from app.schemas.crm import ClientCreate, SnapshotCreate, ClientUpdate
 from app.utils.id_normalization import normalize_id_number
+from app.utils.db import commit_and_refresh as _commit_and_refresh
+from app.utils.strings import strip_or_empty as _strip_or_empty
+from app.services.crm_snapshots import get_snapshot_summary as _get_snapshot_summary_impl
+from app.services.crm_snapshots import get_monthly_change as _get_monthly_change_impl
+from app.services.crm_snapshots import get_history as _get_history_impl
+from app.services.crm_snapshots import get_fund_history as _get_fund_history_impl
+from app.services.crm_snapshots import list_client_summaries as _list_client_summaries_impl
+
+from app.services import crm_beneficiaries as _crm_beneficiaries
+from app.services import crm_clients as _crm_clients
+from app.services import crm_credentials as _crm_credentials
+from app.services import crm_notes as _crm_notes
+from app.services import crm_utils as _crm_utils
+
+def _parse_iso_date(value: Optional[str]) -> Optional[date]:
+    return _crm_utils._parse_iso_date(value)
+
+
+def _utc_timestamp_str() -> str:
+    return _crm_utils._utc_timestamp_str()
+
+
+def _build_beneficiary_fields(item) -> tuple[str, str, str, str, str, str, float]:
+    return _crm_beneficiaries._build_beneficiary_fields(item)
+
+
+def _is_beneficiary_all_empty(
+    first_name: str,
+    last_name: str,
+    id_number: str,
+    birth_date_text: str,
+    address: str,
+    relation: str,
+    percentage_value: float,
+) -> bool:
+    return _crm_beneficiaries._is_beneficiary_all_empty(
+        first_name,
+        last_name,
+        id_number,
+        birth_date_text,
+        address,
+        relation,
+        percentage_value,
+    )
+
+
+def _apply_beneficiary_values(
+    row: ClientBeneficiary,
+    *,
+    first_name: str,
+    last_name: str,
+    id_number: str,
+    birth_date_value: date,
+    address: str,
+    relation: str,
+    percentage_value: float,
+) -> None:
+    _crm_beneficiaries._apply_beneficiary_values(
+        row,
+        first_name=first_name,
+        last_name=last_name,
+        id_number=id_number,
+        birth_date_value=birth_date_value,
+        address=address,
+        relation=relation,
+        percentage_value=percentage_value,
+    )
+
+
+def _empty_client_summary_row(client: Client) -> Dict[str, Any]:
+    return _crm_clients._empty_client_summary_row(client)
+
+
+def _init_client_summary_bucket(client: Client) -> Dict[str, Any]:
+    return _crm_clients._init_client_summary_bucket(client)
+
+
+def _sync_client_beneficiaries(db: Session, client: Client, beneficiaries) -> None:
+    _crm_beneficiaries._sync_client_beneficiaries(db, client, beneficiaries)
 
 
 def list_clients(db: Session) -> List[Client]:
     """Return all clients ordered by ID."""
-    return db.query(Client).order_by(Client.id).all()
+    return _crm_clients.list_clients(db)
 
 
 def get_client(db: Session, client_id: int) -> Optional[Client]:
     """Return a single client by ID or None if not found."""
-    return db.query(Client).filter(Client.id == client_id).first()
+    return _crm_clients.get_client(db, client_id)
 
 
 def get_client_by_token(db: Session, token: str) -> Optional[Client]:
@@ -28,50 +106,12 @@ def get_client_by_token(db: Session, token: str) -> Optional[Client]:
 
     If the token is empty or no active client is associated with it, return None.
     """
-    if not token:
-        return None
-
-    return db.query(Client).filter(Client.client_token == token).first()
+    return _crm_clients.get_client_by_token(db, token)
 
 
 def create_client(db: Session, client_in: ClientCreate) -> Client:
     """Create a new client from CRM input schema."""
-    id_number_raw = client_in.idNumber
-    id_number = normalize_id_number(id_number_raw) or (id_number_raw or "")
-
-    birth_date_value: Optional[date] = None
-    if client_in.birthDate:
-        try:
-            birth_date_value = datetime.fromisoformat(client_in.birthDate).date()
-        except ValueError:
-            birth_date_value = None
-
-    client = Client(
-        id_number_raw=id_number_raw,
-        id_number=id_number,
-        full_name=client_in.fullName,
-        first_name=client_in.firstName,
-        last_name=client_in.lastName,
-        email=client_in.email,
-        phone=client_in.phone,
-        address_street=client_in.addressStreet,
-        address_city=client_in.addressCity,
-        address_postal_code=client_in.addressPostalCode,
-        address_house_number=client_in.addressHouseNumber,
-        address_apartment=client_in.addressApartment,
-        birth_date=birth_date_value,
-        gender=client_in.gender,
-        marital_status=client_in.maritalStatus,
-        birth_country=client_in.birthCountry,
-        employer_name=client_in.employerName,
-        employer_hp=client_in.employerHp,
-        employer_address=client_in.employerAddress,
-        employer_phone=client_in.employerPhone,
-    )
-    db.add(client)
-    db.commit()
-    db.refresh(client)
-    return client
+    return _crm_clients.create_client(db, client_in)
 
 
 def delete_client(db: Session, client_id: int) -> bool:
@@ -79,13 +119,7 @@ def delete_client(db: Session, client_id: int) -> bool:
 
     Returns True if a client was deleted, False if it did not exist.
     """
-    client = get_client(db, client_id)
-    if not client:
-        return False
-
-    db.delete(client)
-    db.commit()
-    return True
+    return _crm_clients.delete_client(db, client_id)
 
 
 def clear_crm_data(db: Session) -> dict[str, int]:
@@ -93,50 +127,17 @@ def clear_crm_data(db: Session) -> dict[str, int]:
 
     Returns a dict with counts of deleted rows for visibility in admin UI.
     """
-
-    deleted_snapshots = db.query(Snapshot).delete()
-    deleted_client_notes = db.query(ClientNote).delete()
-    db.commit()
-
-    return {
-        "deletedSnapshots": deleted_snapshots,
-        "deletedClientNotes": deleted_client_notes,
-    }
+    return _crm_clients.clear_crm_data(db)
 
 
 def list_client_snapshots(db: Session, client_id: int) -> List[Snapshot]:
     """Return all snapshots for a given client ordered by snapshot date (descending)."""
-    return (
-        db.query(Snapshot)
-        .filter(Snapshot.client_id == client_id)
-        .order_by(Snapshot.snapshot_date.desc())
-        .all()
-    )
+    return _crm_clients.list_client_snapshots(db, client_id)
 
 
 def create_snapshot_for_client(db: Session, client: Client, snapshot_in: SnapshotCreate) -> Snapshot:
     """Create a new product snapshot for the given client."""
-    snapshot = Snapshot(
-        client_id=client.id,
-        fund_code=snapshot_in.fundCode,
-        fund_type=snapshot_in.fundType,
-        fund_name=snapshot_in.fundName,
-        fund_number=snapshot_in.fundNumber,
-        source=snapshot_in.source,
-        amount=snapshot_in.amount,
-        snapshot_date=snapshot_in.snapshotDate,
-        is_active=snapshot_in.isActive,
-    )
-    db.add(snapshot)
-    db.commit()
-    db.refresh(snapshot)
-    return snapshot
-
-
-def _extract_month(value: Optional[str]) -> Optional[str]:
-    if not value or len(value) < 7:
-        return None
-    return value[:7]
+    return _crm_clients.create_snapshot_for_client(db, client, snapshot_in)
 
 
 def get_snapshot_summary(
@@ -147,95 +148,17 @@ def get_snapshot_summary(
 
     If month is None, use the latest month present in snapshot_date (YYYY-MM).
     """
-    snapshots = db.query(Snapshot).filter(Snapshot.is_active.is_(True)).all()
-
-    if not snapshots:
-        return month, 0.0, {}, {}
-
-    months = sorted({m for m in (_extract_month(s.snapshot_date) for s in snapshots) if m})
-    if not months:
-        return month, 0.0, {}, {}
-
-    target_month = month or months[-1]
-
-    total = 0.0
-    by_source: Dict[str, float] = defaultdict(float)
-    by_type: Dict[str, float] = defaultdict(float)
-
-    for s in snapshots:
-        ym = _extract_month(s.snapshot_date)
-        if ym != target_month:
-            continue
-        amount = float(s.amount or 0.0)
-        total += amount
-
-        src = s.source or "לא ידוע"
-        by_source[src] += amount
-
-        ftype = s.fund_type or "לא זמין"
-        by_type[ftype] += amount
-
-    return target_month, round(total, 2), dict(by_source), dict(by_type)
+    return _get_snapshot_summary_impl(db, month)
 
 
 def get_monthly_change(db: Session) -> List[Dict[str, Optional[float]]]:
     """Compute month-over-month changes in total assets across all clients."""
-    snapshots = db.query(Snapshot).filter(Snapshot.is_active.is_(True)).all()
-    if not snapshots:
-        return []
-
-    totals: Dict[str, float] = defaultdict(float)
-    for s in snapshots:
-        ym = _extract_month(s.snapshot_date)
-        if not ym:
-            continue
-        totals[ym] += float(s.amount or 0.0)
-
-    points: List[Dict[str, Optional[float]]] = []
-    prev_total: Optional[float] = None
-    for ym in sorted(totals.keys()):
-        total = totals[ym]
-        if prev_total is None:
-            change = None
-            pct = None
-        else:
-            change = total - prev_total
-            pct = (change / prev_total * 100.0) if prev_total > 0 else None
-
-        points.append(
-            {
-                "month": ym,
-                "total": total,
-                "change": change,
-                "percent_change": pct,
-            }
-        )
-        prev_total = total
-
-    return points
+    return _get_monthly_change_impl(db)
 
 
 def get_history(db: Session, client_id: Optional[int]) -> List[Dict[str, float]]:
     """Return monthly history for a specific client or for all clients (if client_id == 0)."""
-    query = db.query(Snapshot).filter(Snapshot.is_active.is_(True))
-    if client_id and client_id != 0:
-        query = query.filter(Snapshot.client_id == client_id)
-
-    snapshots = query.all()
-    if not snapshots:
-        return []
-
-    totals: Dict[str, float] = defaultdict(float)
-    for s in snapshots:
-        ym = _extract_month(s.snapshot_date)
-        if not ym:
-            continue
-        totals[ym] += float(s.amount or 0.0)
-
-    return [
-        {"month": ym, "amount": round(totals[ym], 2)}
-        for ym in sorted(totals.keys())
-    ]
+    return _get_history_impl(db, client_id)
 
 
 def get_fund_history(
@@ -244,141 +167,23 @@ def get_fund_history(
     fund_number: str,
 ) -> List[Dict[str, Optional[float]]]:
     """Return time series for a specific fund of a client."""
-    snapshots = (
-        db.query(Snapshot)
-        .filter(
-            Snapshot.client_id == client_id,
-            Snapshot.fund_number == fund_number,
-            Snapshot.is_active.is_(True),
-        )
-        .order_by(Snapshot.snapshot_date)
-        .all()
-    )
-
-    history: List[Dict[str, Optional[float]]] = []
-    prev_amount: Optional[float] = None
-    for s in snapshots:
-        amount = float(s.amount or 0.0)
-        change: Optional[float]
-        if prev_amount is None:
-            change = None
-        else:
-            change = amount - prev_amount
-
-        history.append(
-            {
-                "date": s.snapshot_date,
-                "amount": amount,
-                "source": s.source or "",
-                "change": change,
-            }
-        )
-        prev_amount = amount
-
-    return history
+    return _get_fund_history_impl(db, client_id, fund_number)
 
 
 def list_client_summaries(db: Session, month: Optional[str] = None) -> List[Dict[str, Any]]:
     """Summaries per client for a given month (or latest month if not provided)."""
-    clients = db.query(Client).order_by(Client.full_name).all()
-    if not clients:
-        return []
+    return _list_client_summaries_impl(db, month)
 
-    snapshots = db.query(Snapshot).filter(Snapshot.is_active.is_(True)).all()
-    if not snapshots:
-        return [
-            {
-                "id": c.id,
-                "full_name": c.full_name,
-                "id_number": c.id_number,
-                "total_amount": 0.0,
-                "sources": [],
-                "fund_numbers": set(),
-                "last_update": None,
-            }
-            for c in clients
-        ]
 
-    months = sorted({m for m in (_extract_month(s.snapshot_date) for s in snapshots) if m})
-    if not months:
-        return [
-            {
-                "id": c.id,
-                "full_name": c.full_name,
-                "id_number": c.id_number,
-                "total_amount": 0.0,
-                "sources": [],
-                "fund_numbers": set(),
-                "last_update": None,
-            }
-            for c in clients
-        ]
+_CLIENT_UPDATE_ATTR_MAP: Dict[str, str] = _crm_clients._CLIENT_UPDATE_ATTR_MAP
 
-    target_month = month or months[-1]
 
-    per_client: Dict[int, Dict[str, Any]] = {
-        c.id: {
-            "id": c.id,
-            "full_name": c.full_name,
-            "id_number": c.id_number,
-            "total_amount": 0.0,
-            "sources": set(),
-            "fund_numbers": set(),
-            "last_update": None,
-        }
-        for c in clients
-    }
-
-    for s in snapshots:
-        ym = _extract_month(s.snapshot_date)
-        if ym != target_month:
-            continue
-        if s.client_id not in per_client:
-            continue
-
-        bucket = per_client[s.client_id]
-        amount = float(s.amount or 0.0)
-        bucket["total_amount"] += amount
-        if s.source:
-            bucket["sources"].add(s.source)
-        if s.fund_number:
-            bucket["fund_numbers"].add(s.fund_number)
-
-        if s.snapshot_date:
-            current = bucket["last_update"]
-            if current is None or s.snapshot_date > current:
-                bucket["last_update"] = s.snapshot_date
-
-    results: List[Dict[str, Any]] = []
-    for client in clients:
-        data = per_client.get(client.id)
-        if not data:
-            continue
-        sources_list = sorted(data["sources"]) if isinstance(data["sources"], set) else list(data["sources"])
-        fund_numbers = data["fund_numbers"] if isinstance(data["fund_numbers"], set) else set(data["fund_numbers"])
-        results.append(
-            {
-                "id": data["id"],
-                "full_name": data["full_name"],
-                "id_number": data["id_number"],
-                "total_amount": round(data["total_amount"], 2),
-                "sources_display": ", ".join(sources_list) if sources_list else "אין נתונים",
-                "raw_sources": ",".join(sources_list) if sources_list else "אין נתונים",
-                "fund_count": len(fund_numbers),
-                "last_update": data["last_update"],
-            }
-        )
-
-    return results
+def _apply_client_update_fields(client: Client, update: ClientUpdate) -> None:
+    _crm_clients._apply_client_update_fields(client, update)
 
 
 def list_client_notes(db: Session, client_id: int) -> List[ClientNote]:
-    return (
-        db.query(ClientNote)
-        .filter(ClientNote.client_id == client_id)
-        .order_by(ClientNote.created_at.desc(), ClientNote.id.desc())
-        .all()
-    )
+    return _crm_notes.list_client_notes(db, client_id)
 
 
 def create_client_note(
@@ -387,140 +192,52 @@ def create_client_note(
     note_text: str,
     reminder_at: Optional[str],
 ) -> ClientNote:
-    created_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    note = ClientNote(
-        client_id=client_id,
-        note=note_text,
-        created_at=created_at,
-        reminder_at=reminder_at,
-        dismissed_at=None,
-    )
-    db.add(note)
-    db.commit()
-    db.refresh(note)
-    return note
+    return _crm_notes.create_client_note(db, client_id, note_text, reminder_at)
+
+
+def _get_client_note(db: Session, client_id: int, note_id: int) -> Optional[ClientNote]:
+    return _crm_notes._get_client_note(db, client_id, note_id)
 
 
 def dismiss_client_note(db: Session, client_id: int, note_id: int) -> Optional[ClientNote]:
-    note = (
-        db.query(ClientNote)
-        .filter(ClientNote.id == note_id, ClientNote.client_id == client_id)
-        .first()
-    )
-    if not note:
-        return None
-    note.dismissed_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    db.commit()
-    db.refresh(note)
-    return note
+    return _crm_notes.dismiss_client_note(db, client_id, note_id)
 
 
 def clear_note_reminder(db: Session, client_id: int, note_id: int) -> Optional[ClientNote]:
-    note = (
-        db.query(ClientNote)
-        .filter(ClientNote.id == note_id, ClientNote.client_id == client_id)
-        .first()
-    )
-    if not note:
-        return None
-    note.reminder_at = None
-    note.dismissed_at = None
-    db.commit()
-    db.refresh(note)
-    return note
+    return _crm_notes.clear_note_reminder(db, client_id, note_id)
 
 
 def delete_client_note(db: Session, client_id: int, note_id: int) -> bool:
-    note = (
-        db.query(ClientNote)
-        .filter(ClientNote.id == note_id, ClientNote.client_id == client_id)
-        .first()
-    )
-    if not note:
-        return False
-    db.delete(note)
-    db.commit()
-    return True
+    return _crm_notes.delete_client_note(db, client_id, note_id)
 
 
 def list_global_reminders(db: Session, today: Optional[date] = None) -> List[Dict[str, Any]]:
     """Return all reminders due up to today across all clients."""
-    if today is None:
-        today = date.today()
-    today_str = today.isoformat()
+    return _crm_notes.list_global_reminders(db, today=today)
 
-    rows = (
-        db.query(ClientNote, Client)
-        .join(Client, ClientNote.client_id == Client.id)
-        .all()
-    )
 
-    results: List[Dict[str, Any]] = []
-    for note, client in rows:
-        if not note.reminder_at:
-            continue
-        if note.dismissed_at not in (None, ""):
-            continue
-        if note.reminder_at > today_str:
-            continue
-
-        results.append(
-            {
-                "id": note.id,
-                "note": note.note or "",
-                "created_at": note.created_at,
-                "reminder_at": note.reminder_at,
-                "dismissed_at": note.dismissed_at,
-                "client_id": client.id,
-                "client_name": client.full_name or "",
-            }
-        )
-
-    return results
+def _update_client_or_none(db: Session, client_id: int, apply_fn) -> Optional[Client]:
+    return _crm_credentials._update_client_or_none(db, client_id, apply_fn)
 
 
 def set_client_token(db: Session, client_id: int, token: Optional[str]) -> Optional[Client]:
-    client = get_client(db, client_id)
-    if not client:
-        return None
-
-    client.client_token = token or None
-    db.commit()
-    db.refresh(client)
-    return client
+    return _crm_credentials.set_client_token(db, client_id, token)
 
 
 def _hash_pin(pin: str) -> str:
-    normalized = (pin or "").strip()
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return _crm_credentials._hash_pin(pin)
+
+
+def _pin_hash_or_none(pin: Optional[str]) -> Optional[str]:
+    return _crm_credentials._pin_hash_or_none(pin)
 
 
 def set_client_pin(db: Session, client_id: int, pin: Optional[str]) -> Optional[Client]:
-    client = get_client(db, client_id)
-    if not client:
-        return None
-
-    if pin is None:
-        client.client_pin_hash = None
-    else:
-        normalized = pin.strip()
-        if not normalized:
-            client.client_pin_hash = None
-        else:
-            client.client_pin_hash = _hash_pin(normalized)
-
-    db.commit()
-    db.refresh(client)
-    return client
+    return _crm_credentials.set_client_pin(db, client_id, pin)
 
 
 def check_client_pin(client: Client, pin: Optional[str]) -> bool:
-    if not client.client_pin_hash:
-        return True
-    if pin is None:
-        return False
-    candidate_hash = _hash_pin(pin)
-    return hmac.compare_digest(client.client_pin_hash, candidate_hash)
+    return _crm_credentials.check_client_pin(client, pin)
 
 
 def reset_client_credentials(
@@ -532,26 +249,7 @@ def reset_client_credentials(
     Returns a tuple of (client, token, pin). If the client does not exist, all
     values will be None.
     """
-
-    client = get_client(db, client_id)
-    if not client:
-        return None, None, None
-
-    alphabet = string.ascii_uppercase + string.digits
-    random_part = "".join(secrets.choice(alphabet) for _ in range(16))
-    token = f"C{client.id}-{random_part}"
-
-    pin_value = f"{secrets.randbelow(1_000_000):06d}"
-
-    updated_client = set_client_token(db, client_id, token)
-    if not updated_client:
-        return None, None, None
-
-    updated_client = set_client_pin(db, client_id, pin_value)
-    if not updated_client:
-        return None, None, None
-
-    return updated_client, token, pin_value
+    return _crm_credentials.reset_client_credentials(db, client_id)
 
 
 def disable_client_access(db: Session, client_id: int) -> Optional[Client]:
@@ -560,142 +258,8 @@ def disable_client_access(db: Session, client_id: int) -> Optional[Client]:
     After this operation there is no valid client_token for external lookup and no
     PIN hash stored for the client.
     """
-
-    client = set_client_token(db, client_id, None)
-    if not client:
-        return None
-
-    client = set_client_pin(db, client_id, None)
-    return client
+    return _crm_credentials.disable_client_access(db, client_id)
 
 
 def update_client(db: Session, client_id: int, update: ClientUpdate) -> Optional[Client]:
-    client = get_client(db, client_id)
-    if not client:
-        return None
-
-    if update.firstName is not None:
-        client.first_name = update.firstName
-    if update.lastName is not None:
-        client.last_name = update.lastName
-    if update.email is not None:
-        client.email = update.email
-    if update.phone is not None:
-        client.phone = update.phone
-    if update.addressStreet is not None:
-        client.address_street = update.addressStreet
-    if update.addressCity is not None:
-        client.address_city = update.addressCity
-    if update.addressPostalCode is not None:
-        client.address_postal_code = update.addressPostalCode
-    if update.addressHouseNumber is not None:
-        client.address_house_number = update.addressHouseNumber
-    if update.addressApartment is not None:
-        client.address_apartment = update.addressApartment
-
-    if update.birthDate is not None:
-        if update.birthDate == "":
-            client.birth_date = date(1970, 1, 1)
-        else:
-            try:
-                client.birth_date = datetime.fromisoformat(update.birthDate).date()
-            except ValueError:
-                pass
-    if update.gender is not None:
-        client.gender = update.gender
-    if update.maritalStatus is not None:
-        client.marital_status = update.maritalStatus
-    if update.birthCountry is not None:
-        client.birth_country = update.birthCountry
-    if update.employerName is not None:
-        client.employer_name = update.employerName
-    if update.employerHp is not None:
-        client.employer_hp = update.employerHp
-    if update.employerAddress is not None:
-        client.employer_address = update.employerAddress
-    if update.employerPhone is not None:
-        client.employer_phone = update.employerPhone
-
-    if update.firstName or update.lastName:
-        parts = [p for p in [client.first_name, client.last_name] if p]
-        if parts:
-            client.full_name = " ".join(parts)
-
-    if update.beneficiaries is not None:
-        existing = (
-            db.query(ClientBeneficiary)
-            .filter(ClientBeneficiary.client_id == client.id)
-            .all()
-        )
-        by_index: dict[int, ClientBeneficiary] = {b.index: b for b in existing}
-
-        seen_indexes: set[int] = set()
-        new_rows: list[ClientBeneficiary] = []
-
-        for item in update.beneficiaries:
-            idx = int(item.index)
-            if idx < 1 or idx > 4:
-                continue
-            seen_indexes.add(idx)
-
-            first_name = (item.firstName or "").strip()
-            last_name = (item.lastName or "").strip()
-            id_number = (item.idNumber or "").strip()
-            birth_date_text = (item.birthDate or "").strip()
-            address = (item.address or "").strip()
-            relation = (item.relation or "").strip()
-            percentage_value = float(item.percentage or 0.0)
-
-            all_empty = not any(
-                [
-                    first_name,
-                    last_name,
-                    id_number,
-                    birth_date_text,
-                    address,
-                    relation,
-                    percentage_value,
-                ]
-            )
-            if all_empty:
-                if idx in by_index:
-                    db.delete(by_index[idx])
-                continue
-
-            try:
-                birth_date_value = datetime.fromisoformat(birth_date_text).date()
-            except ValueError:
-                continue
-
-            row = by_index.get(idx)
-            if row is None:
-                row = ClientBeneficiary(
-                    client_id=client.id,
-                    index=idx,
-                    first_name=first_name,
-                    last_name=last_name,
-                    id_number=id_number,
-                    birth_date=birth_date_value,
-                    address=address,
-                    relation=relation,
-                    percentage=percentage_value,
-                )
-                db.add(row)
-            else:
-                row.first_name = first_name
-                row.last_name = last_name
-                row.id_number = id_number
-                row.birth_date = birth_date_value
-                row.address = address
-                row.relation = relation
-                row.percentage = percentage_value
-            new_rows.append(row)
-
-        # Delete any beneficiaries that were not mentioned at all
-        for idx, row in by_index.items():
-            if idx not in seen_indexes:
-                db.delete(row)
-
-    db.commit()
-    db.refresh(client)
-    return client
+    return _crm_clients.update_client(db, client_id, update)

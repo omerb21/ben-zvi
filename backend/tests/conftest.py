@@ -3,10 +3,10 @@ Pytest configuration and fixtures for backend tests.
 """
 import os
 import pytest
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
 
 # Use in-memory SQLite for tests
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -37,7 +37,7 @@ def test_db():
 
 
 @pytest.fixture(scope="function")
-def client(test_db):
+async def client(test_db):
     """Create a test client with database dependency override."""
     def override_get_db():
         try:
@@ -47,7 +47,10 @@ def client(test_db):
     
     app.dependency_overrides[get_db] = override_get_db
     
-    with TestClient(app) as test_client:
+    transport = httpx.ASGITransport(app=app)
+    test_client = httpx.AsyncClient(transport=transport, base_url="http://testserver")
+    try:
         yield test_client
-    
-    app.dependency_overrides.clear()
+    finally:
+        await test_client.aclose()
+        app.dependency_overrides.clear()

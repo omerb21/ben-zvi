@@ -1,6 +1,6 @@
 from typing import Optional, Dict, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ClientBase(BaseModel):
@@ -52,8 +52,7 @@ class ClientRead(ClientBase):
     id: int
     beneficiaries: List[ClientBeneficiaryRead] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SnapshotBase(BaseModel):
@@ -77,8 +76,7 @@ class SnapshotRead(SnapshotBase):
     id: int
     clientId: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ClientSummaryItem(BaseModel):

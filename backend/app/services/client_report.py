@@ -10,6 +10,16 @@ from sqlalchemy.orm import Session
 from app.models.client import Client
 from app.models.snapshot import Snapshot
 from app.utils.source_names import get_source_display_name
+from app.utils.numbers import coerce_amount as _coerce_amount
+from app.utils.paths import get_app_base_dir as _get_base_dir
+
+def _month_prefix_or_none(month: Optional[str]) -> Optional[str]:
+    if not month:
+        return None
+    normalized = month.strip()
+    if len(normalized) == 7 and normalized[4] == "-":
+        return normalized
+    return None
 
 
 def _select_report_date(db: Session, client_id: int, month: Optional[str]) -> Optional[str]:
@@ -21,14 +31,11 @@ def _select_report_date(db: Session, client_id: int, month: Optional[str]) -> Op
     if not dates:
         return None
 
-    if month:
-        # Expecting YYYY-MM, choose first day of that month
-        month = month.strip()
-        if len(month) == 7 and month[4] == "-":
-            target_prefix = month
-            candidates = [d for d in dates if isinstance(d, str) and d.startswith(target_prefix)]
-            if candidates:
-                return sorted(candidates)[-1]
+    month_prefix = _month_prefix_or_none(month)
+    if month_prefix:
+        candidates = [d for d in dates if isinstance(d, str) and d.startswith(month_prefix)]
+        if candidates:
+            return sorted(candidates)[-1]
         # Fallback to latest date if format invalid or no matches
 
     # Default: latest snapshot date for this client
@@ -68,7 +75,7 @@ def build_client_report_data(
     total_amount = 0.0
 
     for s in snapshots:
-        amount = float(s.amount or 0.0)
+        amount = _coerce_amount(s.amount)
         total_amount += amount
         rows.append(
             {
@@ -99,8 +106,7 @@ def build_client_report_data(
 
 
 def _get_templates_env() -> Environment:
-    base_dir = Path(__file__).resolve().parent.parent
-    templates_dir = base_dir / "templates"
+    templates_dir = _get_base_dir() / "templates"
     env = Environment(
         loader=FileSystemLoader(str(templates_dir)),
         autoescape=select_autoescape(["html", "xml"]),
@@ -141,8 +147,7 @@ def generate_client_report_pdf(
     except Exception:
         return None
 
-    base_dir = Path(__file__).resolve().parent.parent
-    css_path = base_dir / "static" / "report_client_pdf.css"
+    css_path = _get_base_dir() / "static" / "report_client_pdf.css"
 
     options = {
         "page-size": "A4",

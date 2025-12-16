@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import io
+import logging
+import time
+
+from pypdf import PdfReader as PyPdfReader
+from sqlalchemy.orm import Session
+
+from app.models import Client, ClientSignatureRequest
+from app.services import justification_advice as justification_advice_service
+from app.services import justification_forms as justification_forms_service
+from app.services import justification_packet as justification_packet_service
+from app.services import justification_signing_overlay as _signing_overlay
+from app.services import justification_signing_requests as _signing_requests
+from app.utils.db import commit_and_refresh as _commit_and_refresh
+from app.utils.fs import try_read_bytes as _try_read_bytes
+from app.utils.fs import try_write_bytes as _try_write_bytes
+
+
+logger = logging.getLogger(__name__)
+
+
+def _try_generate_base_packet(db: Session, client: Client) -> None:
+    try:
+        justification_packet_service.generate_client_packet_pdf(db, client, generate_missing=True)
+    except Exception:
+        pass
+
+
+def _try_persist_client_signature_png(export_dir, signature_data_url: str) -> None:
+    try:
+        sig_bytes = justification_forms_service._decode_data_url(signature_data_url)
+        if sig_bytes:
+            client_sig_path = export_dir / "client_signature.png"
+            _try_write_bytes(client_sig_path, sig_bytes)
+    except Exception:
+        pass
+
+
+def _try_regenerate_advice_pdf(db: Session, client: Client) -> None:
+    try:
+        justification_advice_service.save_advice_pdf_for_client(db, client)
+    except Exception:
+        pass
+
+
+def _select_packet_path_for_signature(
+    export_dir,
+    base_packet_path,
+    edited_packet_path,
+    request: ClientSignatureRequest,
+    use_db_packet_bytes: bool,
+):
+    if use_db_packet_bytes:
+        return edited_packet_path
+    if request.packet_filename:
+        return export_dir / request.packet_filename
+    if edited_packet_path.is_file():
+        return edited_packet_path
+    return base_packet_path
+
+
+def _try_regenerate_base_packet_if_needed(
+    db: Session,
+    client: Client,
+    use_db_packet_bytes: bool,
+    packet_path,
+    base_packet_path,
+) -> None:
+    if use_db_packet_bytes or packet_path != base_packet_path:
+        return
+
+    _try_generate_base_packet(db, client)
+
+
+def _read_packet_bytes_or_raise(
+    request: ClientSignatureRequest,
+    use_db_packet_bytes: bool,
+    packet_path,
+) -> bytes:
+    if use_db_packet_bytes:
+        return request.packet_pdf_data
+    if packet_path.is_file():
+        return packet_path.read_bytes()
+    raise ValueError("CLIENT_PACKET_PDF_NOT_FOUND")
+
+
+def _try_get_reference_pdf_bytes(
+    db: Session,
+    client: Client,
+    base_packet_path,
+    is_edited_packet: bool,
+) -> bytes | None:
+    if not is_edited_packet:
+        return None
+
+    if not base_packet_path.is_file():
+        _try_generate_base_packet(db, client)
+
+    data = _try_read_bytes(base_packet_path)
+    if data is not None:
+        return data
+
+    return None
+
+
+def complete_packet_signature(db: Session, token: str, signature_data_url: str) -> ClientSignatureRequest:
+    start_time = time.time()
+    request = _signing_requests._get_signature_request_or_raise(db, token)
+    if request.status != "pending" or request.signed_at is not None:
+        raise ValueError("SIGNATURE_REQUEST_ALREADY_COMPLETED")
+
+    client = _signing_requests._get_request_client_or_raise(db, request)
+
+    export_dir, base_packet_path, edited_packet_path, signed_packet_path = _signing_requests._get_packet_paths_for_client(client)
+
+    _try_persist_client_signature_png(export_dir, signature_data_url)
+
+    _try_regenerate_advice_pdf(db, client)
+
+    use_db_packet_bytes = bool(getattr(request, "packet_pdf_data", None))
+
+    packet_path = _select_packet_path_for_signature(
+        export_dir,
+        base_packet_path,
+        edited_packet_path,
+        request,
+        use_db_packet_bytes,
+    )
+
+    _try_regenerate_base_packet_if_needed(
+        db,
+        client,
+        use_db_packet_bytes,
+        packet_path,
+        base_packet_path,
+    )
+
+    source_bytes = _read_packet_bytes_or_raise(
+        request,
+        use_db_packet_bytes,
+        packet_path,
+    )
+
+    is_edited_packet = use_db_packet_bytes or packet_path != base_packet_path
+
+    if is_edited_packet:
+        advice_path = justification_packet_service._get_advice_pdf_path(client)
+        if advice_path.is_file():
+            try:
+                advice_bytes = _try_read_bytes(advice_path)
+                if advice_bytes is None:
+                    raise ValueError("ADVICE_PDF_READ_FAILED")
+                advice_reader = PyPdfReader(io.BytesIO(advice_bytes))
+                advice_page_count = len(advice_reader.pages)
+                source_bytes = _signing_overlay._add_signature_overlay_to_advice_pages(
+                    source_bytes,
+                    signature_data_url,
+                    advice_page_count,
+                )
+            except Exception:
+                pass
+
+    reference_pdf_bytes = _try_get_reference_pdf_bytes(
+        db,
+        client,
+        base_packet_path,
+        is_edited_packet,
+    )
+
+    signed_bytes = justification_forms_service.apply_signature_to_sig_fields(
+        source_bytes,
+        signature_image_data=signature_data_url,
+        reference_pdf_bytes=reference_pdf_bytes,
+    )
+
+    flattened_bytes = justification_forms_service.flatten_form_fields(signed_bytes)
+
+    justification_packet_service._ensure_dir(signed_packet_path.parent)
+
+    signed_packet_path.write_bytes(flattened_bytes)
+
+    from datetime import datetime, timezone
+
+    request.signed_packet_filename = signed_packet_path.name
+    request.status = "signed"
+    request.signed_at = datetime.now(timezone.utc)
+
+    _commit_and_refresh(db, request)
+    elapsed = time.time() - start_time
+    logger.info(f"[PDF-TIMING] Signing completed in {elapsed:.2f}s for client_id={client.id}")
+    return request

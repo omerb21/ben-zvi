@@ -4,12 +4,15 @@ Tests for CRM core flows: client CRUD and beneficiaries.
 import pytest
 
 
+pytestmark = pytest.mark.anyio
+
+
 class TestClientCRUD:
     """Test client create, read, update operations."""
 
-    def test_create_client(self, client):
+    async def test_create_client(self, client):
         """Test creating a new client."""
-        response = client.post(
+        response = await client.post(
             "/api/v1/crm/clients",
             json={
                 "idNumber": "123456789",
@@ -27,10 +30,10 @@ class TestClientCRUD:
         assert data["lastName"] == "ישראלי"
         assert "id" in data
 
-    def test_get_client(self, client):
+    async def test_get_client(self, client):
         """Test getting a client by ID."""
         # First create a client
-        create_response = client.post(
+        create_response = await client.post(
             "/api/v1/crm/clients",
             json={
                 "idNumber": "987654321",
@@ -43,33 +46,33 @@ class TestClientCRUD:
         client_id = create_response.json()["id"]
 
         # Then get it
-        get_response = client.get(f"/api/v1/crm/clients/{client_id}")
+        get_response = await client.get(f"/api/v1/crm/clients/{client_id}")
         assert get_response.status_code == 200
         data = get_response.json()
         assert data["idNumber"] == "987654321"
         assert data["firstName"] == "דוד"
 
-    def test_list_clients(self, client):
+    async def test_list_clients(self, client):
         """Test listing all clients."""
         # Create two clients
-        client.post(
+        await client.post(
             "/api/v1/crm/clients",
             json={"idNumber": "111111111", "fullName": "א"},
         )
-        client.post(
+        await client.post(
             "/api/v1/crm/clients",
             json={"idNumber": "222222222", "fullName": "ב"},
         )
 
-        response = client.get("/api/v1/crm/clients")
+        response = await client.get("/api/v1/crm/clients")
         assert response.status_code == 200
         data = response.json()
         assert len(data) >= 2
 
-    def test_update_client(self, client):
+    async def test_update_client(self, client):
         """Test updating a client."""
         # Create a client
-        create_response = client.post(
+        create_response = await client.post(
             "/api/v1/crm/clients",
             json={
                 "idNumber": "333333333",
@@ -81,7 +84,7 @@ class TestClientCRUD:
         client_id = create_response.json()["id"]
 
         # Update it
-        update_response = client.put(
+        update_response = await client.put(
             f"/api/v1/crm/clients/{client_id}",
             json={"lastName": "חדש", "phone": "0521111111"}
         )
@@ -90,19 +93,19 @@ class TestClientCRUD:
         assert data["lastName"] == "חדש"
         assert data["phone"] == "0521111111"
 
-    def test_get_nonexistent_client(self, client):
+    async def test_get_nonexistent_client(self, client):
         """Test getting a client that doesn't exist."""
-        response = client.get("/api/v1/crm/clients/99999")
+        response = await client.get("/api/v1/crm/clients/99999")
         assert response.status_code == 404
 
 
 class TestBeneficiaries:
     """Test client beneficiary operations."""
 
-    def test_update_client_with_beneficiaries(self, client):
+    async def test_update_client_with_beneficiaries(self, client):
         """Test updating a client with beneficiaries."""
         # Create a client
-        create_response = client.post(
+        create_response = await client.post(
             "/api/v1/crm/clients",
             json={
                 "idNumber": "444444444",
@@ -114,7 +117,7 @@ class TestBeneficiaries:
         client_id = create_response.json()["id"]
 
         # Update with beneficiaries
-        update_response = client.put(
+        update_response = await client.put(
             f"/api/v1/crm/clients/{client_id}",
             json={
                 "beneficiaries": [

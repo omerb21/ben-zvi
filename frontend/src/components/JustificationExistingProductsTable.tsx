@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { ExistingProduct, SavingProduct } from "../api/justificationApi";
 import type { ClientSummary, Snapshot } from "../api/crmApi";
+import { getCoreFundCode } from "../utils/fundCode";
 
 interface CanonicalExistingProduct {
   fundCode: string;
@@ -67,11 +68,7 @@ function JustificationExistingProductsTable({
   const crmAmountsByFundCode = useMemo((): Record<string, number> => {
     // Extract core fund code from CRM fundCode format like "658-274-196980 (6077380)"
     const extractCoreFundCode = (fullCode: string): string => {
-      const match = fullCode.match(/\((\d+)\)/);
-      if (match) {
-        return match[1];
-      }
-      return fullCode.trim();
+      return getCoreFundCode(fullCode);
     };
 
     // Find the latest month across all snapshots
@@ -104,11 +101,7 @@ function JustificationExistingProductsTable({
     // Extract the core fund code from personalNumber (מס' אישי) - same logic as CRM
     // Format is "(6077380) 827-274-196980" - extract the number in parentheses
     const extractCoreFundCode = (personalNum: string): string => {
-      const match = personalNum.match(/\((\d+)\)/);
-      if (match) {
-        return match[1];
-      }
-      return personalNum.trim();
+      return getCoreFundCode(personalNum);
     };
 
     existingProducts.forEach((product) => {

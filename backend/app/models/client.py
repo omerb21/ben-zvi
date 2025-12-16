@@ -12,6 +12,21 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+def _normalize_nan_like_value(value):
+    v = value
+    if isinstance(v, str):
+        text = v.strip().lower()
+        if text in {"nan", "none", ""}:
+            return None
+        return v
+    try:
+        if math.isnan(v):
+            return None
+    except Exception:
+        pass
+    return v
+
+
 class Client(Base):
     """Client entity model for unified CRM + justification system"""
 
@@ -124,18 +139,7 @@ class Client(Base):
                 kwargs[canonical] = kwargs.pop(alias)
         cleaned_kwargs = {}
         for key, value in kwargs.items():
-            v = value
-            if isinstance(v, str):
-                text = v.strip().lower()
-                if text in {"nan", "none", ""}:
-                    v = None
-            else:
-                try:
-                    if math.isnan(v):
-                        v = None
-                except Exception:
-                    pass
-            cleaned_kwargs[key] = v
+            cleaned_kwargs[key] = _normalize_nan_like_value(value)
 
         super().__init__(*args, **cleaned_kwargs)
 
@@ -177,60 +181,54 @@ def _normalize_client_nan_like_fields(target: "Client") -> None:
         value = getattr(target, attr, None)
         if value is None:
             continue
-        if isinstance(value, str):
-            text = value.strip().lower()
-            if text in {"nan", "none", ""}:
-                setattr(target, attr, None)
-                continue
-        else:
-            try:
-                if math.isnan(value):
-                    setattr(target, attr, None)
-            except Exception:
-                continue
+        normalized = _normalize_nan_like_value(value)
+        if normalized is None:
+            setattr(target, attr, None)
+
+
+def _ensure_client_id_number_raw(target: "Client") -> None:
+    if not getattr(target, "id_number_raw", None) and getattr(target, "id_number", None):
+        target.id_number_raw = target.id_number
+
+
+def _ensure_client_full_name(target: "Client") -> None:
+    if not getattr(target, "full_name", None):
+        first_name = getattr(target, "first_name", "")
+        last_name = getattr(target, "last_name", "")
+        if first_name or last_name:
+            target.full_name = f"{first_name} {last_name}".strip()
+
+
+def _ensure_client_birth_date(target: "Client") -> None:
+    if not getattr(target, "birth_date", None):
+        target.birth_date = date(1970, 1, 1)
+
+
+def _prepare_client_for_save(target: "Client") -> None:
+    _ensure_client_full_name(target)
+    _ensure_client_birth_date(target)
+    _normalize_client_nan_like_fields(target)
 
 
 @event.listens_for(Client, "before_insert")
 def _client_fill_id_number_raw_before_insert(mapper, connection, target):
     """Fill id_number_raw from id_number if not provided during insert"""
-    if not getattr(target, "id_number_raw", None) and getattr(target, "id_number", None):
-        target.id_number_raw = target.id_number
+    _ensure_client_id_number_raw(target)
 
 
 @event.listens_for(Client, "before_update")
 def _client_fill_id_number_raw_before_update(mapper, connection, target):
     """Fill id_number_raw from id_number if not provided during update"""
-    if not getattr(target, "id_number_raw", None) and getattr(target, "id_number", None):
-        target.id_number_raw = target.id_number
+    _ensure_client_id_number_raw(target)
 
 
 @event.listens_for(Client, "before_insert")
 def _client_fill_full_name_before_insert(mapper, connection, target):
     """Fill full_name from first_name and last_name if not provided during insert"""
-    if not getattr(target, "full_name", None):
-        first_name = getattr(target, "first_name", "")
-        last_name = getattr(target, "last_name", "")
-        if first_name or last_name:
-            target.full_name = f"{first_name} {last_name}".strip()
-
-    # Set default birth_date if not provided (for testing / imported data)
-    if not getattr(target, "birth_date", None):
-        target.birth_date = date(1970, 1, 1)
-
-    _normalize_client_nan_like_fields(target)
+    _prepare_client_for_save(target)
 
 
 @event.listens_for(Client, "before_update")
 def _client_fill_full_name_before_update(mapper, connection, target):
     """Fill full_name from first_name and last_name if not provided during update"""
-    if not getattr(target, "full_name", None):
-        first_name = getattr(target, "first_name", "")
-        last_name = getattr(target, "last_name", "")
-        if first_name or last_name:
-            target.full_name = f"{first_name} {last_name}".strip()
-
-    # Set default birth_date if not provided (for testing / imported data)
-    if not getattr(target, "birth_date", None):
-        target.birth_date = date(1970, 1, 1)
-
-    _normalize_client_nan_like_fields(target)
+    _prepare_client_for_save(target)

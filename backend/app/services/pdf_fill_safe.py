@@ -9,6 +9,8 @@ from typing import Any, Dict
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import BooleanObject, NameObject, TextStringObject
 
+from app.utils.fs import ensure_dir as _ensure_dir
+
 
 def _fill_with_acroform(
     template_path: Path | str,
@@ -20,7 +22,7 @@ def _fill_with_acroform(
 
     template_path = Path(template_path)
     out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_dir(out_path.parent)
 
     reader = PdfReader(str(template_path))
     writer = PdfWriter()

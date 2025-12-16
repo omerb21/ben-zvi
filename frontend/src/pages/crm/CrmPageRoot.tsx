@@ -1,14 +1,11 @@
-import { useEffect, useState, ChangeEvent, FormEvent } from "react";
+import { useEffect, useState } from "react";
 import type {
   Client,
   ClientSummary,
-  Snapshot,
   ClientNote,
   Reminder,
   SummaryResponse,
   MonthlyChangePoint,
-  HistoryPoint,
-  FundHistoryPoint,
 } from "../../api/crmApi";
 import {
   fetchClientSummaries,
@@ -27,26 +24,10 @@ import {
   deleteClientAction,
   type ViewMode,
 } from "./crmClients";
-import {
-  selectSnapshotAction,
-  createSnapshotAction,
-  exportClientReportAction,
-  exportClientPdfAction,
-} from "./crmSnapshotsAndExport";
-import {
-  dismissNoteAction,
-  clearNoteReminderAction,
-  deleteNoteAction,
-  submitNoteAction,
-  dismissReminderAction,
-  clearReminderGlobalAction,
-} from "./crmNotesAndReminders";
 import type { BeneficiaryFormRow } from "./crmBeneficiaries";
-import {
-  crmFileChangeHandler,
-  runCrmImportAction,
-  clearCrmDataLocalAction,
-} from "./crmAdminActions";
+import { useCrmAdmin } from "./useCrmAdmin";
+import { useCrmSnapshots } from "./useCrmSnapshots";
+import { useCrmNotesAndReminders } from "./useCrmNotesAndReminders";
 
 export type Props = {
   onOpenJustification?: (clientId: number) => void;
@@ -55,12 +36,6 @@ export type Props = {
 function CrmPageRoot({ onOpenJustification }: Props) {
   const [clients, setClients] = useState<ClientSummary[]>([]);
   const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
-  const [clientHistory, setClientHistory] = useState<HistoryPoint[]>([]);
-  const [fundHistory, setFundHistory] = useState<FundHistoryPoint[]>([]);
-  const [notes, setNotes] = useState<ClientNote[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [monthlyChange, setMonthlyChange] = useState<MonthlyChangePoint[]>([]);
   const [clientDetailsMap, setClientDetailsMap] = useState<Record<number, Client>>({});
@@ -91,23 +66,73 @@ function CrmPageRoot({ onOpenJustification }: Props) {
   const [editEmployerAddress, setEditEmployerAddress] = useState("");
   const [editEmployerPhone, setEditEmployerPhone] = useState("");
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryFormRow[]>([]);
-  const [crmImportFiles, setCrmImportFiles] = useState<File[]>([]);
-  const [crmImportMonth, setCrmImportMonth] = useState("");
-  const [isCrmImporting, setIsCrmImporting] = useState(false);
-  const [isCrmClearing, setIsCrmClearing] = useState(false);
-  const [crmAdminMessage, setCrmAdminMessage] = useState<string | null>(null);
-  const [crmAdminError, setCrmAdminError] = useState<string | null>(null);
-  const [newNoteText, setNewNoteText] = useState("");
-  const [newNoteReminder, setNewNoteReminder] = useState("");
-  const [newSnapshotFundCode, setNewSnapshotFundCode] = useState("");
-  const [newSnapshotFundName, setNewSnapshotFundName] = useState("");
-  const [newSnapshotFundType, setNewSnapshotFundType] = useState("");
-  const [newSnapshotAmount, setNewSnapshotAmount] = useState("");
-  const [newSnapshotDate, setNewSnapshotDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("main");
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+
+  const {
+    crmImportFiles,
+    crmImportMonth,
+    isCrmImporting,
+    isCrmClearing,
+    crmAdminMessage,
+    crmAdminError,
+    setCrmImportMonth,
+    handleCrmFileChange,
+    handleRunCrmImport,
+    handleClearCrmDataLocal,
+  } = useCrmAdmin();
+
+  const {
+    snapshots,
+    selectedSnapshot,
+    clientHistory,
+    fundHistory,
+    newSnapshotFundCode,
+    newSnapshotFundName,
+    newSnapshotFundType,
+    newSnapshotAmount,
+    newSnapshotDate,
+    latestSnapshots,
+    setSnapshots,
+    setSelectedSnapshot,
+    setClientHistory,
+    setFundHistory,
+    setNewSnapshotFundCode,
+    setNewSnapshotFundName,
+    setNewSnapshotFundType,
+    setNewSnapshotAmount,
+    setNewSnapshotDate,
+    handleSelectSnapshot,
+    handleCreateSnapshot,
+    handleExportClientReport,
+    handleExportClientPdf,
+  } = useCrmSnapshots({
+    selectedClient,
+    setLoading,
+    setError,
+  });
+
+  const {
+    notes,
+    reminders,
+    newNoteText,
+    newNoteReminder,
+    setNotes,
+    setReminders,
+    setNewNoteText,
+    setNewNoteReminder,
+    handleDismissNote,
+    handleClearNoteReminder,
+    handleDeleteNote,
+    handleSubmitNote,
+    handleDismissReminder,
+    handleClearReminderFromGlobal,
+  } = useCrmNotesAndReminders({
+    selectedClient,
+    setError,
+  });
 
   useEffect(() => {
     setLoading(true);
@@ -222,32 +247,6 @@ function CrmPageRoot({ onOpenJustification }: Props) {
   });
   const totalSourcesValue = sourcesSet.size;
 
-  // First, find the latest month across all snapshots
-  let latestMonth = "";
-  snapshots.forEach((snapshot) => {
-    const month = (snapshot.snapshotDate || "").slice(0, 7); // "YYYY-MM"
-    if (month > latestMonth) {
-      latestMonth = month;
-    }
-  });
-
-  // Filter snapshots to only include those from the latest month
-  const snapshotsFromLatestMonth = snapshots.filter((snapshot) => {
-    const month = (snapshot.snapshotDate || "").slice(0, 7);
-    return month === latestMonth;
-  });
-
-  // Now pick the latest snapshot per fundCode within the latest month
-  const latestSnapshotsByFund: Record<string, Snapshot> = {};
-  snapshotsFromLatestMonth.forEach((snapshot) => {
-    const key = snapshot.fundCode;
-    const existing = latestSnapshotsByFund[key];
-    if (!existing || snapshot.snapshotDate > existing.snapshotDate) {
-      latestSnapshotsByFund[key] = snapshot;
-    }
-  });
-  const latestSnapshots: Snapshot[] = Object.values(latestSnapshotsByFund);
-
   const { path: historyChartPath, points: historyChartPoints } =
     buildHistoryChartData(clientHistory);
 
@@ -360,141 +359,12 @@ function CrmPageRoot({ onOpenJustification }: Props) {
     });
   };
 
-  const handleSelectSnapshot = (snapshot: Snapshot) => {
-    selectSnapshotAction({
-      snapshot,
-      selectedClient,
-      setSelectedSnapshot,
-      setFundHistory,
-      setLoading,
-      setError,
-    });
-  };
-
-  const handleCreateSnapshot = () => {
-    createSnapshotAction({
-      selectedClient,
-      newSnapshotFundCode,
-      newSnapshotAmount,
-      newSnapshotDate,
-      newSnapshotFundType,
-      newSnapshotFundName,
-      setLoading,
-      setSnapshots,
-      setNewSnapshotFundCode,
-      setNewSnapshotFundName,
-      setNewSnapshotFundType,
-      setNewSnapshotAmount,
-      setNewSnapshotDate,
-      setError,
-    });
-  };
-
-  const handleExportClientReport = () => {
-    exportClientReportAction({
-      selectedClient,
-      latestSnapshots,
-    });
-  };
-
-  const handleExportClientPdf = () => {
-    exportClientPdfAction({
-      selectedClient,
-      latestSnapshots,
-    });
-  };
-
-  const handleDismissNote = (noteId: number) => {
-    dismissNoteAction({
-      selectedClient,
-      noteId,
-      setNotes,
-      setError,
-    });
-  };
-
-  const handleClearNoteReminder = (noteId: number) => {
-    clearNoteReminderAction({
-      selectedClient,
-      noteId,
-      setNotes,
-      setError,
-    });
-  };
-
-  const handleDeleteNote = (noteId: number) => {
-    deleteNoteAction({
-      selectedClient,
-      noteId,
-      setNotes,
-      setError,
-    });
-  };
-
-  const handleSubmitNote = (event: FormEvent) => {
-    event.preventDefault();
-    submitNoteAction({
-      selectedClient,
-      newNoteText,
-      newNoteReminder,
-      setNotes,
-      setNewNoteText,
-      setNewNoteReminder,
-      setError,
-    });
-  };
-
   const handleReminderGoToClient = (reminder: Reminder) => {
     const client = clients.find((c) => c.id === reminder.clientId) || null;
     if (!client) {
       return;
     }
     handleLoadClientDetails(client);
-  };
-
-  const handleDismissReminder = (reminder: Reminder) => {
-    dismissReminderAction({
-      reminder,
-      setReminders,
-      setError,
-    });
-  };
-
-  const handleClearReminderFromGlobal = (reminder: Reminder) => {
-    clearReminderGlobalAction({
-      reminder,
-      setReminders,
-      setError,
-    });
-  };
-
-  const handleCrmFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    crmFileChangeHandler({
-      event,
-      setCrmImportFiles,
-    });
-  };
-
-  const handleRunCrmImport = () => {
-    runCrmImportAction({
-      crmImportFiles,
-      crmImportMonth,
-      isCrmImporting,
-      isCrmClearing,
-      setIsCrmImporting,
-      setCrmAdminMessage,
-      setCrmAdminError,
-    });
-  };
-
-  const handleClearCrmDataLocal = () => {
-    clearCrmDataLocalAction({
-      isCrmImporting,
-      isCrmClearing,
-      setIsCrmClearing,
-      setCrmAdminMessage,
-      setCrmAdminError,
-    });
   };
 
   const handleBackToMain = () => {

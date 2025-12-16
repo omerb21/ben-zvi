@@ -6,99 +6,113 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.models import Client, ExistingProduct, NewProduct
+from app.services import justification_advice_tables_coverage as _coverage
+from app.services import justification_advice_tables_rows as _rows
+from app.services import justification_advice_tables_tables as _tables
 
 
 INTEREST_RATE = 0.03
 
 
 def normalize_fund_type(value: str | None) -> str:
-    text = (value or "").strip()
-    if not text:
-        return ""
+    return _rows.normalize_fund_type(value)
 
-    if text in {"גמל", "קופת גמל"}:
-        return "גמל"
-    if text in {"גמל להשקעה", "קופת גמל להשקעה"}:
-        return "גמל להשקעה"
-    if text in {"השתלמות", "קרן השתלמות"}:
-        return "השתלמות"
 
-    return text
+def _is_normalized_gemel(value: str | None) -> bool:
+    return _rows._is_normalized_gemel(value)
 
 
 def years_to_67(birth: date) -> int:
-    return max(0, 67 - (date.today().year - birth.year))
+    return _rows.years_to_67(birth)
 
 
 def fv(balance: float | None, years: int, r: float = INTEREST_RATE) -> float:
-    if balance is None or years <= 0:
-        return 0.0
-    return round(float(balance) * (1 + r) ** years, 2)
+    return _rows.fv(balance=balance, years=years, r=r)
 
 
 def fee_cost(balance: float | None, fee_pct: float | None, years: int) -> float:
-    if balance is None or not fee_pct or years <= 0:
-        return 0.0
-    return round(float(balance) * float(fee_pct) * years, 2)
+    return _rows.fee_cost(balance=balance, fee_pct=fee_pct, years=years)
 
 
 def has_replacement(existing_product: ExistingProduct) -> bool:
-    existing_type = normalize_fund_type(existing_product.fund_type)
-    return any(
-        normalize_fund_type(new.fund_type) == existing_type
-        for new in existing_product.new_products
+    return _rows.has_replacement(existing_product)
+
+
+def _format_yield(value: float | None) -> str:
+    return _rows._format_yield(value)
+
+
+def _format_balance(value: float | None) -> str:
+    return _rows._format_balance(value)
+
+
+def _append_personal_number_to_fund_name(
+    fund_type: str | None,
+    fund_name: str | None,
+    personal_number: str | None,
+) -> str | None:
+    return _rows._append_personal_number_to_fund_name(
+        fund_type,
+        fund_name,
+        personal_number,
     )
+
+
+_RECOMMENDATION_TEXT = (
+    "שיקולים לבחירת הקופה: 1. רמת שירות גבוהה של הגוף המוסדי. 2. רמת תפעול גבוהה של הגוף המוסדי. 3. רמת ניהול השקעות גבוהה של הגוף המוסדי."
+)
+
+
+def _build_recommendation_row() -> Dict[str, Any]:
+    return _rows._build_recommendation_row()
+
+
+def _append_fund_code_to_track_name(row: Dict[str, Any], fund_code: str | None) -> Dict[str, Any]:
+    return _rows._append_fund_code_to_track_name(row, fund_code)
+
+
+def _build_existing_row_with_fund_code(client: Client, existing: ExistingProduct) -> Dict[str, Any]:
+    return _rows._build_existing_row_with_fund_code(client, existing)
+
+
+def _build_new_row_with_fund_code(
+    client: Client,
+    new: NewProduct,
+    accumulated_override: Optional[float] = None,
+) -> Dict[str, Any]:
+    return _rows._build_new_row_with_fund_code(client, new, accumulated_override)
+
+
+def _build_new_rows_with_fund_code(
+    client: Client,
+    new_list: List[NewProduct],
+    accumulated_override: Optional[float],
+) -> List[Dict[str, Any]]:
+    return _rows._build_new_rows_with_fund_code(client, new_list, accumulated_override)
+
+
+def _no_coverage_fields() -> Dict[str, Any]:
+    return _coverage._no_coverage_fields()
+
+
+def _build_coverage_table_row(item: Any, recommendation: str) -> Dict[str, Any]:
+    return _coverage._build_coverage_table_row(item, recommendation)
+
+
+def _compute_share_amount(existing: ExistingProduct, new_list: List[NewProduct]) -> Optional[float]:
+    return _rows._compute_share_amount(existing, new_list)
+
+
+def _static_fee_pct_for_index(index: int) -> float:
+    return _rows._static_fee_pct_for_index(index)
+
+
+def _coverage_product_name(fund_name: str | None, personal_number: str | None) -> str | None:
+    return _coverage._coverage_product_name(fund_name, personal_number)
 
 
 def build_existing_row(client: Client, ex: ExistingProduct) -> Dict[str, Any]:
-    yrs = years_to_67(client.birth_date)
-    accumulated = ex.accumulated_amount or 0.0
-    raw_fee_pct = ex.management_fee_balance
-    if (
-        raw_fee_pct is not None
-        and accumulated
-        and raw_fee_pct > 100
-        and abs(raw_fee_pct - accumulated) < 1.0
-    ):
-        safe_fee_pct = None
-    else:
-        safe_fee_pct = raw_fee_pct
-
-    fv67 = fv(balance=accumulated, years=yrs)
-    fee = fee_cost(
-        balance=accumulated,
-        fee_pct=(safe_fee_pct / 100.0) if safe_fee_pct else 0,
-        years=yrs,
-    )
-
-    fund_name = ex.fund_name
-    if (
-        ex.fund_type in ["גמל", "גמל להשקעה", "השתלמות"]
-        and hasattr(ex, "personal_number")
-        and ex.personal_number
-    ):
-        fund_name = f"{fund_name} (מס' קופה: {ex.personal_number})"
-
-    norm_type = normalize_fund_type(ex.fund_type)
-
-    return {
-        "id": ex.id,
-        "recommendation": "לבטל"
-        if norm_type in ["גמל", "גמל להשקעה", "השתלמות"] and has_replacement(ex)
-        else "להשאיר",
-        "product_type": f"קופת {norm_type}",
-        "company_name": ex.company_name,
-        "fund_name": fund_name,
-        "track_name": fund_name,
-        "guaranteed_return": "לא",
-        "yield_1yr": f"{ex.yield_1yr or ''}%" if ex.yield_1yr is not None else "אין נתון",
-        "yield_3yr": f"{ex.yield_3yr or ''}%" if ex.yield_3yr is not None else "אין נתון",
-        "mgmt_fee_dep": ex.management_fee_contributions or "",
-        "mgmt_fee_bal": safe_fee_pct or "",
-        "balance": f"{accumulated:,.0f}" if accumulated else "לא רלוונטי",
-        "forecast": f"גיל פרישה 67 הון צפוי ללא הפקדות {fv67:,.0f}₪ דמי ניהול של {fee:,.0f}₪",
-        "cost": "",
-    }
+    return _rows.build_existing_row(client, ex)
 
 
 def build_new_row(
@@ -106,304 +120,29 @@ def build_new_row(
     new: NewProduct,
     accumulated_override: Optional[float] = None,
 ) -> Dict[str, Any]:
-    yrs = years_to_67(client.birth_date)
-    base_accumulated = new.accumulated_amount or 0
-    accumulated = accumulated_override if accumulated_override is not None else base_accumulated
-    fv67 = fv(balance=accumulated, years=yrs)
-    fee = fee_cost(
-        balance=accumulated,
-        fee_pct=new.management_fee_balance / 100 if new.management_fee_balance else 0,
-        years=yrs,
-    )
-
-    fund_name = new.fund_name
-    if (
-        new.fund_type in ["גמל", "גמל להשקעה", "השתלמות"]
-        and hasattr(new, "personal_number")
-        and new.personal_number
-    ):
-        fund_name = f"{fund_name} (מס' קופה: {new.personal_number})"
-
-    norm_type = normalize_fund_type(new.fund_type)
-
-    return {
-        "id": new.id,
-        "recommendation": "להצטרף",
-        "product_type": f"קופת {norm_type}",
-        "company_name": new.company_name,
-        "fund_name": fund_name,
-        "track_name": fund_name,
-        "guaranteed_return": "לא",
-        "yield_1yr": f"{new.yield_1yr or ''}%" if new.yield_1yr is not None else "אין נתון",
-        "yield_3yr": f"{new.yield_3yr or ''}%" if new.yield_3yr is not None else "אין נתון",
-        "mgmt_fee_dep": new.management_fee_contributions or "",
-        "mgmt_fee_bal": new.management_fee_balance or "",
-        "balance": f"{accumulated:,.0f}" if accumulated else "לא רלוונטי",
-        "forecast": f"גיל פרישה 67 הון צפוי ללא הפקדות {fv67:,.0f} דמי ניהול של {fee:,.0f}",
-        "cost": "",
-    }
+    return _rows.build_new_row(client, new, accumulated_override)
 
 
-STATIC_ROWS_COMPARISON: List[Dict[str, Any]] = [
-    {
-        "recommendation": "חלופה 1",
-        "product_type": "קרן פנסיה",
-        "company_name": "אלטשולר שחם גמל ופנסיה בע" "מ",
-        "fund_name": "אלטשולר שחם פנסיה מקיפה 1328",
-        "track_name": "מודל השקעה תלוי גיל, אלטשולר שחם, פנסיה מקיפה, מסלול לבני 50 עד 60, מ.ה 9758",
-        "guaranteed_return": "כן, קיימת הבטחת תשואה שנתית של 5.15% (צמודה למדד) על 30% מהנכסים",
-        "yield_1yr": "אלטשולר שחם פנסיה מקיפה מסלול לבני 50-60 תאריך תחילת פעילות 12/11/2015",
-        "yield_3yr": "אין נתון",
-        "mgmt_fee_dep": "1% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 6%",
-        "mgmt_fee_bal": "0.22% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 0.5%",
-        "balance": "",
-        "forecast": "",
-        "cost": "",
-    },
-    {
-        "recommendation": "חלופה 2",
-        "product_type": "קרן פנסיה",
-        "company_name": "אלטשולר שחם גמל ופנסיה בע" "מ",
-        "fund_name": "אלטשולר שחם פנסיה כללית 1329",
-        "track_name": "מודל השקעה תלוי גיל, אלטשולר שחם, פנסיה מקיפה, מסלול לבני 50 עד 60, מ.ה 9762",
-        "guaranteed_return": "לא",
-        "yield_1yr": "אלטשולר שחם פנסיה כללית מסלול לבני 50-60 תאריך תחילת פעילות 12/11/2015",
-        "yield_3yr": "אין נתון",
-        "mgmt_fee_dep": "1% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 4%",
-        "mgmt_fee_bal": "0.22% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 1.05%",
-        "balance": "",
-        "forecast": "",
-        "cost": "",
-    },
-    {
-        "recommendation": "חלופה 3",
-        "product_type": "פוליסה",
-        "company_name": "מגדל",
-        "fund_name": "מגדל מסלול לבני 50-60 מ.ה-9604 פוליסה",
-        "track_name": "מודל השקעה תלוי גיל, מגדל מסלול לבני 50 עד 60, מ.ה 9604",
-        "guaranteed_return": "לא",
-        "yield_1yr": "מגדל מסלול לבני 50-60 תאריך תחילת פעילות : פוליסות שהונפקו משנת 2004 ואילך",
-        "yield_3yr": "אין נתון",
-        "mgmt_fee_dep": "0% קבוע לכל חיי המוצר",
-        "mgmt_fee_bal": "דמי ניהול יורדים לפי צבירה",
-        "balance": "",
-        "forecast": "",
-        "cost": "",
-    },
-]
+STATIC_ROWS_COMPARISON: List[Dict[str, Any]] = [row.copy() for row in _rows.STATIC_ROWS_COMPARISON]
+
+
+def _append_static_coverage_alternatives(rows: List[Dict[str, Any]]) -> None:
+    _coverage._append_static_coverage_alternatives(rows)
 
 
 def build_static_rows(client: Client, existing: ExistingProduct) -> List[Dict[str, Any]]:
-    yrs = years_to_67(client.birth_date)
-    result: List[Dict[str, Any]] = []
-
-    for i, row in enumerate(STATIC_ROWS_COMPARISON):
-        new_row = row.copy()
-        acc_value = getattr(existing, "accumulated_amount", None) or 0.0
-        new_row["balance"] = f"{acc_value:,.0f}" if acc_value else "לא רלוונטי"
-        fv67 = fv(balance=acc_value, years=yrs)
-
-        if i == 2:
-            fee = fee_cost(balance=acc_value, fee_pct=0.0044, years=yrs)
-        else:
-            fee = fee_cost(balance=acc_value, fee_pct=0.0022, years=yrs)
-
-        new_row[
-            "forecast"
-        ] = f"גיל פרישה 67 הון צפוי ללא הפקדות {fv67:,.0f} דמי ניהול של {fee:,.0f}"
-        new_row["cost"] = ""
-        result.append(new_row)
-
-    return result
+    return _rows.build_static_rows(client, existing)
 
 
 def filter_pairs(client: Client) -> List[Tuple[ExistingProduct, List[NewProduct]]]:
-    result: List[Tuple[ExistingProduct, List[NewProduct]]] = []
-
-    for existing in client.existing_products:
-        existing_type = normalize_fund_type(existing.fund_type)
-        new_products = [
-            np
-            for np in client.new_products
-            if np.existing_product_id == existing.id
-            and normalize_fund_type(np.fund_type) == existing_type
-        ]
-        result.append((existing, new_products))
-
-    return result
+    return _tables.filter_pairs(client)
 
 
 def build_tables(client: Client) -> List[List[Dict[str, Any]]]:
-    tables: List[List[Dict[str, Any]]] = []
-    pairs = filter_pairs(client)
-
-    standalone_new_products = [
-        np for np in client.new_products if np.existing_product_id is None
-    ]
-
-    for standalone_new in standalone_new_products:
-        standalone_row = build_new_row(client, standalone_new)
-        standalone_row["track_name"] = (
-            f"{standalone_row['track_name']} ({standalone_new.fund_code})"
-        )
-
-        alternatives_rows: List[Dict[str, Any]] = []
-        if normalize_fund_type(standalone_new.fund_type) == "גמל":
-            temp_existing = type(
-                "obj",
-                (object,),
-                {
-                    "accumulated_amount": standalone_new.accumulated_amount or 0,
-                    "fund_code": standalone_new.fund_code,
-                },
-            )
-            alternatives_rows = build_static_rows(client, temp_existing)  # type: ignore[arg-type]
-
-        recommendation_row = {
-            "recommendation": "שיקולים לבחירת הקופה: 1. רמת שירות גבוהה של הגוף המוסדי. 2. רמת תפעול גבוהה של הגוף המוסדי. 3. רמת ניהול השקעות גבוהה של הגוף המוסדי.",
-            "product_type": "",
-            "company_name": "",
-            "fund_name": "",
-            "track_name": "",
-            "guaranteed_return": "",
-            "yield_1yr": "",
-            "mgmt_fee_dep": "",
-            "mgmt_fee_bal": "",
-            "balance": "",
-            "forecast": "",
-            "cost": "",
-        }
-
-        table = [standalone_row] + alternatives_rows + [recommendation_row]
-        tables.append(table)
-
-    for ex, new_list in pairs:
-        share_amount: Optional[float] = None
-        if ex.accumulated_amount is not None and len(new_list) > 1:
-            total = ex.accumulated_amount or 0.0
-            count = float(len(new_list))
-            share_amount = total / count if count > 0 else 0.0
-
-        if normalize_fund_type(ex.fund_type) == "גמל":
-            if new_list:
-                existing_row = build_existing_row(client, ex)
-                existing_row["track_name"] = (
-                    f"{existing_row['track_name']} ({ex.fund_code})"
-                )
-
-                new_rows: List[Dict[str, Any]] = []
-                for new in new_list:
-                    new_row = build_new_row(client, new, share_amount)
-                    new_row["track_name"] = (
-                        f"{new_row['track_name']} ({new.fund_code})"
-                    )
-                    new_rows.append(new_row)
-
-                alternatives_rows = build_static_rows(client, ex)
-
-                recommendation_row = {
-                    "recommendation": "שיקולים לבחירת הקופה: 1. רמת שירות גבוהה של הגוף המוסדי. 2. רמת תפעול גבוהה של הגוף המוסדי. 3. רמת ניהול השקעות גבוהה של הגוף המוסדי.",
-                    "product_type": "",
-                    "company_name": "",
-                    "fund_name": "",
-                    "track_name": "",
-                    "guaranteed_return": "",
-                    "yield_1yr": "",
-                    "mgmt_fee_dep": "",
-                    "mgmt_fee_bal": "",
-                    "balance": "",
-                    "forecast": "",
-                    "cost": "",
-                }
-
-                table = [existing_row] + new_rows + alternatives_rows + [recommendation_row]
-            else:
-                existing_row = build_existing_row(client, ex)
-                existing_row["track_name"] = (
-                    f"{existing_row['track_name']} ({ex.fund_code})"
-                )
-                table = [existing_row]
-        else:
-            if new_list:
-                existing_row = build_existing_row(client, ex)
-                existing_row["track_name"] = (
-                    f"{existing_row['track_name']} ({ex.fund_code})"
-                )
-
-                new_rows = []
-                for new in new_list:
-                    new_row = build_new_row(client, new, share_amount)
-                    new_row["track_name"] = (
-                        f"{new_row['track_name']} ({new.fund_code})"
-                    )
-                    new_rows.append(new_row)
-
-                recommendation_row = {
-                    "recommendation": "שיקולים לבחירת הקופה: 1. רמת שירות גבוהה של הגוף המוסדי. 2. רמת תפעול גבוהה של הגוף המוסדי. 3. רמת ניהול השקעות גבוהה של הגוף המוסדי.",
-                    "product_type": "",
-                    "company_name": "",
-                    "fund_name": "",
-                    "track_name": "",
-                    "guaranteed_return": "",
-                    "yield_1yr": "",
-                    "mgmt_fee_dep": "",
-                    "mgmt_fee_bal": "",
-                    "balance": "",
-                    "forecast": "",
-                    "cost": "",
-                }
-
-                table = [existing_row] + new_rows + [recommendation_row]
-            else:
-                existing_row = build_existing_row(client, ex)
-                existing_row["track_name"] = (
-                    f"{existing_row['track_name']} ({ex.fund_code})"
-                )
-                table = [existing_row]
-
-        tables.append(table)
-
-    return tables
+    return _tables.build_tables(client)
 
 
-STATIC_ROWS_COVERAGE: List[Dict[str, Any]] = [
-    {
-        "recommendation": "חלופה 1",
-        "product_type": "קרן פנסיה",
-        "company_name": "אלטשולר שחם גמל ופנסיה בע" "מ",
-        "fund_name": "אלטשולר שחם פנסיה מקיפה 1328",
-        "track_name": "מודל השקעה תלוי גיל, אלטשולר שחם, פנסיה מקיפה, מסלול לבני 50 עד 60, מ.ה 9758",
-        "guaranteed_return": "כן, קיימת הבטחת תשואה שנתית של 5.15% (צמודה למדד) על 30% מהנכסים",
-        "yield_1yr": "אלטשולר שחם פנסיה מקיפה מסלול לבני 50-60 תאריך תחילת פעילות 12/11/2015",
-        "yield_3yr": "אין נתון",
-        "mgmt_fee_dep": "1% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 6%",
-        "mgmt_fee_bal": "0.22% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 0.5%",
-    },
-    {
-        "recommendation": "חלופה 2",
-        "product_type": "קרן פנסיה",
-        "company_name": "אלטשולר שחם גמל ופנסיה בע" "מ",
-        "fund_name": "אלטשולר שחם פנסיה כללית 1329",
-        "track_name": "מודל השקעה תלוי גיל, אלטשולר שחם, פנסיה מקיפה, מסלול לבני 50 עד 60, מ.ה 9762",
-        "guaranteed_return": "לא",
-        "yield_1yr": "אלטשולר שחם פנסיה כללית מסלול לבני 50-60 תאריך תחילת פעילות 12/11/2015",
-        "yield_3yr": "אין נתון",
-        "mgmt_fee_dep": "1% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 4%",
-        "mgmt_fee_bal": "0.22% הטבה למשך תקופה של 10 שנים לאחר מכן ד.נ. מצבירה 1.05%",
-    },
-    {
-        "recommendation": "חלופה 3",
-        "product_type": "פוליסה",
-        "company_name": "מגדל",
-        "fund_name": "מגדל מסלול לבני 50-60 מ.ה-9604 פוליסה",
-        "track_name": "מודל השקעה תלוי גיל, מגדל מסלול לבני 50 עד 60, מ.ה 9604",
-        "guaranteed_return": "לא",
-        "yield_1yr": "מגדל מסלול לבני 50-60 תאריך תחילת פעילות : פוליסות שהונפקו משנת 2004 ואילך",
-        "yield_3yr": "אין נתון",
-        "mgmt_fee_dep": "0% קבוע לכל חיי המוצר",
-        "mgmt_fee_bal": "דמי ניהול יורדים לפי צבירה",
-    },
-]
+STATIC_ROWS_COVERAGE: List[Dict[str, Any]] = [row.copy() for row in _coverage.STATIC_ROWS_COVERAGE]
 
 
 def build_coverage_table_rows(
@@ -411,47 +150,11 @@ def build_coverage_table_rows(
     new: Optional[NewProduct] = None,
     add_alternatives: bool = False,
 ) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-
-    def make_row(item: Any, recommendation: str) -> Dict[str, Any]:
-        if isinstance(item, (ExistingProduct, NewProduct)):
-            return {
-                "recommendation": recommendation,
-                "product_name": (
-                    f"{item.fund_name} (מס' קופה: {item.personal_number})"
-                    if hasattr(item, "personal_number") and item.personal_number
-                    else item.fund_name
-                ),
-                "company_name": item.company_name,
-                "coverage_type": "אין כיסויים במוצר זה",
-                "coverage_amount": "אין כיסויים במוצר זה",
-                "monthly_cost": "אין כיסויים במוצר זה",
-                "included_in_pension": "",
-            }
-        return {
-            "recommendation": item["recommendation"],
-            "product_name": item["fund_name"],
-            "company_name": item["company_name"],
-            "coverage_type": "אין כיסויים במוצר זה",
-            "coverage_amount": "אין כיסויים במוצר זה",
-            "monthly_cost": "אין כיסויים במוצר זה",
-            "included_in_pension": "",
-        }
-
-    if existing is None and new is not None:
-        rows.append(make_row(new, "להצטרף"))
-        if new.fund_type == "גמל" and add_alternatives:
-            for alt_row in STATIC_ROWS_COVERAGE:
-                rows.append(make_row(alt_row, alt_row["recommendation"]))
-    elif existing is not None:
-        rows.append(make_row(existing, "להשאיר" if not new else "להצטרף"))
-        if new:
-            rows.append(make_row(new, "להצטרף"))
-        if normalize_fund_type(existing.fund_type) == "גמל" and add_alternatives:
-            for alt_row in STATIC_ROWS_COVERAGE:
-                rows.append(make_row(alt_row, alt_row["recommendation"]))
-
-    return rows
+    return _coverage.build_coverage_table_rows(
+        existing,
+        new,
+        add_alternatives=add_alternatives,
+    )
 
 
 def build_coverage_tables(
@@ -459,65 +162,4 @@ def build_coverage_tables(
     client: Client,
     tables: List[List[Dict[str, Any]]],
 ) -> List[List[Dict[str, Any]]]:
-    coverage_tables: List[List[Dict[str, Any]]] = []
-    processed_products: set[int] = set()
-    alternatives_added = False
-
-    for table in tables:
-        if not table:
-            continue
-
-        existing_data = table[0] if table else None
-        existing_product: Optional[ExistingProduct] = None
-        if existing_data and "id" in existing_data:
-            existing_id = existing_data.get("id")
-            if existing_id is not None:
-                existing_product = db.get(ExistingProduct, existing_id)
-        if existing_product and existing_product.id not in processed_products:
-            processed_products.add(existing_product.id)
-
-            new_products: List[NewProduct] = []
-            for row in table[1:]:
-                if row.get("recommendation") == "להצטרף" and "id" in row:
-                    new_id = row.get("id")
-                    if new_id is not None:
-                        new_product = db.get(NewProduct, new_id)
-                        if new_product:
-                            new_products.append(new_product)
-
-            add_alternatives = (
-                normalize_fund_type(existing_product.fund_type) == "גמל"
-                and not alternatives_added
-            )
-            if add_alternatives:
-                alternatives_added = True
-
-            coverage_rows = build_coverage_table_rows(
-                existing_product,
-                new_products[0] if new_products else None,
-                add_alternatives=add_alternatives,
-            )
-            coverage_tables.append(coverage_rows)
-
-    standalone_products = (
-        db.query(NewProduct)
-        .filter(NewProduct.client_id == client.id, NewProduct.existing_product_id.is_(None))
-        .all()
-    )
-
-    for product in standalone_products:
-        if product.id not in processed_products:
-            processed_products.add(product.id)
-            coverage_rows = build_coverage_table_rows(
-                None,
-                product,
-                add_alternatives=(
-                    normalize_fund_type(product.fund_type) == "גמל"
-                    and not alternatives_added
-                ),
-            )
-            if normalize_fund_type(product.fund_type) == "גמל":
-                alternatives_added = True
-            coverage_tables.append(coverage_rows)
-
-    return coverage_tables
+    return _coverage.build_coverage_tables(db, client, tables)

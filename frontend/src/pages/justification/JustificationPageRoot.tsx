@@ -1,24 +1,11 @@
 import { useEffect, useState, ChangeEvent } from "react";
 import {
-  SavingProduct,
   NewProduct,
-  ExistingProduct,
-  FormInstance,
-  fetchSavingProducts,
-  fetchNewProductsForClient,
-  fetchExistingProductsForClient,
-  fetchFormInstancesForNewProduct,
-  createNewProductForClient,
-  createFormInstanceForNewProduct,
-  deleteNewProduct,
-  deleteFormInstance,
   buildAdvicePdfUrl,
   buildB1PdfUrl,
   buildKitPdfUrl,
-  syncClientProductsFromCrm,
 } from "../../api/justificationApi";
-import { importGemelNetXml, clearJustificationData } from "../../api/adminApi";
-import { Client, ClientSummary, Snapshot, fetchClientSummaries, fetchClient, fetchClientSnapshots } from "../../api/crmApi";
+import type { Client } from "../../api/crmApi";
 import "../../styles/justification.css";
 import JustificationTabs from "../../components/JustificationTabs";
 import JustificationMarketDashboard from "../../components/JustificationMarketDashboard";
@@ -29,19 +16,8 @@ import JustificationNewProductsSection from "../../components/JustificationNewPr
 import { useJustificationPdfAndPackets } from "../../components/justification/useJustificationPdfAndPackets";
 import { useAdobePdfViewer } from "../../components/justification/useAdobePdfViewer";
 import { useJustificationGemel } from "../../components/justification/useJustificationGemel";
-import { findMatchingSavingProductForExisting as findMatchingSavingProductForExistingUtil } from "../../components/justification/justificationMatching";
-import {
-  createExistingProductAction,
-  updateExistingProductAction,
-  deleteExistingProductAction,
-} from "./justExistingProductsActions";
-import {
-  selectNewProductAction,
-  createFormInstanceAction,
-  createNewProductAction,
-  deleteNewProductAction,
-  deleteFormInstanceAction,
-} from "./justNewProductsAndFormsActions";
+import { useJustificationClients } from "./useJustificationClients";
+import { useJustificationProducts } from "./useJustificationProducts";
 
 export type Props = {
   savingProductsReloadKey?: number;
@@ -54,57 +30,10 @@ function JustificationPageRoot({
   initialClientId = null,
   onGemelNetImportCompleted,
 }: Props) {
-  const [savingProducts, setSavingProducts] = useState<SavingProduct[]>([]);
-  const [selectedSavingProduct, setSelectedSavingProduct] =
-    useState<SavingProduct | null>(null);
-  const [clients, setClients] = useState<ClientSummary[]>([]);
-  const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
-  const [clientFilter, setClientFilter] = useState("");
-  const [existingProducts, setExistingProducts] = useState<ExistingProduct[]>([]);
-  const [crmSnapshots, setCrmSnapshots] = useState<Snapshot[]>([]);
-  const [selectedExistingProduct, setSelectedExistingProduct] =
-    useState<ExistingProduct | null>(null);
-  const [newProducts, setNewProducts] = useState<NewProduct[]>([]);
-  const [formInstances, setFormInstances] = useState<FormInstance[]>([]);
-  const [selectedNewProduct, setSelectedNewProduct] = useState<NewProduct | null>(null);
-  const [newFormTemplate, setNewFormTemplate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"client" | "market" | "forms">("client");
-  const [selectedClientDetails, setSelectedClientDetails] = useState<Client | null>(null);
-  const [selectedFundTypeFilter, setSelectedFundTypeFilter] = useState("");
-  const [savingProductSearch, setSavingProductSearch] = useState("");
-  const [existingFormMode, setExistingFormMode] =
-    useState<"none" | "create" | "edit">("none");
-  const [replacementExistingId, setReplacementExistingId] =
-    useState<number | null>(null);
-  const [createMode, setCreateMode] = useState<"existing" | "new">("existing");
-  const [newExistingFundType, setNewExistingFundType] = useState("");
-  const [newExistingCompanyName, setNewExistingCompanyName] = useState("");
-  const [newExistingFundName, setNewExistingFundName] = useState("");
-  const [newExistingFundCode, setNewExistingFundCode] = useState("");
-  const [newExistingPersonalNumber, setNewExistingPersonalNumber] = useState("");
-  const [newExistingAccumulatedAmount, setNewExistingAccumulatedAmount] = useState("");
-  const [newExistingManagementFeeBalance, setNewExistingManagementFeeBalance] =
-    useState("");
-  const [newExistingManagementFeeContributions, setNewExistingManagementFeeContributions] =
-    useState("");
-  const [newExistingEmploymentStatus, setNewExistingEmploymentStatus] = useState("");
-  const [newExistingHasRegularContributions, setNewExistingHasRegularContributions] =
-    useState("");
-  const [editExistingFundType, setEditExistingFundType] = useState("");
-  const [editExistingCompanyName, setEditExistingCompanyName] = useState("");
-  const [editExistingFundName, setEditExistingFundName] = useState("");
-  const [editExistingFundCode, setEditExistingFundCode] = useState("");
-  const [editExistingPersonalNumber, setEditExistingPersonalNumber] = useState("");
-  const [editExistingAccumulatedAmount, setEditExistingAccumulatedAmount] = useState("");
-  const [editExistingManagementFeeBalance, setEditExistingManagementFeeBalance] =
-    useState("");
-  const [editExistingManagementFeeContributions, setEditExistingManagementFeeContributions] =
-    useState("");
-  const [editExistingEmploymentStatus, setEditExistingEmploymentStatus] = useState("");
-  const [editExistingHasRegularContributions, setEditExistingHasRegularContributions] =
-    useState("");
+
   const {
     gemelFile,
     isGemelImporting,
@@ -115,6 +44,36 @@ function JustificationPageRoot({
     handleRunGemelImport,
     handleClearJustificationData,
   } = useJustificationGemel(onGemelNetImportCompleted);
+
+  const {
+    clients,
+    selectedClient,
+    clientFilter,
+    existingProducts,
+    crmSnapshots,
+    newProducts,
+    formInstances,
+    selectedExistingProduct,
+    selectedNewProduct,
+    selectedClientDetails,
+    existingFormMode,
+    setSelectedClient,
+    setClientFilter,
+    setExistingProducts,
+    setCrmSnapshots,
+    setNewProducts,
+    setFormInstances,
+    setSelectedExistingProduct,
+    setSelectedNewProduct,
+    setSelectedClientDetails,
+    setExistingFormMode,
+    handleSyncFromCrm,
+  } = useJustificationClients({
+    initialClientId,
+    setLoading,
+    setError,
+  });
+
   const {
     pdfGenerationMessage,
     pdfGenerationIsError,
@@ -144,26 +103,91 @@ function JustificationPageRoot({
     handleDeleteClientExports,
     setPacketTrimInput,
   } = useJustificationPdfAndPackets(selectedClient, newProducts);
-  useAdobePdfViewer();
 
-  const handleSyncFromCrm = () => {
-    if (!selectedClient) return;
-    setLoading(true);
-    syncClientProductsFromCrm(selectedClient.id)
-      .then(() => {
-        return fetchExistingProductsForClient(selectedClient.id);
-      })
-      .then((products) => {
-        setExistingProducts(products);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("שגיאה בסנכרון מוצרים מ-CRM");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
+  const {
+    savingProducts,
+    selectedSavingProduct,
+    newFormTemplate,
+    selectedFundTypeFilter,
+    savingProductSearch,
+    replacementExistingId,
+    createMode,
+    newExistingFundType,
+    newExistingCompanyName,
+    newExistingFundName,
+    newExistingFundCode,
+    newExistingPersonalNumber,
+    newExistingAccumulatedAmount,
+    newExistingManagementFeeBalance,
+    newExistingManagementFeeContributions,
+    newExistingEmploymentStatus,
+    newExistingHasRegularContributions,
+    editExistingFundType,
+    editExistingCompanyName,
+    editExistingFundName,
+    editExistingFundCode,
+    editExistingPersonalNumber,
+    editExistingAccumulatedAmount,
+    editExistingManagementFeeBalance,
+    editExistingManagementFeeContributions,
+    editExistingEmploymentStatus,
+    editExistingHasRegularContributions,
+    replacementLockFundType,
+    sortedNewProducts,
+    findExistingForNew,
+    findMatchingSavingProductForExisting,
+    handleCreateExistingProduct,
+    handleCreateNewProduct,
+    handleUpdateExistingProduct,
+    handleDeleteExistingProduct,
+    handleSelectNewProduct,
+    handleCreateFormInstance,
+    handleDeleteNewProduct,
+    handleDeleteFormInstance,
+    setSelectedSavingProduct,
+    setNewFormTemplate,
+    setSelectedFundTypeFilter,
+    setSavingProductSearch,
+    setReplacementExistingId,
+    setCreateMode,
+    setNewExistingFundType,
+    setNewExistingCompanyName,
+    setNewExistingFundName,
+    setNewExistingFundCode,
+    setNewExistingPersonalNumber,
+    setNewExistingAccumulatedAmount,
+    setNewExistingManagementFeeBalance,
+    setNewExistingManagementFeeContributions,
+    setNewExistingEmploymentStatus,
+    setNewExistingHasRegularContributions,
+    setEditExistingFundType,
+    setEditExistingCompanyName,
+    setEditExistingFundName,
+    setEditExistingFundCode,
+    setEditExistingPersonalNumber,
+    setEditExistingAccumulatedAmount,
+    setEditExistingManagementFeeBalance,
+    setEditExistingManagementFeeContributions,
+    setEditExistingEmploymentStatus,
+    setEditExistingHasRegularContributions,
+  } = useJustificationProducts({
+    savingProductsReloadKey,
+    selectedClient,
+    existingProducts,
+    newProducts,
+    selectedExistingProduct,
+    selectedNewProduct,
+    existingFormMode,
+    setExistingProducts,
+    setNewProducts,
+    setFormInstances,
+    setSelectedExistingProduct,
+    setSelectedNewProduct,
+    setLoading,
+    setError,
+  });
+
+  useAdobePdfViewer();
 
   const handlePreviewAdvicePdf = () => {
     if (!selectedClient) {
@@ -187,305 +211,6 @@ function JustificationPageRoot({
     }
     const url = buildKitPdfUrl(selectedClient.id, product.id);
     window.open(url, "_blank");
-  };
-
-  useEffect(() => {
-    setLoading(true);
-    fetchSavingProducts()
-      .then((products) => {
-        setSavingProducts(products);
-        setError(null);
-      })
-      .catch(() => {
-        setError("שגיאה בטעינת טבלת קופות");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [savingProductsReloadKey]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchClientSummaries()
-      .then((clientSummaries) => {
-        setClients(clientSummaries);
-        if (clientSummaries.length > 0) {
-          const initial =
-            initialClientId != null
-              ? clientSummaries.find((client) => client.id === initialClientId) ||
-                clientSummaries[0]
-              : clientSummaries[0];
-          setSelectedClient(initial);
-        }
-        setError(null);
-      })
-      .catch(() => {
-        setError("שגיאה בטעינת רשימת לקוחות להנמקה");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!selectedClient) {
-      setExistingProducts([]);
-      setCrmSnapshots([]);
-      setNewProducts([]);
-      setSelectedExistingProduct(null);
-      setSelectedNewProduct(null);
-      setFormInstances([]);
-      setSelectedClientDetails(null);
-      setExistingFormMode("none");
-      return;
-    }
-
-    setLoading(true);
-    Promise.all([
-      fetchExistingProductsForClient(selectedClient.id),
-      fetchNewProductsForClient(selectedClient.id),
-      fetchClient(selectedClient.id),
-      fetchClientSnapshots(selectedClient.id),
-    ])
-      .then(([existingProductsData, newProductsData, clientDetails, snapshotsData]) => {
-        setExistingProducts(existingProductsData);
-        setNewProducts(newProductsData);
-        setSelectedClientDetails(clientDetails);
-        setCrmSnapshots(snapshotsData);
-        setError(null);
-      })
-      .catch(() => {
-        setError("שגיאה בטעינת נתוני מוצרים ללקוח");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [selectedClient]);
-
-  useEffect(() => {
-    if (!selectedExistingProduct) {
-      setEditExistingFundType("");
-      setEditExistingCompanyName("");
-      setEditExistingFundName("");
-      setEditExistingFundCode("");
-      setEditExistingPersonalNumber("");
-      setEditExistingAccumulatedAmount("");
-      setEditExistingManagementFeeBalance("");
-      setEditExistingManagementFeeContributions("");
-      setEditExistingEmploymentStatus("");
-      setEditExistingHasRegularContributions("");
-      return;
-    }
-
-    setEditExistingFundType(selectedExistingProduct.fundType || "");
-    setEditExistingCompanyName(selectedExistingProduct.companyName || "");
-    setEditExistingFundName(selectedExistingProduct.fundName || "");
-    setEditExistingFundCode(selectedExistingProduct.fundCode || "");
-    setEditExistingPersonalNumber(selectedExistingProduct.personalNumber || "");
-    setEditExistingAccumulatedAmount(
-      selectedExistingProduct.accumulatedAmount != null
-        ? String(selectedExistingProduct.accumulatedAmount)
-        : ""
-    );
-    setEditExistingManagementFeeBalance("");
-    setEditExistingManagementFeeContributions(
-      selectedExistingProduct.managementFeeContributions != null
-        ? String(selectedExistingProduct.managementFeeContributions)
-        : ""
-    );
-    setEditExistingEmploymentStatus(selectedExistingProduct.employmentStatus || "");
-    setEditExistingHasRegularContributions(
-      selectedExistingProduct.hasRegularContributions === true
-        ? "yes"
-        : selectedExistingProduct.hasRegularContributions === false
-        ? "no"
-        : ""
-    );
-  }, [selectedExistingProduct]);
-
-  useEffect(() => {
-    if (!selectedExistingProduct || !selectedSavingProduct) {
-      return;
-    }
-    if (existingFormMode !== "edit") {
-      return;
-    }
-
-    setEditExistingFundType(selectedSavingProduct.fundType || "");
-    setEditExistingCompanyName(selectedSavingProduct.companyName || "");
-    setEditExistingFundName(selectedSavingProduct.fundName || "");
-    setEditExistingFundCode(selectedSavingProduct.fundCode || "");
-  }, [selectedSavingProduct, selectedExistingProduct, existingFormMode]);
-
-  const findMatchingSavingProductForExisting = (
-    product: ExistingProduct | null
-  ): SavingProduct | null => {
-    return findMatchingSavingProductForExistingUtil(product, savingProducts);
-  };
-
-  const replacementSourceProduct =
-    replacementExistingId !== null
-      ? existingProducts.find((p) => p.id === replacementExistingId) || null
-      : null;
-
-  let replacementLockFundType: string | null = null;
-  if (createMode === "new" && replacementSourceProduct) {
-    if (replacementSourceProduct.fundType) {
-      replacementLockFundType = replacementSourceProduct.fundType;
-    } else {
-      const autoMatch = findMatchingSavingProductForExisting(replacementSourceProduct);
-      if (autoMatch) {
-        replacementLockFundType = autoMatch.fundType;
-      }
-    }
-  }
-
-  const sortedNewProducts = [...newProducts].sort((a, b) => {
-    const aExisting = a.existingProductId ?? null;
-    const bExisting = b.existingProductId ?? null;
-
-    if (aExisting != null && bExisting != null) {
-      if (aExisting !== bExisting) {
-        return aExisting - bExisting;
-      }
-      return a.id - b.id;
-    }
-
-    if (aExisting != null && bExisting == null) {
-      return -1;
-    }
-    if (aExisting == null && bExisting != null) {
-      return 1;
-    }
-
-    return a.id - b.id;
-  });
-
-  const findExistingForNew = (product: NewProduct): ExistingProduct | null => {
-    if (product.existingProductId == null) {
-      return null;
-    }
-    return (
-      existingProducts.find(
-        (existing) => existing.id === product.existingProductId
-      ) || null
-    );
-  };
-
-  const handleCreateExistingProduct = () => {
-    createExistingProductAction({
-      selectedClient,
-      selectedSavingProduct,
-      newExistingPersonalNumber,
-      newExistingAccumulatedAmount,
-      newExistingManagementFeeBalance,
-      newExistingManagementFeeContributions,
-      newExistingEmploymentStatus,
-      newExistingHasRegularContributions,
-      setLoading,
-      setExistingProducts,
-      setNewExistingPersonalNumber,
-      setNewExistingAccumulatedAmount,
-      setNewExistingManagementFeeBalance,
-      setNewExistingManagementFeeContributions,
-      setNewExistingEmploymentStatus,
-      setNewExistingHasRegularContributions,
-      setError,
-    });
-  };
-
-  const handleUpdateExistingProduct = () => {
-    updateExistingProductAction({
-      selectedClient,
-      selectedExistingProduct,
-      selectedSavingProduct,
-      editExistingFundType,
-      editExistingCompanyName,
-      editExistingFundName,
-      editExistingFundCode,
-      editExistingPersonalNumber,
-      editExistingAccumulatedAmount,
-      editExistingManagementFeeBalance,
-      editExistingManagementFeeContributions,
-      editExistingEmploymentStatus,
-      editExistingHasRegularContributions,
-      setLoading,
-      setExistingProducts,
-      setSelectedExistingProduct,
-      setError,
-    });
-  };
-
-  const handleDeleteExistingProduct = () => {
-    deleteExistingProductAction({
-      selectedExistingProduct,
-      setLoading,
-      setExistingProducts,
-      setSelectedExistingProduct,
-      setError,
-    });
-  };
-
-  const handleSelectNewProduct = (product: NewProduct) => {
-    selectNewProductAction({
-      product,
-      setSelectedNewProduct,
-      setFormInstances,
-      setLoading,
-      setError,
-    });
-  };
-
-  const handleCreateFormInstance = () => {
-    createFormInstanceAction({
-      selectedNewProduct,
-      newFormTemplate,
-      setLoading,
-      setFormInstances,
-      setNewFormTemplate,
-      setError,
-    });
-  };
-
-  const handleCreateNewProduct = (existingProductIdOverride?: number | null) => {
-    createNewProductAction({
-      selectedClient,
-      selectedSavingProduct,
-      selectedExistingProduct,
-      newExistingAccumulatedAmount,
-      newExistingManagementFeeBalance,
-      newExistingManagementFeeContributions,
-      newExistingEmploymentStatus,
-      newExistingHasRegularContributions,
-      existingProductIdOverride,
-      setLoading,
-      setNewProducts,
-      setExistingProducts,
-      setSelectedExistingProduct,
-      setReplacementExistingId,
-      setError,
-    });
-  };
-
-  const handleDeleteNewProduct = (productId: number) => {
-    deleteNewProductAction({
-      productId,
-      selectedNewProduct,
-      setLoading,
-      setNewProducts,
-      setSelectedNewProduct,
-      setFormInstances,
-      setError,
-    });
-  };
-
-  const handleDeleteFormInstance = (formId: number) => {
-    deleteFormInstanceAction({
-      formId,
-      setLoading,
-      setFormInstances,
-      setError,
-    });
   };
 
   if (viewMode === "market") {

@@ -8,6 +8,7 @@ import type {
 } from "../api/crmApi";
 import type { BeneficiaryFormRow } from "../pages/crm/crmBeneficiaries";
 import { isoToDmy } from "../utils/dateFormat";
+import { getCoreFundCode } from "../utils/fundCode";
 
 interface CanonicalSnapshot {
   fundCode: string;
@@ -184,11 +185,7 @@ function CrmClientDetailPanel({
     // Extract the core fund code from formats like "658-274-196980 (6077380)"
     // We want just the number in parentheses, or the whole code if no parentheses
     const extractCoreFundCode = (fullCode: string): string => {
-      const match = fullCode.match(/\((\d+)\)/);
-      if (match) {
-        return match[1];
-      }
-      return fullCode.trim();
+      return getCoreFundCode(fullCode);
     };
 
     latestSnapshots.forEach((snapshot) => {

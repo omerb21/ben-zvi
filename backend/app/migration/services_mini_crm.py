@@ -8,6 +8,44 @@ from sqlalchemy.orm import Session
 from app.models import Client, Snapshot
 from app.migration.legacy_mini_crm import MiniCrmClient, MiniCrmSnapshot, get_mini_crm_session
 from app.utils.id_normalization import normalize_id_number
+from app.utils.strings import coerce_stripped as _coerce_stripped
+from app.utils.strings import coerce_stripped_or_none as _coerce_stripped_or_none
+
+
+def _build_clients_by_id_number(db: Session) -> Dict[str, Client]:
+    clients_by_id: Dict[str, Client] = {}
+    for existing in db.query(Client).all():
+        key_source = existing.id_number or existing.id_number_raw
+        key = normalize_id_number(key_source)
+        if not key:
+            continue
+        if key not in clients_by_id:
+            clients_by_id[key] = existing
+    return clients_by_id
+
+
+def _build_full_name(first_name: str | None, last_name: str | None, fallback: str) -> str:
+    name_parts = [p for p in [first_name, last_name] if p]
+    return " ".join(name_parts) if name_parts else fallback
+
+
+def _parse_birth_date(raw_birth_date: str) -> date | None:
+    birth_date: date | None = None
+    if raw_birth_date:
+        for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%d.%m.%Y"):
+            try:
+                birth_date = datetime.strptime(raw_birth_date, fmt).date()
+                break
+            except ValueError:
+                continue
+        if birth_date is None:
+            try:
+                parsed = pd.to_datetime(raw_birth_date, dayfirst=True, errors="coerce")
+                if pd.notna(parsed):
+                    birth_date = parsed.date()
+            except Exception:
+                birth_date = None
+    return birth_date
 
 
 def migrate_mini_crm(db: Session, mini_crm_url: str | None = None) -> Dict[str, int]:
@@ -17,14 +55,7 @@ def migrate_mini_crm(db: Session, mini_crm_url: str | None = None) -> Dict[str, 
     created_snapshots = 0
 
     try:
-        clients_by_id: Dict[str, Client] = {}
-        for existing in db.query(Client).all():
-            key_source = existing.id_number or existing.id_number_raw
-            key = normalize_id_number(key_source)
-            if not key:
-                continue
-            if key not in clients_by_id:
-                clients_by_id[key] = existing
+        clients_by_id = _build_clients_by_id_number(db)
 
         legacy_clients = source_session.query(MiniCrmClient).all()
 
@@ -114,14 +145,7 @@ def migrate_legacy_crm_clients_from_excel(
     df.columns = [str(c).strip() for c in df.columns]
 
     # Map existing clients by canonical ID number
-    clients_by_id: Dict[str, Client] = {}
-    for existing in db.query(Client).all():
-        key_source = existing.id_number or existing.id_number_raw
-        key = normalize_id_number(key_source)
-        if not key:
-            continue
-        if key not in clients_by_id:
-            clients_by_id[key] = existing
+    clients_by_id = _build_clients_by_id_number(db)
 
     created_clients = 0
     updated_clients = 0
@@ -158,22 +182,22 @@ def migrate_legacy_crm_clients_from_excel(
     for _, row in df.iterrows():
         rows_processed += 1
 
-        raw_id = str(row.get(col_id, "") or "").strip()
+        raw_id = _coerce_stripped(row.get(col_id, ""))
         if not raw_id:
             continue
         id_number = normalize_id_number(raw_id)
         if not id_number:
             continue
 
-        first_name = str(row.get(col_first, "") or "").strip() or None
-        last_name = str(row.get(col_last, "") or "").strip() or None
+        first_name = _coerce_stripped_or_none(row.get(col_first, ""))
+        last_name = _coerce_stripped_or_none(row.get(col_last, ""))
         name_parts = [p for p in [first_name, last_name] if p]
-        full_name = " ".join(name_parts) if name_parts else id_number
+        full_name = _build_full_name(first_name, last_name, id_number)
 
-        phone = str(row.get(col_phone, "") or "").strip() or None
-        email = str(row.get(col_email, "") or "").strip() or None
-        city = str(row.get(col_city, "") or "").strip() or None
-        street_name = str(row.get(col_street, "") or "").strip()
+        phone = _coerce_stripped_or_none(row.get(col_phone, ""))
+        email = _coerce_stripped_or_none(row.get(col_email, ""))
+        city = _coerce_stripped_or_none(row.get(col_city, ""))
+        street_name = _coerce_stripped(row.get(col_street, ""))
 
         raw_house = row.get(col_house, "") or ""
         house_text = str(raw_house).strip()
@@ -186,31 +210,17 @@ def migrate_legacy_crm_clients_from_excel(
             street = f"{street_name} {house_number}"
         else:
             street = street_name or None
-        gender = str(row.get(col_gender, "") or "").strip() or None
-        marital_status = str(row.get(col_status, "") or "").strip() or None
+        gender = _coerce_stripped_or_none(row.get(col_gender, ""))
+        marital_status = _coerce_stripped_or_none(row.get(col_status, ""))
 
-        raw_birth_date = str(row.get(col_birth_date, "") or "").strip()
-        birth_date: date | None = None
-        if raw_birth_date:
-            for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%d.%m.%Y"):
-                try:
-                    birth_date = datetime.strptime(raw_birth_date, fmt).date()
-                    break
-                except ValueError:
-                    continue
-            if birth_date is None:
-                try:
-                    parsed = pd.to_datetime(raw_birth_date, dayfirst=True, errors="coerce")
-                    if pd.notna(parsed):
-                        birth_date = parsed.date()
-                except Exception:
-                    birth_date = None
+        raw_birth_date = _coerce_stripped(row.get(col_birth_date, ""))
+        birth_date = _parse_birth_date(raw_birth_date)
 
-        birth_country = str(row.get(col_birth_country, "") or "").strip() or None
-        employer_name = str(row.get(col_employer_name, "") or "").strip() or None
-        employer_hp = str(row.get(col_employer_hp, "") or "").strip() or None
-        employer_address = str(row.get(col_employer_address, "") or "").strip() or None
-        employer_phone = str(row.get(col_employer_phone, "") or "").strip() or None
+        birth_country = _coerce_stripped_or_none(row.get(col_birth_country, ""))
+        employer_name = _coerce_stripped_or_none(row.get(col_employer_name, ""))
+        employer_hp = _coerce_stripped_or_none(row.get(col_employer_hp, ""))
+        employer_address = _coerce_stripped_or_none(row.get(col_employer_address, ""))
+        employer_phone = _coerce_stripped_or_none(row.get(col_employer_phone, ""))
 
         client = clients_by_id.get(id_number)
 
