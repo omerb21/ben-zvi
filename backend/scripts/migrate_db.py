@@ -58,11 +58,22 @@ def migrate_data(source_url, dest_url):
     print("Migration completed successfully!")
 
 if __name__ == "__main__":
+    # Get environment variables
     old_db_url = os.environ.get("OLD_DB_URL")
-    new_db_url = os.environ.get("NEW_DB_URL")
     
-    if not old_db_url or not new_db_url:
-        print("Error: Please set OLD_DB_URL and NEW_DB_URL environment variables.")
+    # Try NEW_DB_URL, fallback to DATABASE_URL (standard Railway env var)
+    new_db_url = os.environ.get("NEW_DB_URL") or os.environ.get("DATABASE_URL")
+    
+    if not old_db_url:
+        print("Error: OLD_DB_URL environment variable is missing.")
+        sys.exit(1)
+
+    if not new_db_url:
+        print("Error: NEW_DB_URL or DATABASE_URL environment variable is missing.")
+        print("Please set NEW_DB_URL to the destination database URL.")
         sys.exit(1)
         
+    print(f"Source: {old_db_url.split('@')[-1]}") # Print non-sensitive part for verification
+    print(f"Destination: {new_db_url.split('@')[-1]}")
+    
     migrate_data(old_db_url, new_db_url)
