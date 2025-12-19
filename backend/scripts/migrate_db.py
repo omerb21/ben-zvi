@@ -44,14 +44,19 @@ def migrate_data(source_url, dest_url):
         with source_engine.connect() as src_conn:
             rows = src_conn.execute(table.select()).fetchall()
             if rows:
-                print(f"  - Copying {len(rows)} rows...")
-                # Insert data in batches or all at once
-                # For large datasets, batching is better. Here we do simple insert.
-                # SQLAlchemy Core insert
-                with dest_engine.begin() as dest_conn:
-                    # We need to construct a list of dicts for the insert
-                    data_to_insert = [dict(row._mapping) for row in rows]
-                    dest_conn.execute(table.insert(), data_to_insert)
+                # Check if destination table is empty to avoid PK conflicts
+                with dest_engine.connect() as check_conn:
+                    existing_count = check_conn.execute(table.select()).fetchone()
+                    
+                if existing_count:
+                    print(f"  - Table {table_name} contains data. Skipping data copy to verify safety.")
+                else:
+                    print(f"  - Copying {len(rows)} rows...")
+                    # Insert data
+                    with dest_engine.begin() as dest_conn:
+                        # We need to construct a list of dicts for the insert
+                        data_to_insert = [dict(row._mapping) for row in rows]
+                        dest_conn.execute(table.insert(), data_to_insert)
             else:
                 print("  - No data to copy.")
 
