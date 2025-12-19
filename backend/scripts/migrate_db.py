@@ -33,6 +33,8 @@ def migrate_data(source_url, dest_url):
     # Create inspector to check for existing tables
     from sqlalchemy import inspect
     inspector = inspect(dest_engine)
+    # Re-reflect destination to get actual columns created by Code
+    dest_meta.reflect(bind=dest_engine)
     existing_tables = set(inspector.get_table_names())
 
     # Copy data
@@ -41,6 +43,8 @@ def migrate_data(source_url, dest_url):
         table_name = table.name
         print(f"Processing table: {table_name}")
         
+        target_table = None
+
         # If table wasn't created by create_all (e.g. alembic_version), create it now
         if table_name not in existing_tables:
             try:
@@ -48,28 +52,54 @@ def migrate_data(source_url, dest_url):
                 table.create(dest_engine)
                 # Add to existing_tables so we know it exists now
                 existing_tables.add(table_name)
+                # Re-reflect specific table to register it in dest_meta
+                dest_meta.reflect(bind=dest_engine, only=[table_name])
+                target_table = dest_meta.tables.get(table_name)
             except Exception as e:
                 print(f"  - Error creating {table_name}: {e}")
-            
+                continue # Skip this table if creation failed
+        else:
+            # Table exists (created by Base.metadata.create_all)
+            # Use the definition from dest_meta (matches DB)
+            target_table = dest_meta.tables.get(table_name)
+        
+        if target_table is None:
+            print(f"  - Skipping {table_name} because target definition could not be loaded.")
+            continue
+
         # Copy data
-        with source_engine.connect() as src_conn:
-            rows = src_conn.execute(table.select()).fetchall()
-            if rows:
-                # Check if destination table is empty to avoid PK conflicts
-                with dest_engine.connect() as check_conn:
-                    existing_count = check_conn.execute(table.select()).fetchone()
-                    
-                if existing_count:
-                    print(f"  - Table {table_name} contains data. Skipping data copy to verify safety.")
+        try:
+            with source_engine.connect() as src_conn:
+                rows = src_conn.execute(table.select()).fetchall()
+                if rows:
+                    # Check if destination table is empty to avoid PK conflicts
+                    with dest_engine.connect() as check_conn:
+                        # Use target_table for select to ensure we use correct column names
+                        existing_count = check_conn.execute(target_table.select()).fetchone()
+                        
+                    if existing_count:
+                        print(f"  - Table {table_name} contains data. Skipping data copy to verify safety.")
+                    else:
+                        print(f"  - Copying {len(rows)} rows...")
+                        # Insert data
+                        # Filter columns: Only insert data for columns that exist in the target table
+                        target_columns = set(c.name for c in target_table.columns)
+                        
+                        clean_data = []
+                        for row in rows:
+                            row_dict = dict(row._mapping)
+                            # Intersect keys with target_columns
+                            filtered_row = {k: v for k, v in row_dict.items() if k in target_columns}
+                            clean_data.append(filtered_row)
+
+                        with dest_engine.begin() as dest_conn:
+                            dest_conn.execute(target_table.insert(), clean_data)
                 else:
-                    print(f"  - Copying {len(rows)} rows...")
-                    # Insert data
-                    with dest_engine.begin() as dest_conn:
-                        # We need to construct a list of dicts for the insert
-                        data_to_insert = [dict(row._mapping) for row in rows]
-                        dest_conn.execute(table.insert(), data_to_insert)
-            else:
-                print("  - No data to copy.")
+                    print("  - No data to copy.")
+        except Exception as e:
+            print(f"  - Error copying data for {table_name}: {e}")
+            # Continue to next table instead of crashing
+            continue
 
     # Fix sequences
     print("Resetting sequences...")
