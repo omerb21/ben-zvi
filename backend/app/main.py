@@ -48,6 +48,7 @@ else:
         "http://localhost:5174",
         "https://ben-zvi.onrender.com",
         "https://bzclient.onrender.com",
+        "https://ben-zvi-production.up.railway.app",
     ]
 
 
