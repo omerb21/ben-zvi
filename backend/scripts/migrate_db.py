@@ -30,14 +30,26 @@ def migrate_data(source_url, dest_url):
     import app.models  # Register models
     Base.metadata.create_all(bind=dest_engine)
 
+    # Create inspector to check for existing tables
+    from sqlalchemy import inspect
+    inspector = inspect(dest_engine)
+    existing_tables = set(inspector.get_table_names())
+
     # Copy data
     # Use sorted_tables to ensure creation in dependency order
     for table in source_meta.sorted_tables:
         table_name = table.name
         print(f"Processing table: {table_name}")
         
-        # Table already created by Base.metadata.create_all
-        # We just need to check if it exists in source and copy data
+        # If table wasn't created by create_all (e.g. alembic_version), create it now
+        if table_name not in existing_tables:
+            try:
+                print(f"  - Table {table_name} not found in destination (not in models). Creating from source schema...")
+                table.create(dest_engine)
+                # Add to existing_tables so we know it exists now
+                existing_tables.add(table_name)
+            except Exception as e:
+                print(f"  - Error creating {table_name}: {e}")
             
         # Copy data
         with source_engine.connect() as src_conn:
