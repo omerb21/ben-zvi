@@ -18,16 +18,11 @@ def migrate_data(source_url, dest_url):
     
     # Create tables in destination
     print("Creating tables in destination...")
-    # We reflect the source tables and recreate them in the destination
-    # Note: specific constraints or types might need adjustment if DB versions differ significantly,
-    # but for standard Postgres to Postgres it should work fine.
-    # However, a safer bet for pure data copy if schema exists is just clearing and copying.
-    # But if schema doesn't exist, we need to create it.
-    # For simplicity, we assume we want to replicate the schema too.
+    # Clean slate: Drop all tables in destination to fix schema mismatches
+    dest_meta.reflect(bind=dest_engine)
+    dest_meta.drop_all(bind=dest_engine)
     
-    # Dropping all tables in destination to ensure clean slate (OPTIONAL - BE CAREFUL)
-    # dest_meta.reflect(bind=dest_engine)
-    # dest_meta.drop_all(bind=dest_engine)
+    # We re-reflect source just to be safe (already done above)
 
     # Copy schema and data
     for table_name, table in source_meta.tables.items():
