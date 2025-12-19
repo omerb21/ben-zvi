@@ -17,12 +17,13 @@ class ClientBeneficiary(Base):
     # 1-based index of the beneficiary (1..4)
     index = Column(Integer, nullable=False)
 
-    first_name = Column(String(50), nullable=False)
-    last_name = Column(String(50), nullable=False)
-    id_number = Column(String(20), nullable=False)
-    birth_date = Column(Date, nullable=False)
-    address = Column(String(200), nullable=False)
-    relation = Column(String(100), nullable=False)
-    percentage = Column(Float, nullable=False)
+    # Allow partial data saving
+    first_name = Column(String(50), nullable=True)
+    last_name = Column(String(50), nullable=True)
+    id_number = Column(String(20), nullable=True)
+    birth_date = Column(Date, nullable=True)
+    address = Column(String(200), nullable=True)
+    relation = Column(String(100), nullable=True)
+    percentage = Column(Float, nullable=True)
 
     client = relationship("Client", back_populates="beneficiaries")

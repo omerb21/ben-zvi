@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -54,7 +55,7 @@ def _apply_beneficiary_values(
     first_name: str,
     last_name: str,
     id_number: str,
-    birth_date_value: date,
+    birth_date_value: Optional[date],
     address: str,
     relation: str,
     percentage_value: float,
@@ -110,8 +111,6 @@ def _sync_client_beneficiaries(db: Session, client: Client, beneficiaries) -> No
             continue
 
         birth_date_value = _parse_iso_date(birth_date_text)
-        if birth_date_value is None:
-            continue
 
         row = by_index.get(idx)
         if row is None:

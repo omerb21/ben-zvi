@@ -22,20 +22,22 @@ def migrate_data(source_url, dest_url):
     dest_meta.reflect(bind=dest_engine)
     dest_meta.drop_all(bind=dest_engine)
     
-    # We re-reflect source just to be safe (already done above)
+    # Create tables based on current Code models (to support new nullable fields)
+    print("Creating schema from code models...")
+    # Add parent directory to path to allow importing app
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from app.database import Base
+    import app.models  # Register models
+    Base.metadata.create_all(bind=dest_engine)
 
-    # Copy schema and data
+    # Copy data
     # Use sorted_tables to ensure creation in dependency order
     for table in source_meta.sorted_tables:
         table_name = table.name
         print(f"Processing table: {table_name}")
         
-        # Create table in destination
-        try:
-            table.create(dest_engine)
-            print(f"  - Created table {table_name}")
-        except Exception as e:
-            print(f"  - Table {table_name} might already exist or error: {e}")
+        # Table already created by Base.metadata.create_all
+        # We just need to check if it exists in source and copy data
             
         # Copy data
         with source_engine.connect() as src_conn:
