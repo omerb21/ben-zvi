@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.app/sm_schema.json",
+  "services": {
+    "backend": {
+      "source": "backend",
+      "watchPatterns": ["backend/**"]
+    },
+    "frontend": {
+      "source": "frontend",
+      "watchPatterns": ["frontend/**"]
+    }
+  }
+}
