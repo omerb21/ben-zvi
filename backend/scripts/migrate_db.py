@@ -57,6 +57,21 @@ def migrate_data(source_url, dest_url):
             else:
                 print("  - No data to copy.")
 
+    # Fix sequences
+    print("Resetting sequences...")
+    with dest_engine.begin() as dest_conn:
+        for table in source_meta.sorted_tables:
+             # Check if table has an 'id' column which usually implies a serial sequence
+            if 'id' in table.columns:
+                print(f"  - Resetting sequence for {table.name}...")
+                try:
+                    # Generic Postgres sequence reset
+                    dest_conn.execute(
+                        text(f"SELECT setval(pg_get_serial_sequence('{table.name}', 'id'), coalesce(max(id), 0) + 1, false) FROM {table.name};")
+                    )
+                except Exception as e:
+                    print(f"    Warning: Could not reset sequence for {table.name}: {e}")
+
     print("Migration completed successfully!")
 
 if __name__ == "__main__":
