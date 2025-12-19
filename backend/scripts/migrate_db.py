@@ -1,6 +1,6 @@
 import os
 import sys
-from sqlalchemy import create_engine, MetaData, Table
+from sqlalchemy import create_engine, MetaData, Table, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateTable
 
