@@ -25,7 +25,9 @@ def migrate_data(source_url, dest_url):
     # We re-reflect source just to be safe (already done above)
 
     # Copy schema and data
-    for table_name, table in source_meta.tables.items():
+    # Use sorted_tables to ensure creation in dependency order
+    for table in source_meta.sorted_tables:
+        table_name = table.name
         print(f"Processing table: {table_name}")
         
         # Create table in destination
