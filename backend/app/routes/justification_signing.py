@@ -87,11 +87,21 @@ def create_client_packet_sign_request(
         if message == "CLIENT_NOT_FOUND":
             _raise_client_not_found()
         if message == "CLIENT_PACKET_PDF_NOT_FOUND":
-            _raise_client_packet_pdf_not_found()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create client packet signature request",
-        )
+            # PDF missing (probably due to migration). Regenerate it and retry.
+            try:
+                justification_packet_service.generate_client_packet_pdf(
+                    db, db.get(crm_service.Client, client_id), generate_missing=True
+                )
+                # Retry creating the request
+                request_obj = justification_signing_service.create_packet_signature_request(db, client_id)
+            except Exception:
+                # If regeneration fails or second attempt fails, raise original error
+                _raise_client_packet_pdf_not_found()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create client packet signature request",
+            )
 
     url_path = f"/api/v1/justification/client-sign/{request_obj.token}"
 
