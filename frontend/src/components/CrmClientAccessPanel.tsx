@@ -8,7 +8,7 @@ import {
 } from "../api/clientAccessApi";
 
 const BZCLIENT_BASE_URL =
-  import.meta.env.VITE_BZCLIENT_BASE_URL || "https://bzclient.onrender.com";
+  import.meta.env.VITE_BZCLIENT_BASE_URL || "https://bzclient-production.up.railway.app";
 
 function CrmClientAccessPanel() {
   const [clientIdInput, setClientIdInput] = useState("");

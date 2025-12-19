@@ -17,3 +17,4 @@ pytz
 psycopg2-binary
 pytest==7.4.3
 httpx==0.25.2
+python-dotenv

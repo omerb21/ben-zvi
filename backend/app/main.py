@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,6 +52,7 @@ else:
         "https://ben-zvi.onrender.com",
         "https://bzclient.onrender.com",
         "https://ben-zvi-production.up.railway.app",
+        "https://bzclient-production.up.railway.app",
     ]
 
 
