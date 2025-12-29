@@ -33,7 +33,14 @@ app = FastAPI(
 )
 
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+static_dir = None
+for candidate in ("app/static", "backend/app/static"):
+    if os.path.isdir(candidate):
+        static_dir = candidate
+        break
+
+if static_dir:
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 cors_origins_env = os.getenv("CORS_ALLOW_ORIGINS")

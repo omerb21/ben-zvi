@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 from pathlib import Path
+import os
 import sys
 
 import pandas as pd
@@ -21,13 +22,27 @@ def _normalize_company_code(raw_code: str) -> str:
 
 
 def _ensure_legacy_mini_crm_on_sys_path() -> None:
+    env_root = os.getenv("MINI_CRM_ROOT")
+    candidates: list[Path] = []
+    if env_root:
+        candidates.append(Path(env_root))
+
     root = Path(__file__).resolve()
-    dev_dir = root.parents[4]
-    legacy_root = dev_dir / "mini_crm"
-    if legacy_root.is_dir():
-        legacy_path = str(legacy_root)
-        if legacy_path not in sys.path:
-            sys.path.append(legacy_path)
+    workspace_dir = root.parents[4]
+    candidates.extend(
+        [
+            workspace_dir / "mini_crm",
+            workspace_dir / "גיבויים" / "mini_crm",
+        ]
+    )
+
+    for candidate in candidates:
+        legacy_root = candidate.resolve()
+        if legacy_root.is_dir():
+            legacy_path = str(legacy_root)
+            if legacy_path not in sys.path:
+                sys.path.append(legacy_path)
+            return
 
 
 def _load_legacy_transformer():
@@ -154,8 +169,6 @@ def import_crm_from_excel(
     snapshot_month: str | None = None,
     filename: str | None = None,
 ) -> Dict[str, int | str]:
-    UploadProcessingError, transform_uploaded_file = _load_legacy_transformer()
-
     df_raw = _read_excel_bytes_or_raise(file_bytes)
 
     if not snapshot_month:
@@ -166,16 +179,33 @@ def import_crm_from_excel(
     # Mini-CRM loaders expect a full date string.
     normalized_snapshot_month = _normalize_snapshot_month(snapshot_month)
 
-    # Let the legacy service choose the correct loader by filename and
-    # perform all column mapping / cleaning per provider (FNX, AS, YL, MOR,
-    # ANLST, DASH, NFTY).
-    df, file_type = _transform_legacy_crm_excel_or_raise(
-        df_raw,
-        filename=filename,
-        normalized_snapshot_month=normalized_snapshot_month,
-        transform_uploaded_file=transform_uploaded_file,
-        UploadProcessingError=UploadProcessingError,
-    )
+    UploadProcessingError = None
+    transform_uploaded_file = None
+    use_legacy_transformer = True
+    try:
+        UploadProcessingError, transform_uploaded_file = _load_legacy_transformer()
+    except ValueError as exc:
+        use_legacy_transformer = False
+
+    if use_legacy_transformer:
+        # Let the legacy service choose the correct loader by filename and
+        # perform all column mapping / cleaning per provider (FNX, AS, YL, MOR,
+        # ANLST, DASH, NFTY).
+        df, file_type = _transform_legacy_crm_excel_or_raise(
+            df_raw,
+            filename=filename,
+            normalized_snapshot_month=normalized_snapshot_month,
+            transform_uploaded_file=transform_uploaded_file,
+            UploadProcessingError=UploadProcessingError,
+        )
+    else:
+        # Fallback: allow importing a normalized Excel file without depending on
+        # the legacy mini_crm package.
+        df, file_type = _helpers._transform_fallback_crm_excel_or_raise(
+            df_raw,
+            filename=filename,
+            company_code=company_code,
+        )
 
     # Aggregate by client + fund number exactly like legacy insert_rows.
     df = _aggregate_crm_balances_like_legacy(df)

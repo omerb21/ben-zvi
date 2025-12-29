@@ -2,6 +2,8 @@
 Pytest configuration and fixtures for backend tests.
 """
 import os
+import tempfile
+
 import pytest
 import httpx
 from sqlalchemy import create_engine
@@ -10,6 +12,9 @@ from sqlalchemy.pool import StaticPool
 
 # Use in-memory SQLite for tests
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
+# Ensure tests do not read/write real exports/static folders from the repo.
+os.environ.setdefault("APP_BASE_DIR", tempfile.mkdtemp(prefix="ben-zvi-tests-"))
 
 from app.database import Base, get_db
 from app.main import app

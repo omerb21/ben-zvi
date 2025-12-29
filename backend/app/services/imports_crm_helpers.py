@@ -179,3 +179,36 @@ def _aggregate_crm_balances_like_legacy(df: pd.DataFrame) -> pd.DataFrame:
                 agg_dict[col] = "first"
         df = df.groupby(["id_canon", "fund_number"], dropna=False).agg(agg_dict).reset_index()
     return df
+
+
+def _transform_fallback_crm_excel_or_raise(
+    df_raw: pd.DataFrame,
+    *,
+    filename: str | None,
+    company_code: str | None,
+):
+    """Fallback transformer when legacy mini_crm loader is unavailable.
+
+    Accepts an Excel file that is already normalized to the columns expected by the
+    unified import pipeline.
+    """
+
+    required = {"id_canon", "fund_number", "accumulated_amount"}
+    missing = sorted(col for col in required if col not in df_raw.columns)
+    if missing:
+        raise ValueError(
+            "Legacy CRM ingestion module is not available, and the uploaded Excel file does not contain the required columns: "
+            + ", ".join(missing)
+        )
+
+    df = df_raw.copy()
+
+    file_type = ""
+    if company_code:
+        file_type = (company_code or "").strip().upper()
+    if not file_type and filename:
+        base = filename.split("/")[-1].split("\\")[-1]
+        prefix = base.split("_")[0].split("-")[0].strip()
+        file_type = prefix.upper()
+
+    return df, file_type
