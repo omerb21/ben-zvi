@@ -86,6 +86,12 @@ async def password_protect_api(request: Request, call_next):
     if path == "/health" or path.startswith("/static"):
         return await call_next(request)
 
+    is_admin_api = path.startswith("/api/v1/admin")
+    has_client_token = bool(request.headers.get("x-client-token"))
+
+    if has_client_token and not is_admin_api:
+        return await call_next(request)
+
     if path.startswith("/api") or path.startswith("/docs") or path.startswith("/openapi.json"):
         provided = request.headers.get("x-app-password")
         if not provided or provided != APP_PASSWORD:
