@@ -86,11 +86,20 @@ async def password_protect_api(request: Request, call_next):
     if path == "/health" or path.startswith("/static"):
         return await call_next(request)
 
-    is_admin_api = path.startswith("/api/v1/admin")
-    has_client_token = bool(request.headers.get("x-client-token"))
-
-    if has_client_token and not is_admin_api:
-        return await call_next(request)
+    # Allow /api/v1/crm/* with X-Client-Token to bypass APP_PASSWORD
+    if path.startswith("/api/v1/crm") and request.headers.get("x-client-token"):
+        # Still verify client token in the CRM router, just skip APP_PASSWORD
+        response = await call_next(request)
+        # Ensure CORS headers for 401 responses from CRM routes
+        if response.status_code == 401:
+            origin = request.headers.get("origin")
+            if origin and origin in allowed_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Vary"] = "Origin"
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "*"
+                response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
     if path.startswith("/api") or path.startswith("/docs") or path.startswith("/openapi.json"):
         provided = request.headers.get("x-app-password")
