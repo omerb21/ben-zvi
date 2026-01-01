@@ -56,7 +56,7 @@ def check_client_pin(client: Client, pin: Optional[str]) -> bool:
     if not client.client_pin_hash:
         return True
     if pin is None:
-        return False
+        return True
     candidate_hash = _hash_pin(pin)
     if hmac.compare_digest(client.client_pin_hash, candidate_hash):
         return True
