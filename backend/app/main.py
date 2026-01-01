@@ -6,8 +6,10 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import JSONResponse
 
 import app.models  # noqa: F401
 from app.database import Base, engine
@@ -70,6 +72,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+APP_PASSWORD = os.getenv("APP_PASSWORD", "benzvi5090")
+
+
+@app.middleware("http")
+async def password_protect_api(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    path = request.url.path
+    if path == "/health" or path.startswith("/static"):
+        return await call_next(request)
+
+    if path.startswith("/api") or path.startswith("/docs") or path.startswith("/openapi.json"):
+        provided = request.headers.get("x-app-password")
+        if not provided or provided != APP_PASSWORD:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
+    return await call_next(request)
 
 
 app.include_router(crm_routes.router)
