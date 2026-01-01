@@ -58,7 +58,15 @@ def check_client_pin(client: Client, pin: Optional[str]) -> bool:
     if pin is None:
         return False
     candidate_hash = _hash_pin(pin)
-    return hmac.compare_digest(client.client_pin_hash, candidate_hash)
+    if hmac.compare_digest(client.client_pin_hash, candidate_hash):
+        return True
+
+    normalized = _strip_or_empty(pin)
+    if normalized.isdigit() and len(normalized) < 6:
+        padded_hash = _hash_pin(normalized.zfill(6))
+        return hmac.compare_digest(client.client_pin_hash, padded_hash)
+
+    return False
 
 
 def reset_client_credentials(
