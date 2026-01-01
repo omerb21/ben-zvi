@@ -89,7 +89,17 @@ async def password_protect_api(request: Request, call_next):
     if path.startswith("/api") or path.startswith("/docs") or path.startswith("/openapi.json"):
         provided = request.headers.get("x-app-password")
         if not provided or provided != APP_PASSWORD:
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+            response = JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
+            origin = request.headers.get("origin")
+            if origin and origin in allowed_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Vary"] = "Origin"
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "*"
+                response.headers["Access-Control-Allow-Headers"] = "*"
+
+            return response
 
     return await call_next(request)
 
