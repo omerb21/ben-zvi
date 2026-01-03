@@ -86,6 +86,11 @@ async def password_protect_api(request: Request, call_next):
     if path == "/health" or path.startswith("/static"):
         return await call_next(request)
 
+    # Public client signing pages must work in a normal browser tab without X-App-Password.
+    # These routes still validate their token internally.
+    if path.startswith("/api/v1/justification/client-sign/"):
+        return await call_next(request)
+
     # Allow /api/v1/crm/* with X-Client-Token to bypass APP_PASSWORD
     if path.startswith("/api/v1/crm") and request.headers.get("x-client-token"):
         # Still verify client token in the CRM router, just skip APP_PASSWORD

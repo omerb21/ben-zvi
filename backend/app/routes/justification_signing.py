@@ -31,8 +31,8 @@ def _raise_signing_link_not_found() -> None:
     _raise_not_found("Signing link not found")
 
 
-def _build_signed_packet_url(client_id: int) -> str:
-    return f"/api/v1/justification/clients/{client_id}/packet-signed-client.pdf"
+def _build_signed_packet_url(token: str) -> str:
+    return f"/api/v1/justification/client-sign/{token}/packet-signed-client.pdf"
 
 
 def _inline_pdf_response(pdf_bytes: bytes, filename: str) -> Response:
@@ -61,7 +61,7 @@ def _get_request_and_client_or_http_exc(db: Session, token: str, *, error_detail
 def _redirect_to_signed_packet_if_not_pending(request_obj, client):
     if request_obj.status == "pending":
         return None
-    signed_packet_url = _build_signed_packet_url(client.id)
+    signed_packet_url = _build_signed_packet_url(request_obj.token)
     return RedirectResponse(url=signed_packet_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
@@ -136,7 +136,7 @@ def get_client_sign_page(
 
     packet_url = f"/api/v1/justification/client-sign/{token}/packet.pdf"
     submit_url = f"/api/v1/justification/client-sign/{token}/submit"
-    signed_packet_url = _build_signed_packet_url(client.id)
+    signed_packet_url = _build_signed_packet_url(token)
 
     html = template.render(
         client_name=client_name,
@@ -147,6 +147,42 @@ def get_client_sign_page(
     # Prevent browser caching to ensure fresh content
     headers = _get_no_cache_headers()
     return Response(content=html, media_type="text/html; charset=utf-8", headers=headers)
+
+
+@router.get("/client-sign/{token}/packet-signed-client.pdf")
+def download_client_signed_packet_for_sign(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    request_obj, client = _get_request_and_client_or_http_exc(
+        db, token, error_detail="Failed to load signed client packet"
+    )
+
+    if request_obj.status == "pending":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Signed client packet PDF not available yet",
+        )
+
+    export_dir = justification_b1_service._get_client_export_dir(client)
+    signed_filename = request_obj.signed_packet_filename or f"packet_{client.id}_signed_client.pdf"
+    signed_packet_path = export_dir / signed_filename
+
+    if not signed_packet_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Signed client packet PDF not found",
+        )
+
+    pdf_bytes = justification_signing_service._try_read_bytes(signed_packet_path)
+    if pdf_bytes is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to read signed client packet PDF",
+        )
+
+    ascii_filename = _build_packet_ascii_filename(client, signed=True)
+    return _inline_pdf_response(pdf_bytes, ascii_filename)
 
 
 @router.get("/client-sign/{token}/packet.pdf")
@@ -253,9 +289,7 @@ def submit_client_signature(
                     detail="Signing link already used",
                 )
 
-            signed_packet_url = (
-                _build_signed_packet_url(request_obj.client_id)
-            )
+            signed_packet_url = _build_signed_packet_url(token)
 
             return {
                 "detail": "Signature already saved",
@@ -269,7 +303,7 @@ def submit_client_signature(
             detail="Failed to save client signature",
         )
 
-    signed_packet_url = _build_signed_packet_url(request_obj.client_id)
+    signed_packet_url = _build_signed_packet_url(token)
 
     return {
         "detail": "Signature saved",
