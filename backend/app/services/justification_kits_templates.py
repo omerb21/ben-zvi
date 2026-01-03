@@ -22,6 +22,8 @@ COMPANY_FOLDER_MAP: Dict[str, str] = {
     "אנליסט": "anlyst",
     "אלטשולר שחם": "as",
     "מיטב-דש": "ds",
+    "מיטב דש": "ds",
+    "מיטב": "ds",
     "מור": "mor",
     "אינפיניטי": "nfty",
     "ילין לפידות": "yl",
@@ -29,15 +31,47 @@ COMPANY_FOLDER_MAP: Dict[str, str] = {
 }
 
 
+def _normalize_company_name(value: str) -> str:
+    if not value:
+        return ""
+    return (
+        value.strip()
+        .replace(" ", "")
+        .replace("-", "")
+        .replace("־", "")
+        .replace("–", "")
+        .replace("—", "")
+    )
+
+
+def _resolve_case_insensitive_dir(root: Path, folder_name: str) -> Optional[Path]:
+    try:
+        target = folder_name.casefold()
+        for entry in root.iterdir():
+            if entry.is_dir() and entry.name.casefold() == target:
+                return entry
+    except Exception:
+        return None
+    return None
+
+
 def _kit_folder_for_company(company_name: str) -> Optional[Path]:
     if not company_name:
         return None
 
+    normalized_company = _normalize_company_name(company_name)
+
     for heb_name, folder_name in COMPANY_FOLDER_MAP.items():
-        if heb_name in company_name:
+        if not heb_name:
+            continue
+        normalized_key = _normalize_company_name(heb_name)
+        if normalized_key and normalized_key in normalized_company:
             candidate = KIT_ROOT / folder_name
             if candidate.is_dir():
                 return candidate
+            resolved = _resolve_case_insensitive_dir(KIT_ROOT, folder_name)
+            if resolved is not None:
+                return resolved
 
     return None
 
@@ -51,10 +85,11 @@ def _kit_dir_for_product(np: NewProduct) -> Path:
 
 
 def _select_template_for_product(np: NewProduct) -> Optional[Path]:
-    if np.fund_type not in SUPPORTED_AUTO_FUND_TYPES:
+    fund_type = (getattr(np, "fund_type", "") or "").strip()
+    if fund_type not in SUPPORTED_AUTO_FUND_TYPES:
         return None
 
-    template_name = FUND_TYPE_TEMPLATES.get(np.fund_type)
+    template_name = FUND_TYPE_TEMPLATES.get(fund_type)
     if not template_name:
         return None
 
