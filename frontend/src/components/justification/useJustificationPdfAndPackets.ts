@@ -1,5 +1,6 @@
 import { useEffect, useState, ChangeEvent } from "react";
 import type { NewProduct } from "../../api/justificationApi";
+import httpClient from "../../api/httpClient";
 import {
   buildAdvicePdfUrl,
   buildB1PdfUrl,
@@ -62,8 +63,42 @@ export function useJustificationPdfAndPackets(
   const [clientExportsIsError, setClientExportsIsError] = useState(false);
   const [isDeletingClientExports, setIsDeletingClientExports] = useState(false);
 
-  const triggerPdfDownloadFromResponse = async (response: Response) => {
-    const blob = await response.blob();
+  const fetchPdfBlob = async (url: string) => {
+    return httpClient.get<Blob>(url, {
+      responseType: "blob",
+      validateStatus: () => true,
+    });
+  };
+
+  const extractErrorDetail = async (blob: Blob): Promise<string | null> => {
+    try {
+      const text = await blob.text();
+      if (!text) {
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(text);
+        const detail = (parsed as any)?.detail;
+        if (typeof detail === "string" && detail.trim()) {
+          return detail;
+        }
+      } catch {
+        // not json
+      }
+      return text;
+    } catch {
+      return null;
+    }
+  };
+
+  const buildPdfErrorMessage = (status: number, detail?: string | null) => {
+    if (status === 503 && detail === "wkhtmltopdf not found") {
+      return "לא ניתן להפיק PDF: wkhtmltopdf לא מותקן/לא נמצא במחשב (Service Unavailable)";
+    }
+    return "שגיאה בהפקת PDF";
+  };
+
+  const triggerPdfDownloadFromBlob = async (blob: Blob) => {
     const objectUrl = URL.createObjectURL(blob);
     try {
       const link = document.createElement("a");
@@ -79,8 +114,7 @@ export function useJustificationPdfAndPackets(
     }
   };
 
-  const openPdfTabFromResponse = async (response: Response) => {
-    const blob = await response.blob();
+  const openPdfTabFromBlob = async (blob: Blob) => {
     const objectUrl = URL.createObjectURL(blob);
     try {
       window.open(objectUrl, "_blank");
@@ -113,9 +147,12 @@ export function useJustificationPdfAndPackets(
     const pdfUrl = `${buildAdvicePdfUrl(selectedClient.id)}?generate=1`;
 
     try {
-      const response = await fetch(pdfUrl);
-      if (!response.ok) {
-        throw new Error("advice-generate-failed");
+      const response = await fetchPdfBlob(pdfUrl);
+      if (response.status < 200 || response.status >= 300) {
+        const detail = await extractErrorDetail(response.data);
+        setPdfGenerationIsError(true);
+        setPdfGenerationMessage(buildPdfErrorMessage(response.status, detail));
+        return;
       }
       setPdfGenerationIsError(false);
       setPdfGenerationMessage("מסמך ההנמקה הופק ונשמר בתיקיית הלקוח");
@@ -131,9 +168,12 @@ export function useJustificationPdfAndPackets(
     }
     const url = `${buildB1PdfUrl(selectedClient.id)}?generate=1`;
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("b1-generate-failed");
+      const response = await fetchPdfBlob(url);
+      if (response.status < 200 || response.status >= 300) {
+        const detail = await extractErrorDetail(response.data);
+        setPdfGenerationIsError(true);
+        setPdfGenerationMessage(buildPdfErrorMessage(response.status, detail));
+        return;
       }
       setPdfGenerationIsError(false);
       setPdfGenerationMessage("טופס B1 הופק ונשמר בתיקיית הלקוח");
@@ -148,8 +188,8 @@ export function useJustificationPdfAndPackets(
       return;
     }
     const url = `${buildKitPdfUrl(selectedClient.id, product.id)}?generate=1`;
-    const response = await fetch(url);
-    if (!response.ok) {
+    const response = await fetchPdfBlob(url);
+    if (response.status < 200 || response.status >= 300) {
       throw new Error("kit-generate-failed");
     }
   };
@@ -165,9 +205,9 @@ export function useJustificationPdfAndPackets(
     void (async () => {
       // קודם מנסים לפתוח קיט קיים, בלי יצירה כבדה
       try {
-        const existingResponse = await fetch(viewUrl);
-        if (existingResponse.ok) {
-          await openPdfTabFromResponse(existingResponse);
+        const existingResponse = await fetchPdfBlob(viewUrl);
+        if (existingResponse.status >= 200 && existingResponse.status < 300) {
+          await openPdfTabFromBlob(existingResponse.data);
           return;
         }
       } catch {
@@ -177,9 +217,9 @@ export function useJustificationPdfAndPackets(
       // אם אין קיט קיים, מנסים להפיק קיט חדש ואז לפתוח אותו
       try {
         await handleGenerateKitPdf(product);
-        const generatedResponse = await fetch(viewUrl);
-        if (generatedResponse.ok) {
-          await openPdfTabFromResponse(generatedResponse);
+        const generatedResponse = await fetchPdfBlob(viewUrl);
+        if (generatedResponse.status >= 200 && generatedResponse.status < 300) {
+          await openPdfTabFromBlob(generatedResponse.data);
         }
       } catch {
         // בשלב זה אין טיפול הודעות ייעודי לקיט בודד; השגיאה פשוט לא תפתח קובץ
@@ -227,9 +267,12 @@ export function useJustificationPdfAndPackets(
     }
     const url = `${buildPacketPdfUrl(selectedClient.id)}?generate=1`;
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("packet-generate-failed");
+      const response = await fetchPdfBlob(url);
+      if (response.status < 200 || response.status >= 300) {
+        const detail = await extractErrorDetail(response.data);
+        setPdfGenerationIsError(true);
+        setPdfGenerationMessage(buildPdfErrorMessage(response.status, detail));
+        return;
       }
       setPdfGenerationIsError(false);
       setPdfGenerationMessage("חבילת הטפסים הופקה ונשמרה בתיקיית הלקוח");
@@ -247,9 +290,9 @@ export function useJustificationPdfAndPackets(
 
     // קודם כל מנסים לפתוח חבילה קיימת בלי להפעיל יצירה כבדה מחדש
     try {
-      const response = await fetch(url);
-      if (response.ok) {
-        await triggerPdfDownloadFromResponse(response);
+      const response = await fetchPdfBlob(url);
+      if (response.status >= 200 && response.status < 300) {
+        await triggerPdfDownloadFromBlob(response.data);
         return;
       }
     } catch {
@@ -259,9 +302,9 @@ export function useJustificationPdfAndPackets(
     // אם אין חבילה קיימת, מפעילים יצירה ולאחריה ניסיון תצוגה
     await handleGeneratePacketPdf();
     try {
-      const response = await fetch(url);
-      if (response.ok) {
-        await triggerPdfDownloadFromResponse(response);
+      const response = await fetchPdfBlob(url);
+      if (response.status >= 200 && response.status < 300) {
+        await triggerPdfDownloadFromBlob(response.data);
       }
     } catch {
       // אם גם כאן יש תקלה, לא נעשה עוד ניסיון
@@ -273,7 +316,16 @@ export function useJustificationPdfAndPackets(
       return;
     }
     const url = buildSignedClientPacketPdfUrl(selectedClient.id);
-    window.open(url, "_blank");
+    void (async () => {
+      try {
+        const response = await fetchPdfBlob(url);
+        if (response.status >= 200 && response.status < 300) {
+          await openPdfTabFromBlob(response.data);
+        }
+      } catch {
+        // אם יש שגיאה ברשת, לא נפתח קובץ
+      }
+    })();
   };
 
   const handleTrimPacketPages = async () => {

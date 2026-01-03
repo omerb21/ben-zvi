@@ -169,6 +169,12 @@ def download_client_advice_pdf(
     if not generate and not save_path.is_file():
         _raise_not_found("Advice PDF not found for client")
 
+    if generate and not justification_advice_service._get_wkhtmltopdf_cmd():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="wkhtmltopdf not found",
+        )
+
     html = justification_advice_service.build_advice_html(db, client)
     pdf_bytes = justification_advice_service.generate_advice_pdf(html)
     if pdf_bytes is None:
@@ -189,6 +195,12 @@ def generate_client_advice_overlay_pdf(
     db: Session = Depends(get_db),
 ):
     client = _get_client_or_404(db, client_id)
+
+    if not justification_advice_service._get_wkhtmltopdf_cmd():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="wkhtmltopdf not found",
+        )
 
     html = justification_advice_service.build_advice_html(db, client)
     pdf_bytes = justification_advice_service.generate_advice_pdf(html)

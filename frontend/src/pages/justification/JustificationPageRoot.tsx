@@ -5,6 +5,7 @@ import {
   buildB1PdfUrl,
   buildKitPdfUrl,
 } from "../../api/justificationApi";
+import httpClient from "../../api/httpClient";
 import type { Client } from "../../api/crmApi";
 import "../../styles/justification.css";
 import JustificationTabs from "../../components/JustificationTabs";
@@ -189,12 +190,27 @@ function JustificationPageRoot({
 
   useAdobePdfViewer();
 
+  const openPdfFromApiUrl = async (url: string) => {
+    const response = await httpClient.get<Blob>(url, {
+      responseType: "blob",
+      validateStatus: () => true,
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(response.data);
+    window.open(objectUrl, "_blank");
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+  };
+
   const handlePreviewAdvicePdf = () => {
     if (!selectedClient) {
       return;
     }
     const url = buildAdvicePdfUrl(selectedClient.id);
-    window.open(url, "_blank");
+    void openPdfFromApiUrl(url);
   };
 
   const handlePreviewB1Pdf = () => {
@@ -202,7 +218,7 @@ function JustificationPageRoot({
       return;
     }
     const url = buildB1PdfUrl(selectedClient.id);
-    window.open(url, "_blank");
+    void openPdfFromApiUrl(url);
   };
 
   const handlePreviewKitPdf = (product: NewProduct) => {
@@ -210,7 +226,7 @@ function JustificationPageRoot({
       return;
     }
     const url = buildKitPdfUrl(selectedClient.id, product.id);
-    window.open(url, "_blank");
+    void openPdfFromApiUrl(url);
   };
 
   if (viewMode === "market") {
