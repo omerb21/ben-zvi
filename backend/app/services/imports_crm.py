@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 import os
 import sys
+import traceback
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -60,6 +61,10 @@ def _load_legacy_transformer():
     try:
         from services.upload_service import UploadProcessingError, transform_uploaded_file
     except Exception as exc:  # pragma: no cover - defensive
+        # Debugging: print why it failed to stderr to avoid crashing the response but see it in logs
+        print(f"DEBUG: Failed to import legacy transformer. Sys path: {sys.path}", file=sys.stderr)
+        traceback.print_exc()
+        
         raise ValueError(f"Legacy CRM ingestion module is not available: {exc}") from exc
     return UploadProcessingError, transform_uploaded_file
 
