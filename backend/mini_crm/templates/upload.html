@@ -1,0 +1,629 @@
+{% extends "layout.html" %}
+{% block title %}העלאת קבצים - Mini CRM{% endblock %}
+
+{% block body %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>העלאת קבצי נתונים
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Upload Wizard Steps -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="step-item active" id="step1-indicator">
+                                <div class="step-circle">1</div>
+                                <span class="step-label">בחירת קובץ</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item" id="step2-indicator">
+                                <div class="step-circle">2</div>
+                                <span class="step-label">תצוגה מקדימה</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item" id="step3-indicator">
+                                <div class="step-circle">3</div>
+                                <span class="step-label">העלאה</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 1: File Selection -->
+                <div id="step1" class="upload-step">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="file" class="form-label">בחר קובץ Excel</label>
+                                    <input type="file" class="form-control" id="file" name="file" 
+                                           accept=".xlsx,.xls" multiple required>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        קבצים נתמכים: .xlsx, .xls
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="snap_date" class="form-label">תאריך הנתונים</label>
+                                    <input type="date" class="form-control" id="snap_date" name="snap_date" 
+                                           value="{{ now.strftime('%Y-%m-%d') }}" required>
+                                    <div class="form-text">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        תאריך הסנפשוט של הנתונים
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- File Type Detection -->
+                        <div class="alert alert-info" id="fileTypeInfo" style="display: none;">
+                            <i class="fas fa-file-alt me-2"></i>
+                            <span id="fileTypeText">מזהה סוג קובץ...</span>
+                        </div>
+
+                        <!-- Supported File Types Info -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6>סוגי קבצים נתמכים:</h6>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="card bg-light h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-chart-line text-primary fa-2x mb-2"></i>
+                                                <h6>FNX</h6>
+                                                <small class="text-muted">קבצי פניקס</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-light h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-chart-bar text-success fa-2x mb-2"></i>
+                                                <h6>YL</h6>
+                                                <small class="text-muted">קבצי יעל</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-light h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-chart-pie text-info fa-2x mb-2"></i>
+                                                <h6>MOR, DASH, AS, NFTY, ANLST</h6>
+                                                <small class="text-muted">קבצים נוספים</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-primary btn-lg" onclick="previewFile()">
+                                <i class="fas fa-eye me-2"></i>תצוגה מקדימה
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Step 2: Preview -->
+                <div id="step2" class="upload-step" style="display: none;">
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span id="previewInfo">קובץ נטען בהצלחה</span>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="previewRowCount">-</h4>
+                                    <small>שורות נתונים</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="previewClientCount">-</h4>
+                                    <small>לקוחות ייחודיים</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6>תצוגה מקדימה (10 שורות ראשונות):</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm" id="previewTable">
+                            <thead class="table-dark"></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary" onclick="goToStep(1)">
+                            <i class="fas fa-arrow-right me-2"></i>חזור
+                        </button>
+                        <button type="button" class="btn btn-success btn-lg" onclick="uploadFile()">
+                            <i class="fas fa-upload me-2"></i>העלה קובץ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Upload Progress -->
+                <div id="step3" class="upload-step" style="display: none;">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-3" role="status" id="uploadSpinner">
+                            <span class="visually-hidden">מעלה...</span>
+                        </div>
+                        <h5 id="uploadStatus">מעלה קובץ...</h5>
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%" id="uploadProgress"></div>
+                        </div>
+                        <p class="text-muted" id="uploadDetails">אנא המתן...</p>
+                    </div>
+
+                    <!-- Upload Results -->
+                    <div id="uploadResults" style="display: none;">
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <span id="uploadSuccessMessage">הקובץ הועלה בהצלחה!</span>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="uploadedRows">-</h4>
+                                        <small>שורות הועלו</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="uploadedClients">-</h4>
+                                        <small>לקוחות חדשים</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="skippedRows">-</h4>
+                                        <small>שורות דולגו</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('clients') }}" class="btn btn-primary">
+                                <i class="fas fa-users me-2"></i>צפה ברשימת הלקוחות
+                            </a>
+                            <button type="button" class="btn btn-outline-secondary" onclick="resetUpload()">
+                                <i class="fas fa-plus me-2"></i>העלה קובץ נוסף
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>שגיאה
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage">אירעה שגיאה בעת העלאת הקובץ.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">סגור</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.step-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+}
+
+.step-item.active .step-circle {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.step-item.completed .step-circle {
+    background-color: #198754;
+    color: white;
+}
+
+.step-label {
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.step-line {
+    flex: 1;
+    height: 2px;
+    background-color: #e9ecef;
+    margin: 0 1rem;
+    align-self: flex-start;
+    margin-top: 20px;
+}
+
+.upload-step {
+    min-height: 400px;
+}
+
+@media (max-width: 768px) {
+    .step-item {
+        flex-direction: row;
+        margin-bottom: 1rem;
+    }
+    
+    .step-circle {
+        margin-bottom: 0;
+        margin-left: 8px;
+    }
+    
+    .step-line {
+        display: none;
+    }
+}
+</style>
+
+<script>
+let currentStep = 1;
+let previewData = null;
+
+// File input change handler
+document.getElementById('file').addEventListener('change', function(e) {
+    const files = e.target.files;
+    if (!files || files.length === 0) {
+        return;
+    }
+    if (files.length === 1) {
+        detectFileType(files[0].name);
+    } else {
+        detectMultipleFileTypes(Array.from(files));
+    }
+});
+
+// Detect file type based on filename
+function detectFileType(filename) {
+    const fileTypeInfo = document.getElementById('fileTypeInfo');
+    const fileTypeText = document.getElementById('fileTypeText');
+    
+    filename = filename.toLowerCase();
+    let detectedType = 'לא ידוע';
+    
+    if (filename.includes('fnx')) {
+        detectedType = 'FNX (פניקס)';
+    } else if (filename.includes('yl')) {
+        detectedType = 'YL (יעל)';
+    } else if (filename.includes('mor')) {
+        detectedType = 'MOR (מור)';
+    } else if (filename.includes('dash') || filename.includes('ds')) {
+        detectedType = 'DASH / DS';
+    } else if (filename.includes('as')) {
+        detectedType = 'AS';
+    } else if (filename.includes('nfty')) {
+        detectedType = 'NFTY';
+    } else if (filename.includes('anlst')) {
+        detectedType = 'ANLST';
+    }
+    
+    fileTypeText.textContent = `סוג קובץ מזוהה: ${detectedType}`;
+    fileTypeInfo.style.display = 'block';
+}
+
+function detectMultipleFileTypes(files) {
+    const fileTypeInfo = document.getElementById('fileTypeInfo');
+    const fileTypeText = document.getElementById('fileTypeText');
+    
+    const detectedTypes = new Set();
+    
+    files.forEach(file => {
+        const name = file.name.toLowerCase();
+        if (name.includes('fnx')) {
+            detectedTypes.add('FNX (פניקס)');
+        } else if (name.includes('yl')) {
+            detectedTypes.add('YL (יעל)');
+        } else if (name.includes('mor')) {
+            detectedTypes.add('MOR (מור)');
+        } else if (name.includes('dash') || name.includes('ds')) {
+            detectedTypes.add('DASH / DS');
+        } else if (name.includes('as')) {
+            detectedTypes.add('AS');
+        } else if (name.includes('nfty')) {
+            detectedTypes.add('NFTY');
+        } else if (name.includes('anlst')) {
+            detectedTypes.add('ANLST');
+        } else {
+            detectedTypes.add('לא ידוע');
+        }
+    });
+    
+    const typeList = Array.from(detectedTypes).join(', ');
+    fileTypeText.textContent = `נבחרו ${files.length} קבצים. סוגים מזוהים: ${typeList}`;
+    fileTypeInfo.style.display = 'block';
+}
+
+// Preview file function
+async function previewFile() {
+    const fileInput = document.getElementById('file');
+    const snapDate = document.getElementById('snap_date').value;
+    const files = fileInput.files;
+    
+    if (!files || files.length === 0) {
+        alert('אנא בחר קובץ אחד או יותר');
+        return;
+    }
+    
+    if (!snapDate) {
+        alert('אנא בחר תאריך');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const formData = new FormData();
+        const mainFile = files[0];
+        formData.append('file', mainFile);
+        formData.append('snap_date', snapDate);
+        formData.append('preview', 'true');
+        
+        const response = await fetch('/upload/', {
+            method: 'POST',
+            body: formData
+        });
+
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (e) {
+            result = null;
+        }
+
+        if (!response.ok || (result && result.error)) {
+            const message = result && result.error ? result.error : 'שגיאה בתצוגה מקדימה';
+            throw new Error(message);
+        }
+        
+        if (!result) {
+            throw new Error('שגיאה בתצוגה מקדימה');
+        }
+        
+        result.total_files = files.length;
+        previewData = result;
+        displayPreview(result);
+        goToStep(2);
+        
+    } catch (error) {
+        console.error('Preview error:', error);
+        showError(error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Display preview data
+function displayPreview(data) {
+    document.getElementById('previewRowCount').textContent = data.total_rows || 0;
+    document.getElementById('previewClientCount').textContent = data.unique_clients || 0;
+    const infoElement = document.getElementById('previewInfo');
+    let infoText = `קובץ ${data.file_type || 'לא ידוע'} - ${data.total_rows || 0} שורות`;
+    if (data.total_files && data.total_files > 1) {
+        infoText += ` (סה״כ ${data.total_files} קבצים נבחרו, התצוגה לקובץ הראשון בלבד)`;
+    }
+    infoElement.textContent = infoText;
+    
+    // Build preview table
+    const table = document.getElementById('previewTable');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    
+    // Clear existing content
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    if (data.preview && data.preview.length > 0) {
+        // Create header
+        const headerRow = document.createElement('tr');
+        Object.keys(data.preview[0]).forEach(key => {
+            const th = document.createElement('th');
+            th.textContent = key;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        
+        // Create preview rows
+        data.preview.slice(0, 10).forEach(row => {
+            const tr = document.createElement('tr');
+            Object.values(row).forEach(value => {
+                const td = document.createElement('td');
+                td.textContent = value || '-';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+}
+
+// Upload file function
+async function uploadFile() {
+    if (!previewData) {
+        alert('אין נתוני תצוגה מקדימה');
+        return;
+    }
+    
+    goToStep(3);
+    
+    try {
+        const fileInput = document.getElementById('file');
+        const snapDate = document.getElementById('snap_date').value;
+        const files = fileInput.files;
+        
+        if (!files || files.length === 0) {
+            alert('לא נבחרו קבצים');
+            return;
+        }
+        
+        const progressBar = document.getElementById('uploadProgress');
+        const statusEl = document.getElementById('uploadStatus');
+        const detailsEl = document.getElementById('uploadDetails');
+        
+        const totalFiles = files.length;
+        let successCount = 0;
+        let failCount = 0;
+        let totalRowsInserted = 0;
+        
+        for (let i = 0; i < totalFiles; i++) {
+            const file = files[i];
+            statusEl.textContent = `מעלה קובץ ${i + 1} מתוך ${totalFiles}...`;
+            detailsEl.textContent = file.name;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('snap_date', snapDate);
+            
+            try {
+                const response = await fetch('/upload/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                let result = null;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    result = null;
+                }
+
+                if (!response.ok || (result && result.error)) {
+                    failCount++;
+                    if (result && result.error) {
+                        console.error('Upload error for', file.name, ':', result.error);
+                    }
+                    continue;
+                }
+
+                if (result && typeof result.rows_inserted === 'number') {
+                    totalRowsInserted += result.rows_inserted;
+                } else if (i === 0 && previewData && typeof previewData.total_rows === 'number') {
+                    totalRowsInserted += previewData.total_rows;
+                }
+                
+                successCount++;
+            } catch (e) {
+                console.error('Upload error for', file.name, ':', e);
+                failCount++;
+            }
+            
+            const progress = Math.round(((i + 1) / totalFiles) * 100);
+            progressBar.style.width = progress + '%';
+        }
+        
+        document.getElementById('uploadSpinner').style.display = 'none';
+        statusEl.textContent = 'ההעלאה הסתיימה';
+        
+        let detailsText = `הועלו בהצלחה ${successCount} מתוך ${totalFiles} קבצים.`;
+        if (failCount > 0) {
+            detailsText += ` ${failCount} קבצים נכשלו.`;
+        }
+        detailsEl.textContent = detailsText;
+        
+        document.getElementById('uploadedRows').textContent = totalRowsInserted || 0;
+        document.getElementById('uploadedClients').textContent = previewData.unique_clients || 0;
+        document.getElementById('skippedRows').textContent = '0';
+        
+        document.getElementById('uploadResults').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        showError(error.message);
+    }
+}
+
+// Navigation functions
+function goToStep(step) {
+    // Hide all steps
+    document.querySelectorAll('.upload-step').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Show target step
+    document.getElementById(`step${step}`).style.display = 'block';
+    
+    // Update step indicators
+    document.querySelectorAll('.step-item').forEach((el, index) => {
+        el.classList.remove('active', 'completed');
+        if (index + 1 < step) {
+            el.classList.add('completed');
+        } else if (index + 1 === step) {
+            el.classList.add('active');
+        }
+    });
+    
+    currentStep = step;
+}
+
+function resetUpload() {
+    // Reset form
+    document.getElementById('uploadForm').reset();
+    document.getElementById('fileTypeInfo').style.display = 'none';
+    previewData = null;
+    
+    // Reset progress
+    document.getElementById('uploadProgress').style.width = '0%';
+    document.getElementById('uploadSpinner').style.display = 'block';
+    document.getElementById('uploadStatus').textContent = 'מעלה קובץ...';
+    document.getElementById('uploadResults').style.display = 'none';
+    
+    // Go to step 1
+    goToStep(1);
+}
+
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    const modal = new bootstrap.Modal(document.getElementById('errorModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

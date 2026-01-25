@@ -1,0 +1,491 @@
+{% extends "layout.html" %}
+{% block title %}לקוחות - Mini CRM{% endblock %}
+
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="fas fa-users me-2"></i>רשימת לקוחות
+    </h2>
+    <div class="d-flex align-items-end">
+        <div class="me-3 d-flex align-items-end">
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" id="prevMonthBtn" title="חודש קודם">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            <div>
+                <label for="monthFilter" class="form-label mb-1">חודש הצגה</label>
+                <input type="month" id="monthFilter" class="form-control form-control-sm" value="{{ (default_month or now.strftime('%Y-%m')) }}">
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm ms-2" id="nextMonthBtn" title="חודש הבא">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </div>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary ms-2">
+            <i class="fas fa-upload me-2"></i>העלאת קבצים
+        </a>
+    </div>
+    
+</div>
+
+<div id="global-reminders-container" class="mb-4"></div>
+
+<!-- Summary cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">סה״כ לקוחות</h6>
+                        <h4 class="mb-0" id="totalClients">-</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">סה״כ נכסים</h6>
+                        <h4 class="mb-0" id="totalAssets">-</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-shekel-sign fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">סה״כ קופות</h6>
+                        <h4 class="mb-0" id="totalFunds">-</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chart-pie fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">מקורות נתונים</h6>
+                        <h4 class="mb-0" id="totalSources">-</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-database fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clients table -->
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-table me-2"></i>טבלת לקוחות
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="clientsTable" class="table table-striped table-hover" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>שם הלקוח</th>
+                        <th>תעודת זהות</th>
+                        <th>סך נכסים</th>
+                        <th>מספר קופות</th>
+                        <th>יצרנים</th>
+                        <th>עדכון אחרון</th>
+                        <th>פעולות</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be loaded via AJAX -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Quick actions -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">פעולות מהירות</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('upload') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-upload me-2"></i>העלאת קובץ חדש
+                    </a>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-info">
+                        <i class="fas fa-chart-pie me-2"></i>צפייה בדשבורד
+                    </a>
+                    <a href="/report/funds?month={{ (default_month or now.strftime('%Y-%m')) }}" class="btn btn-outline-success">
+                        <i class="fas fa-file-csv me-2"></i>הורדת דוח CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">מידע כללי</h6>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-2"></i>
+                        הטבלה מציגה את כל הלקוחות במערכת עם פרטי הנכסים שלהם.
+                        ניתן לחפש, למיין ולסנן את הנתונים בקלות.
+                    </small>
+                </p>
+                <p class="card-text">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-2"></i>
+                        עדכון אחרון: <span id="lastUpdate">טוען...</span>
+                    </small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Format ISO dates (YYYY-MM-DD) as DD/MM/YYYY for display
+function formatIsoDateToDisplay(iso) {
+    if (!iso || typeof iso !== 'string') {
+        return '';
+    }
+    const parts = iso.split('-');
+    if (parts.length !== 3) {
+        return iso;
+    }
+    const year = parts[0];
+    const month = parts[1];
+    const day = parts[2].slice(0, 2);
+    if (!year || !month || !day) {
+        return iso;
+    }
+    return day + '/' + month + '/' + year;
+}
+
+// Load global client note reminders (due up to today) and display them
+async function loadGlobalReminders() {
+    const container = document.getElementById('global-reminders-container');
+    if (!container) {
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/reminders');
+        if (!res.ok) {
+            throw new Error('שגיאה בטעינת תזכורות');
+        }
+        const reminders = await res.json();
+
+        if (!Array.isArray(reminders) || reminders.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        html += '<div class="alert alert-warning shadow-sm" role="alert">';
+        html += '  <div class="d-flex justify-content-between align-items-center mb-2">';
+        html += '    <div><i class="fas fa-bell me-2"></i>תזכורות פעילות במערכת</div>';
+        html += '  </div>';
+        html += '  <div class="list-group">';
+
+        reminders.forEach(item => {
+            const noteText = (item.note || '').replace(/\n/g, '<br>');
+            const reminderDate = formatIsoDateToDisplay(item.reminder_at);
+            const clientName = item.client_name || '';
+            const idCanon = item.id_canon || '';
+            const clientUrl = item.client_url || (`/client/${idCanon}`);
+
+            html += '    <div class="list-group-item d-flex justify-content-between align-items-start">';
+            html += '      <div class="me-2">';
+            html += `        <div class="fw-bold mb-1">תזכורת ל-${reminderDate} - ${clientName} (${idCanon})</div>`;
+            html += `        <div>${noteText}</div>`;
+            html += '      </div>';
+            html += '      <div class="ms-2 d-flex flex-column align-items-end gap-1">';
+            html += `        <a href="${clientUrl}" class="btn btn-sm btn-outline-primary mb-1">מעבר ללקוח</a>`;
+            html += `        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="dismissGlobalReminder('${idCanon}', ${item.id})">סגירה</button>`;
+            html += `        <button type="button" class="btn btn-sm btn-outline-danger mb-1" onclick="deleteGlobalReminder('${idCanon}', ${item.id})">מחיקת תזכורת</button>`;
+            html += `        <button type="button" class="btn btn-sm btn-danger" onclick="deleteGlobalNote('${idCanon}', ${item.id})">מחיקת הערה</button>`;
+            html += '      </div>';
+            html += '    </div>';
+        });
+
+        html += '  </div>';
+        html += '</div>';
+
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading global reminders:', error);
+    }
+}
+
+// Dismiss a reminder from the global area and refresh list
+async function dismissGlobalReminder(idCanon, noteId) {
+    try {
+        const res = await fetch(`/api/client/${idCanon}/notes/${noteId}/dismiss`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            throw new Error(data.error || 'שגיאה בסגירת התזכורת');
+        }
+        await loadGlobalReminders();
+    } catch (error) {
+        console.error('Error dismissing global reminder:', error);
+    }
+}
+
+// Delete a reminder from the global area (clear reminder fields) and refresh list
+async function deleteGlobalReminder(idCanon, noteId) {
+    try {
+        const res = await fetch(`/api/client/${idCanon}/notes/${noteId}/clear_reminder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            throw new Error(data.error || 'שגיאה במחיקת התזכורת');
+        }
+        await loadGlobalReminders();
+    } catch (error) {
+        console.error('Error deleting global reminder:', error);
+    }
+}
+
+// Delete a note from the global area (including its reminder) and refresh list
+async function deleteGlobalNote(idCanon, noteId) {
+    try {
+        const res = await fetch(`/api/client/${idCanon}/notes/${noteId}/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            throw new Error(data.error || 'שגיאה במחיקת ההערה');
+        }
+        await loadGlobalReminders();
+    } catch (error) {
+        console.error('Error deleting global note:', error);
+    }
+}
+
+$(document).ready(function() {
+    const $monthInput = $('#monthFilter');
+
+    // Load global reminders on page load
+    loadGlobalReminders();
+
+    // Initialize DataTable
+    const table = $('#clientsTable').DataTable({
+        ajax: {
+            url: '/api/clients',
+            data: function(d) {
+                const monthVal = $monthInput.val();
+                if (monthVal) {
+                    d.month = monthVal;
+                }
+            },
+            dataSrc: '',
+            error: function(xhr, error, code) {
+                console.error('Error loading clients data:', error);
+                alert('שגיאה בטעינת נתוני הלקוחות');
+            }
+        },
+        columns: [
+            { 
+                data: 'name',
+                render: function(data, type, row) {
+                    return `<strong>${data}</strong>`;
+                }
+            },
+            { data: 'id_canon' },
+            { 
+                data: 'total_amount',
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        return data.toLocaleString('he-IL') + ' ₪';
+                    }
+                    return data;
+                },
+                className: 'text-end'
+            },
+            { 
+                data: 'fund_count',
+                className: 'text-center'
+            },
+            { 
+                data: 'sources',
+                render: function(data, type, row) {
+                    if (!data || data === 'אין נתונים') {
+                        return '<span class="text-muted">אין נתונים</span>';
+                    }
+                    // השמות כבר ממופים ב-API
+                    const sources = data.split(',');
+                    return sources.map(source => 
+                        `<span class="badge bg-info me-1">${source.trim()}</span>`
+                    ).join('');
+                }
+            },
+            { 
+                data: 'last_update',
+                render: function(data, type, row) {
+                    if (!data || data === 'לא זמין') {
+                        return '<span class="text-muted">לא זמין</span>';
+                    }
+                    const formatted = formatIsoDateToDisplay(data);
+                    return formatted || data;
+                }
+            },
+            {
+                data: null,
+                render: function(data, type, row) {
+                    return `
+                        <a href="${row.details_url}" class="btn btn-primary btn-sm me-1">
+                            <i class="fas fa-eye me-1"></i>פרטים
+                        </a>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDeleteClient('${row.id_canon}')">
+                            <i class="fas fa-trash-alt me-1"></i>מחיקה
+                        </button>
+                    `;
+                },
+                orderable: false,
+                searchable: false,
+                className: 'text-center'
+            }
+        ],
+        order: [[0, 'asc']], // Sort by name by default
+        pageLength: 25,
+        responsive: true,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/he.json'
+        },
+        drawCallback: function(settings) {
+            // Update summary cards after data is loaded
+            updateSummaryCards(this.api().data().toArray());
+        }
+    });
+
+    // Reload table when month changes
+    $monthInput.on('change', function() {
+        table.ajax.reload(null, false);
+    });
+
+    // Helper to shift month by delta (+1 / -1)
+    function shiftMonth(delta) {
+        const current = $monthInput.val();
+        if (!current) {
+            return;
+        }
+        const parts = current.split('-');
+        if (parts.length !== 2) {
+            return;
+        }
+        let year = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        if (isNaN(year) || isNaN(month)) {
+            return;
+        }
+        month += delta;
+        if (month < 1) {
+            month = 12;
+            year -= 1;
+        } else if (month > 12) {
+            month = 1;
+            year += 1;
+        }
+        const monthStr = String(month).padStart(2, '0');
+        const newVal = `${year}-${monthStr}`;
+        $monthInput.val(newVal);
+        table.ajax.reload(null, false);
+    }
+
+    $('#prevMonthBtn').on('click', function() {
+        shiftMonth(-1);
+    });
+
+    $('#nextMonthBtn').on('click', function() {
+        shiftMonth(1);
+    });
+
+    // Update summary cards
+    function updateSummaryCards(data) {
+        const totalClients = data.length;
+        const totalAssets = data.reduce((sum, client) => sum + client.total_amount, 0);
+        const totalFunds = data.reduce((sum, client) => sum + client.fund_count, 0);
+        
+        // Count unique sources
+        const allSources = new Set();
+        data.forEach(client => {
+            if (client.sources && client.sources !== 'אין נתונים') {
+                client.sources.split(',').forEach(source => {
+                    allSources.add(source.trim());
+                });
+            }
+        });
+
+        $('#totalClients').text(totalClients.toLocaleString('he-IL'));
+        $('#totalAssets').text(totalAssets.toLocaleString('he-IL') + ' ₪');
+        $('#totalFunds').text(totalFunds.toLocaleString('he-IL'));
+        $('#totalSources').text(allSources.size);
+        
+        // Update last update time
+        $('#lastUpdate').text(new Date().toLocaleString('he-IL'));
+    }
+
+    // Delete client helper
+    window.confirmDeleteClient = function(idCanon) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק את הלקוח הזה?')) {
+            return;
+        }
+
+        fetch(`/client/${idCanon}/delete`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                alert(data.message || 'הלקוח נמחק בהצלחה');
+                table.ajax.reload(null, false);
+            } else {
+                alert(data.message || 'שגיאה במחיקת הלקוח');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting client:', error);
+            alert('שגיאה במחיקת הלקוח');
+        });
+    }
+
+    // Refresh data every 5 minutes
+    setInterval(function() {
+        table.ajax.reload(null, false); // false = keep current page
+    }, 5 * 60 * 1000);
+});
+</script>
+{% endblock %}

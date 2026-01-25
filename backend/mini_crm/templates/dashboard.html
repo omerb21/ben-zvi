@@ -1,0 +1,353 @@
+{% extends "layout.html" %}
+{% block title %}דשבורד - Mini CRM{% endblock %}
+
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-center">דשבורד תיק לקוחות</h2>
+    <a class="btn btn-outline-secondary btn-sm" 
+       href="/report/funds?month={{ now.strftime('%Y-%m') }}" 
+       id="csv-download">
+        ⬇ הורד קופות (CSV)
+    </a>
+</div>
+
+<!-- Summary card -->
+<div class="alert alert-info text-center fw-bold fs-4 mb-4" id="total-assets">
+    טוען נתונים...
+</div>
+
+<!-- Enhanced Controls Row -->
+<div class="row mb-4">
+    <!-- Date Range Picker -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-calendar-alt me-2 text-primary"></i>בחירת תקופה
+                </h6>
+                <div class="mb-3">
+                    <label for="dateRange" class="form-label">טווח תאריכים</label>
+                    <input type="text" id="dateRange" class="form-control" placeholder="בחר טווח תאריכים" readonly>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="updateDashboard()">
+                        <i class="fas fa-sync me-1"></i>עדכן נתונים
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetDateRange()">
+                        <i class="fas fa-undo me-1"></i>איפוס לחודש נוכחי
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Filters -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-filter me-2 text-success"></i>מסננים מהירים
+                </h6>
+                <div class="mb-2">
+                    <label for="sourceFilter" class="form-label">מקור נתונים</label>
+                    <select id="sourceFilter" class="form-select form-select-sm">
+                        <option value="">כל המקורות</option>
+                        <option value="YL">YL (יעל)</option>
+                        <option value="FNX">FNX (פניקס)</option>
+                        <option value="MOR">MOR</option>
+                        <option value="DASH">DASH</option>
+                        <option value="AS">AS</option>
+                        <option value="NFTY">NFTY</option>
+                        <option value="ANLST">ANLST</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="amountFilter" class="form-label">סכום מינימלי</label>
+                    <input type="number" id="amountFilter" class="form-control form-control-sm" placeholder="0" min="0">
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="applyFilters()">
+                    <i class="fas fa-search me-1"></i>החל מסננים
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Export Options -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-download me-2 text-info"></i>ייצוא נתונים
+                </h6>
+                <p class="card-text text-muted small">ייצא נתונים בפורמטים שונים</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-success btn-sm" onclick="exportData('csv')">
+                        <i class="fas fa-file-csv me-1"></i>ייצא CSV
+                    </button>
+                    <button type="button" class="btn btn-info btn-sm" onclick="exportData('excel')">
+                        <i class="fas fa-file-excel me-1"></i>ייצא Excel
+                    </button>
+                    <a href="/report/monthly_change" class="btn btn-outline-info btn-sm" role="button">
+                        <i class="fas fa-chart-line me-1"></i>ייצא שינוי חודשי (CSV)
+                    </a>
+                    <button type="button" class="btn btn-warning btn-sm" onclick="printReport()">
+                        <i class="fas fa-print me-1"></i>הדפס דוח
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-center">
+                <h5 class="mb-0">התפלגות לפי מקור</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="pieSource"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-center">
+                <h5 class="mb-0">התפלגות לפי סוג מוצר</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="pieType"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-center">
+                <h5 class="mb-0">מגמת נכסים חודשית</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="lineTrend"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Date picker for future enhancement -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">בחירת תקופה</h5>
+            </div>
+            <div class="card-body">
+                <label for="month" class="form-label">חודש לדוח:</label>
+                <input type="month" id="month" class="form-control" value="{{ now.strftime('%Y-%m') }}">
+                <button class="btn btn-primary mt-2" onclick="updateData()">עדכן נתונים</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Set Chart.js defaults for Hebrew/RTL
+Chart.defaults.font.family = 'Heebo, sans-serif';
+Chart.defaults.color = '#0d6efd';
+
+let charts = {};
+const initialMonth = "{{ now.strftime('%Y-%m') }}";
+
+async function loadData(month) {
+    try {
+        let summaryUrl = "/api/summary";
+        if (month) {
+            const m = encodeURIComponent(month);
+            summaryUrl += `?month=${m}`;
+        }
+        const res = await fetch(summaryUrl);
+        const data = await res.json();
+
+        // Update total assets display
+        document.getElementById('total-assets').textContent = 
+            data.total_assets.toLocaleString('he-IL', {style:'currency', currency:'ILS'});
+
+        // Pie chart by source
+        const sourceCtx = document.getElementById('pieSource');
+        if (charts.pieSource) charts.pieSource.destroy();
+        charts.pieSource = new Chart(sourceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(data.by_source),
+                datasets: [{
+                    data: Object.values(data.by_source),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Pie chart by fund type
+        const typeCtx = document.getElementById('pieType');
+        if (charts.pieType) charts.pieType.destroy();
+        charts.pieType = new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(data.by_fund_type),
+                datasets: [{
+                    data: Object.values(data.by_fund_type),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Line chart - monthly trend & change for all clients
+        const changeRes = await fetch("/api/monthly_change");
+        const changeData = await changeRes.json();
+
+        const months = changeData.changes.map(r => r.month);
+        const totals = changeData.changes.map(r => r.total);
+        const changes = changeData.changes.map(r => r.change);
+        const percentChanges = changeData.changes.map(r => r.percent_change);
+
+        const trendCtx = document.getElementById('lineTrend');
+        if (charts.lineTrend) charts.lineTrend.destroy();
+        charts.lineTrend = new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'נכסים (₪)',
+                    data: totals,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const idx = context.dataIndex;
+                                const total = totals[idx] ?? 0;
+                                const change = changes[idx];
+                                const pct = percentChanges[idx];
+
+                                const lines = [];
+                                lines.push('סה"כ: ' + total.toLocaleString('he-IL') + ' ₪');
+
+                                if (change == null) {
+                                    lines.push('שינוי: ללא חודש קודם');
+                                } else {
+                                    const sign = change > 0 ? '+' : '';
+                                    const changeText = sign + change.toLocaleString('he-IL') + ' ₪';
+                                    if (pct == null) {
+                                        lines.push('שינוי: ' + changeText);
+                                    } else {
+                                        const pctText = (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
+                                        lines.push('שינוי: ' + changeText + ' (' + pctText + ')');
+                                    }
+                                }
+
+                                return lines;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('he-IL') + ' ₪';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        document.getElementById('total-assets').textContent = 'שגיאה בטעינת נתונים';
+        document.getElementById('total-assets').className = 'alert alert-danger text-center fw-bold fs-4 mb-4';
+    }
+}
+
+function getSelectedMonth() {
+    const monthInput = document.getElementById('month');
+    if (monthInput && monthInput.value) {
+        return monthInput.value;
+    }
+    return initialMonth;
+}
+
+function updateData() {
+    const month = getSelectedMonth();
+    loadData(month);
+
+    // Update CSV download link to match selected month
+    const csvLink = document.getElementById('csv-download');
+    if (csvLink && month) {
+        const m = encodeURIComponent(month);
+        csvLink.href = `/report/funds?month=${m}`;
+    }
+}
+
+function updateDashboard() {
+    // Currently behaves the same as updateData, driven by the month input
+    updateData();
+}
+
+function resetDateRange() {
+    // Reset to initial month and reload data
+    const monthInput = document.getElementById('month');
+    if (monthInput) {
+        monthInput.value = initialMonth;
+    }
+    updateData();
+}
+
+// Load data when page loads using the initial month
+loadData(initialMonth);
+</script>
+{% endblock %}

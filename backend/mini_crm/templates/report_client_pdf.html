@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דוח לקוח - {{ client.name }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Heebo', Arial, sans-serif;
+            direction: rtl;
+            margin: 20px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .logo {
+            max-width: 150px;
+            margin-bottom: 10px;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0d6efd;
+            margin: 10px 0;
+        }
+        
+        .client-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .client-info h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 16px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .info-label {
+            font-weight: 500;
+            color: #6c757d;
+        }
+        
+        .info-value {
+            font-weight: 400;
+        }
+        
+        .summary-box {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .total-amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1976d2;
+        }
+        
+        .funds-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .funds-table th,
+        .funds-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: right;
+        }
+        
+        .funds-table th {
+            background-color: #0d6efd;
+            color: white;
+            font-weight: 500;
+            font-size: 11px;
+        }
+        
+        .funds-table td {
+            font-size: 10px;
+        }
+        
+        .funds-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .amount-cell {
+            font-weight: 500;
+            color: #198754;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 10px;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+            padding-top: 15px;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="לוגו" class="logo" onerror="this.style.display='none'">
+        <div class="title">דוח קופות לקוח</div>
+        <div>תאריך הפקה: {{ current_date }}</div>
+    </div>
+
+    <!-- Client Information -->
+    <div class="client-info">
+        <h3>פרטי הלקוח</h3>
+        <div class="info-row">
+            <span class="info-label">שם מלא:</span>
+            <span class="info-value">{{ client.name }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">ת"ז:</span>
+            <span class="info-value">{{ client.id_canon }}</span>
+        </div>
+        {% if client.phone %}
+        <div class="info-row">
+            <span class="info-label">טלפון:</span>
+            <span class="info-value">{{ client.phone }}</span>
+        </div>
+        {% endif %}
+        {% if client.email %}
+        <div class="info-row">
+            <span class="info-label">אימייל:</span>
+            <span class="info-value">{{ client.email }}</span>
+        </div>
+        {% endif %}
+        {% if month %}
+        <div class="info-row">
+            <span class="info-label">חודש דוח:</span>
+            <span class="info-value">{{ month }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-box">
+        <div>סך כל היתרות</div>
+        <div class="total-amount">₪{{ "{:,.2f}".format(total_amount) }}</div>
+        <div>מספר קופות: {{ rows|length }}</div>
+    </div>
+
+    <!-- Funds Table -->
+    <table class="funds-table">
+        <thead>
+            <tr>
+                <th>מס' קופה</th>
+                <th>שם קופה</th>
+                <th>סוג מוצר</th>
+                <th>חברה</th>
+                <th>יתרה (₪)</th>
+                <th>תאריך צילום</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.fund_number }}</td>
+                <td>{{ row.fund_name }}</td>
+                <td>{{ row.fund_type }}</td>
+                <td>{{ row.company }}</td>
+                <td class="amount-cell">{{ "{:,.2f}".format(row.amount) }}</td>
+                <td>
+                    {% if row.snapshot_date %}
+                        {{ row.snapshot_date[8:10] }}/{{ row.snapshot_date[5:7] }}/{{ row.snapshot_date[0:4] }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Summary by Fund Type -->
+    {% set fund_types = {} %}
+    {% for row in rows %}
+        {% if row.fund_type %}
+            {% if row.fund_type in fund_types %}
+                {% set _ = fund_types.update({row.fund_type: fund_types[row.fund_type] + row.amount}) %}
+            {% else %}
+                {% set _ = fund_types.update({row.fund_type: row.amount}) %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if fund_types %}
+    <div class="page-break">
+        <h3>פילוח לפי סוג מוצר</h3>
+        <table class="funds-table">
+            <thead>
+                <tr>
+                    <th>סוג מוצר</th>
+                    <th>יתרה (₪)</th>
+                    <th>אחוז</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fund_type, amount in fund_types.items() %}
+                <tr>
+                    <td>{{ fund_type }}</td>
+                    <td class="amount-cell">{{ "{:,.2f}".format(amount) }}</td>
+                    <td>{{ "{:.1f}%".format((amount / total_amount) * 100) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Summary by Company -->
+    {% set companies = {} %}
+    {% for row in rows %}
+        {% if row.company %}
+            {% if row.company in companies %}
+                {% set _ = companies.update({row.company: companies[row.company] + row.amount}) %}
+            {% else %}
+                {% set _ = companies.update({row.company: row.amount}) %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if companies %}
+    <div style="margin-top: 30px;">
+        <h3>פילוח לפי חברה</h3>
+        <table class="funds-table">
+            <thead>
+                <tr>
+                    <th>חברה</th>
+                    <th>יתרה (₪)</th>
+                    <th>אחוז</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for company, amount in companies.items() %}
+                <tr>
+                    <td>{{ company }}</td>
+                    <td class="amount-cell">{{ "{:,.2f}".format(amount) }}</td>
+                    <td>{{ "{:.1f}%".format((amount / total_amount) * 100) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <div>דוח זה הופק ממערכת Mini CRM</div>
+        <div>{{ current_datetime }}</div>
+    </div>
+</body>
+</html>

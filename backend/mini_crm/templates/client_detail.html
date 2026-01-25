@@ -1,0 +1,1407 @@
+{% extends "layout.html" %}
+{% block title %}{{ client.name }} - Mini CRM{% endblock %}
+
+{% block body %}
+<!-- Client Header Card -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2 class="mb-1">
+                    <i class="fas fa-user me-2"></i>{{ client.name }}
+                </h2>
+                <p class="text-muted mb-2">
+                    <i class="fas fa-id-card me-2"></i>תעודת זהות: {{ client.id_canon }}
+                </p>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-2">{{ fund_count }} קופות</span>
+                    <span class="badge bg-success">{{ sources|length }} מקורות</span>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="display-6 text-primary fw-bold">
+                    {{ "₪{:,.0f}".format(total_amount) }}
+                </div>
+                <small class="text-muted">סך הכל נכסים</small>
+                <small id="last-month-change" class="text-muted"></small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Client Notes Modal -->
+<div class="modal fade" id="clientNotesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">הערות ללקוח - {{ client.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newNoteText" class="form-label">הוספת הערה חדשה</label>
+                    <textarea id="newNoteText" class="form-control" rows="3" placeholder="הקלד כאן תזכורות, משימות או מידע חשוב על הלקוח..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="newNoteReminderDate" class="form-label">תאריך תזכורת (לא חובה)</label>
+                    <input type="date" id="newNoteReminderDate" class="form-control">
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button type="button" class="btn btn-primary" onclick="saveClientNote()">
+                        <i class="fas fa-save me-2"></i>שמור הערה
+                    </button>
+                    <small class="text-muted" id="client-notes-status"></small>
+                </div>
+                <hr>
+                <h6 class="mb-3">
+                    <i class="fas fa-list me-2"></i>הערות קיימות
+                </h6>
+                <div id="client-notes-list" class="list-group">
+                    <!-- Notes will be loaded here dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">סגור</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Client Reminders Area (auto-pop when reminder date is reached) -->
+<div id="client-reminders-container" class="mb-3"></div>
+
+<!-- Action Buttons -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('clients') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-right me-2"></i>חזרה לרשימת לקוחות
+            </a>
+            <button class="btn btn-outline-primary" onclick="exportClientData()">
+                <i class="fas fa-download me-2"></i>ייצא נתונים
+            </button>
+            <button class="btn btn-outline-info" onclick="showClientHistory()">
+                <i class="fas fa-chart-line me-2"></i>גרף היסטוריה
+            </button>
+            <button class="btn btn-outline-warning" type="button" onclick="openClientNotes()">
+                <i class="fas fa-sticky-note me-2"></i>הערות לקוח
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<ul class="nav nav-tabs mb-4" id="clientTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="funds-tab" data-bs-toggle="tab" data-bs-target="#funds" type="button" role="tab" aria-controls="funds" aria-selected="true">
+            <i class="fas fa-list me-2"></i>קופות
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="details-tab" data-bs-toggle="tab" data-bs-target="#details" type="button" role="tab" aria-controls="details" aria-selected="false">
+            <i class="fas fa-user-edit me-2"></i>פרטי לקוח
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="clientTabsContent">
+    <!-- Funds Tab -->
+    <div class="tab-pane fade show active" id="funds" role="tabpanel" aria-labelledby="funds-tab">
+        <!-- All Funds Table (Open View) -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>כל הקופות
+                </h5>
+        <div class="d-flex gap-2">
+            <select id="fundTypeFilter" class="form-select form-select-sm" style="width: auto;" onchange="filterFunds()">
+                <option value="">כל הסוגים</option>
+                {% for fund_type in funds_by_type.keys() %}
+                <option value="{{ fund_type or 'לא זמין' }}">{{ fund_type or 'לא זמין' }}</option>
+                {% endfor %}
+            </select>
+            <span class="badge bg-primary fs-6">{{ client.funds|length }} קופות</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="fundsTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th>סוג מוצר</th>
+                        <th>מספר קופה</th>
+                        <th>שם מסלול</th>
+                        <th>יתרה</th>
+                        <th>תאריך נכונות</th>
+                        <th>יצרן</th>
+                        <th>מגמה</th>
+                        <th>פעולות</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fund in client.funds %}
+                    <tr data-fund-id="{{ fund.id }}"
+                        data-fund-type="{{ fund.fund_type or 'לא זמין' }}"
+                        data-fund-code="{{ fund.fund_code }}"
+                        data-fund-name="{{ fund.fund_name or '' }}"
+                        data-fund-amount="{{ fund.amount }}"
+                        data-fund-date="{{ fund.snapshot_date }}"
+                        data-fund-source="{{ fund.source_display }}">
+                        <td>
+                            <span class="badge bg-secondary">{{ fund.fund_type or 'לא זמין' }}</span>
+                        </td>
+                        <td>
+                            <code class="text-primary fw-bold">{{ fund.fund_code }}</code>
+                        </td>
+                        <td>
+                            <strong>{{ fund.fund_name or 'לא זמין' }}</strong>
+                        </td>
+                        <td>
+                            <span class="fw-bold text-success fs-6">
+                                {{ "₪{:,.0f}".format(fund.amount) }}
+                            </span>
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {% if fund.snapshot_date %}
+                                    {{ fund.snapshot_date[8:10] }}/{{ fund.snapshot_date[5:7] }}/{{ fund.snapshot_date[0:4] }}
+                                {% else %}
+                                    לא זמין
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ fund.source_display }}</span>
+                        </td>
+                        <td>
+                            <canvas id="sparkline-{{ fund.id }}" width="60" height="20"></canvas>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="showFundHistory('{{ fund.fund_code }}')" 
+                                        title="היסטוריית קופה">
+                                    <i class="fas fa-chart-line"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" 
+                                        onclick="showFundDetails({{ fund.id }})" 
+                                        title="פרטי קופה">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+    </div>
+    
+    <!-- Client Details Tab -->
+    <div class="tab-pane fade" id="details" role="tabpanel" aria-labelledby="details-tab">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-edit me-2"></i>עריכת פרטי לקוח
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="client-details-form">
+                    <!-- Personal Information Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-user me-2"></i>פרטים אישיים</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="first_name" class="form-label">שם פרטי</label>
+                                        <input type="text" class="form-control" id="first_name" name="first_name" value="{{ client.first_name }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="last_name" class="form-label">שם משפחה</label>
+                                        <input type="text" class="form-control" id="last_name" name="last_name" value="{{ client.last_name }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="birth_date" class="form-label">תאריך לידה</label>
+                                        <input type="date" class="form-control" id="birth_date" name="birth_date" value="{{ client.birth_date }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="gender" class="form-label">מין</label>
+                                        <input type="text" class="form-control" id="gender" name="gender" value="{{ client.gender }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="marital_status" class="form-label">מצב משפחתי</label>
+                                        <input type="text" class="form-control" id="marital_status" name="marital_status" value="{{ client.marital_status }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="birth_country" class="form-label">ארץ לידה</label>
+                                        <input type="text" class="form-control" id="birth_country" name="birth_country" value="{{ client.birth_country }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Contact Information Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-address-book me-2"></i>פרטי קשר</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="phone" class="form-label">טלפון</label>
+                                        <input type="tel" class="form-control" id="phone" name="phone" value="{{ client.phone }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="email" class="form-label">כתובת אימייל</label>
+                                        <input type="email" class="form-control" id="email" name="email" value="{{ client.email }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="street" class="form-label">רחוב</label>
+                                        <input type="text" class="form-control" id="street" name="street" value="{{ client.street }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="mb-3">
+                                        <label for="house_number" class="form-label">מספר בית</label>
+                                        <input type="text" class="form-control" id="house_number" name="house_number" value="{{ client.house_number }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="city" class="form-label">עיר</label>
+                                        <input type="text" class="form-control" id="city" name="city" value="{{ client.city }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Employment Information Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-briefcase me-2"></i>פרטי תעסוקה</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="employer_name" class="form-label">שם מעסיק</label>
+                                        <input type="text" class="form-control" id="employer_name" name="employer_name" value="{{ client.employer_name }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="employer_hp" class="form-label">ח.פ מעסיק</label>
+                                        <input type="text" class="form-control" id="employer_hp" name="employer_hp" value="{{ client.employer_hp }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="employer_address" class="form-label">כתובת מעסיק</label>
+                                        <input type="text" class="form-control" id="employer_address" name="employer_address" value="{{ client.employer_address }}" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="employer_phone" class="form-label">טלפון מעסיק</label>
+                                        <input type="tel" class="form-control" id="employer_phone" name="employer_phone" value="{{ client.employer_phone }}" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editClientModal">
+                            <i class="fas fa-edit me-2"></i>ערוך פרטי לקוח
+                        </button>
+                        
+                        <!-- Report Download Dropdown -->
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="fas fa-download me-2"></i>הורד דוח
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ url_for('bp_reports.client_report', client_id=client.id, fmt='csv') }}" id="csv-link">
+                                    <i class="fas fa-file-csv me-2"></i>CSV
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('bp_reports.client_report', client_id=client.id, fmt='xlsx') }}" id="xlsx-link">
+                                    <i class="fas fa-file-excel me-2"></i>Excel
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('bp_reports.client_report', client_id=client.id, fmt='pdf') }}" id="pdf-link">
+                                    <i class="fas fa-file-pdf me-2"></i>PDF
+                                </a></li>
+                            </ul>
+                        </div>
+                        
+                        <button type="button" class="btn btn-outline-info" onclick="refreshData()">
+                            <i class="fas fa-sync me-2"></i>רענן נתונים
+                        </button>
+                    </div>
+                    
+                    <!-- Date picker for reports -->
+                    <div class="mt-3">
+                        <label for="repMonth" class="form-label small">בחר חודש לדוח (ריק = אחרון):</label>
+                        <input type="month" id="repMonth" class="form-control form-control-sm w-auto" 
+                               onchange="updateReportLinks(this.value)" 
+                               placeholder="בחר חודש">
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Client Modal -->
+<div class="modal fade" id="editClientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">עריכת פרטי לקוח - {{ client.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editClientForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_first_name" class="form-label">שם פרטי</label>
+                                <input type="text" class="form-control" id="edit_first_name" name="first_name" value="{{ client.first_name }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_last_name" class="form-label">שם משפחה</label>
+                                <input type="text" class="form-control" id="edit_last_name" name="last_name" value="{{ client.last_name }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_phone" class="form-label">טלפון</label>
+                                <input type="tel" class="form-control" id="edit_phone" name="phone" value="{{ client.phone }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_email" class="form-label">אימייל</label>
+                                <input type="email" class="form-control" id="edit_email" name="email" value="{{ client.email }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="edit_street" class="form-label">רחוב</label>
+                                <input type="text" class="form-control" id="edit_street" name="street" value="{{ client.street }}">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label for="edit_house_number" class="form-label">מספר בית</label>
+                                <input type="text" class="form-control" id="edit_house_number" name="house_number" value="{{ client.house_number }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_city" class="form-label">עיר</label>
+                                <input type="text" class="form-control" id="edit_city" name="city" value="{{ client.city }}">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ביטול</button>
+                <button type="button" class="btn btn-primary" onclick="saveClientChanges()">שמור שינויים</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Client History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">היסטוריית נכסים - {{ client.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="historyChart" width="400" height="200"></canvas>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">סגור</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fund History Modal -->
+<div class="modal fade" id="fundHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fundHistoryTitle">היסטוריית קופה</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <canvas id="fundHistoryChart" class="w-100" height="220"></canvas>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped" id="fundHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>תאריך</th>
+                                <th>יתרה</th>
+                                <th>מקור</th>
+                                <th>שינוי</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">סגור</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Client data for JavaScript
+const clientData = {
+    id: {{ client.id }},
+    name: "{{ client.name }}",
+    id_canon: "{{ client.id_canon }}"
+};
+
+// Date formatting helpers for user-visible display
+function formatIsoDateToDisplay(iso) {
+    if (!iso || typeof iso !== 'string') {
+        return '';
+    }
+    const parts = iso.split('-');
+    if (parts.length !== 3) {
+        return iso;
+    }
+    const year = parts[0];
+    const month = parts[1];
+    const day = parts[2].slice(0, 2);
+    if (!year || !month || !day) {
+        return iso;
+    }
+    return `${day}/${month}/${year}`;
+}
+
+function formatIsoDateTimeToDisplay(dtStr) {
+    if (!dtStr || typeof dtStr !== 'string') {
+        return '';
+    }
+
+    let datePart = dtStr;
+    let timePart = '';
+
+    if (dtStr.includes(' ')) {
+        const parts = dtStr.split(' ');
+        datePart = parts[0];
+        timePart = parts[1] || '';
+    } else if (dtStr.includes('T')) {
+        const parts = dtStr.split('T');
+        datePart = parts[0];
+        timePart = parts[1] || '';
+    }
+
+    const dateDisplay = formatIsoDateToDisplay(datePart);
+    if (!timePart) {
+        return dateDisplay;
+    }
+
+    const timeShort = timePart.slice(0, 5);
+    return `${dateDisplay} ${timeShort}`;
+}
+
+// Global chart instance for fund history
+let fundHistoryChart = null;
+
+// Client notes helpers
+async function loadClientNotes() {
+    const listEl = document.getElementById('client-notes-list');
+    const statusEl = document.getElementById('client-notes-status');
+    if (!listEl) {
+        return;
+    }
+
+    listEl.innerHTML = '';
+    if (statusEl) {
+        statusEl.textContent = 'טוען הערות...';
+    }
+
+    try {
+        const response = await fetch(`/api/client/${clientData.id_canon}/notes`);
+        if (!response.ok) {
+            throw new Error('שגיאה בטעינת הערות');
+        }
+        const notes = await response.json();
+
+        if (!Array.isArray(notes) || notes.length === 0) {
+            const emptyItem = document.createElement('div');
+            emptyItem.className = 'list-group-item text-muted';
+            emptyItem.textContent = 'אין הערות שמורות עבור הלקוח.';
+            listEl.appendChild(emptyItem);
+        } else {
+            notes.forEach(note => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item';
+
+                const created = note.created_at || '';
+                const text = note.note || '';
+                const reminder = note.reminder_at || '';
+
+                const createdDisplay = formatIsoDateTimeToDisplay(created);
+                const reminderDisplay = reminder ? formatIsoDateToDisplay(reminder) : '';
+
+                const reminderBadge = reminderDisplay
+                    ? `<span class="badge bg-warning text-dark me-2">תזכורת ל-${reminderDisplay}</span>`
+                    : '';
+
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <div class="fw-bold">${createdDisplay}</div>
+                        <div>${reminderBadge}</div>
+                    </div>
+                    <div class="mt-1">${text.replace(/\n/g, '<br>')}</div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        if (statusEl) {
+            statusEl.textContent = '';
+        }
+    } catch (error) {
+        console.error('Error loading client notes:', error);
+        if (statusEl) {
+            statusEl.textContent = 'שגיאה בטעינת הערות';
+        }
+    }
+}
+
+async function saveClientNote() {
+    const textarea = document.getElementById('newNoteText');
+    const statusEl = document.getElementById('client-notes-status');
+    const reminderInput = document.getElementById('newNoteReminderDate');
+    if (!textarea) {
+        return;
+    }
+
+    const noteText = (textarea.value || '').trim();
+    if (!noteText) {
+        if (statusEl) {
+            statusEl.textContent = 'לא ניתן לשמור הערה ריקה.';
+        }
+        return;
+    }
+
+    if (statusEl) {
+        statusEl.textContent = 'שומר הערה...';
+    }
+
+    try {
+        const reminderDate = reminderInput ? (reminderInput.value || '').trim() : '';
+
+        const response = await fetch(`/api/client/${clientData.id_canon}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: noteText, reminder_at: reminderDate }),
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'שגיאה בשמירת ההערה');
+        }
+
+        textarea.value = '';
+        if (reminderInput) {
+            reminderInput.value = '';
+        }
+        if (statusEl) {
+            statusEl.textContent = 'ההערה נשמרה בהצלחה.';
+        }
+
+        await loadClientNotes();
+        await checkClientReminders();
+    } catch (error) {
+        console.error('Error saving client note:', error);
+        if (statusEl) {
+            statusEl.textContent = 'שגיאה בשמירת ההערה.';
+        }
+    }
+}
+
+async function openClientNotes() {
+    await loadClientNotes();
+    const modalEl = document.getElementById('clientNotesModal');
+    if (!modalEl) {
+        return;
+    }
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+// Check and display active client reminders (notes with due reminder date)
+async function checkClientReminders() {
+    const container = document.getElementById('client-reminders-container');
+    if (!container) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/client/${clientData.id_canon}/notes`);
+        if (!response.ok) {
+            throw new Error('שגיאה בטעינת תזכורות');
+        }
+        const notes = await response.json();
+
+        if (!Array.isArray(notes) || notes.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        const activeReminders = notes.filter(note => {
+            const reminder = note.reminder_at;
+            const dismissed = note.dismissed_at;
+            if (!reminder || dismissed) {
+                return false;
+            }
+            return reminder <= todayStr;
+        });
+
+        if (activeReminders.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        html += '<div class="alert alert-warning shadow-sm" role="alert">';
+        html += '  <div class="d-flex justify-content-between align-items-center mb-2">';
+        html += '    <div><i class="fas fa-bell me-2"></i>תזכורות פעילות ללקוח</div>';
+        html += '  </div>';
+        html += '  <div class="list-group">';
+
+        activeReminders.forEach(note => {
+            const textHtml = (note.note || '').replace(/\n/g, '<br>');
+            const reminder = note.reminder_at || '';
+            const reminderDisplay = reminder ? formatIsoDateToDisplay(reminder) : '';
+
+            html += '    <div class="list-group-item d-flex justify-content-between align-items-start">';
+            html += '      <div class="me-2">';
+            html += `        <div class="fw-bold mb-1">תזכורת ל-${reminderDisplay}</div>`;
+            html += `        <div>${textHtml}</div>`;
+            html += '      </div>';
+            html += '      <div class="ms-2 d-flex flex-column align-items-end gap-1">';
+            html += `        <button type="button" class="btn btn-sm btn-outline-secondary mb-1" onclick="dismissClientNote(${note.id})">סגירה</button>`;
+            html += `        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteClientReminder(${note.id})">מחיקת תזכורת</button>`;
+            html += '      </div>';
+            html += '    </div>';
+        });
+
+        html += '  </div>';
+        html += '</div>';
+
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error checking client reminders:', error);
+    }
+}
+
+// Dismiss a specific reminder so it won't pop again
+async function dismissClientNote(noteId) {
+    try {
+        const response = await fetch(`/api/client/${clientData.id_canon}/notes/${noteId}/dismiss`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'שגיאה בסגירת התזכורת');
+        }
+
+        await checkClientReminders();
+    } catch (error) {
+        console.error('Error dismissing client reminder:', error);
+    }
+}
+
+// Delete a reminder (clear reminder fields) while keeping the note itself
+async function deleteClientReminder(noteId) {
+    try {
+        const response = await fetch(`/api/client/${clientData.id_canon}/notes/${noteId}/clear_reminder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'שגיאה במחיקת התזכורת');
+        }
+
+        await checkClientReminders();
+        await loadClientNotes();
+    } catch (error) {
+        console.error('Error deleting client reminder:', error);
+    }
+}
+
+// Delete a note completely (including its reminder)
+async function deleteClientNote(noteId) {
+    try {
+        const response = await fetch(`/api/client/${clientData.id_canon}/notes/${noteId}/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'שגיאה במחיקת ההערה');
+        }
+
+        await loadClientNotes();
+        await checkClientReminders();
+    } catch (error) {
+        console.error('Error deleting client note:', error);
+    }
+}
+
+// Filter funds by type
+function filterFunds() {
+    const filterValue = document.getElementById('fundTypeFilter').value;
+    const rows = document.querySelectorAll('#fundsTable tbody tr');
+    
+    rows.forEach(row => {
+        const fundType = row.getAttribute('data-fund-type');
+        if (filterValue === '' || fundType === filterValue) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Show fund details in a simple modal/table row
+function showFundDetails(fundId) {
+    const row = document.querySelector(`#fundsTable tbody tr[data-fund-id="${fundId}"]`);
+    if (!row) {
+        alert('לא נמצאו פרטי הקופה');
+        return;
+    }
+
+    const fundCode = row.getAttribute('data-fund-code') || '';
+    const fundName = row.getAttribute('data-fund-name') || '';
+    const fundType = row.getAttribute('data-fund-type') || '';
+    const amount = row.getAttribute('data-fund-amount') || '';
+    const date = row.getAttribute('data-fund-date') || '';
+    const source = row.getAttribute('data-fund-source') || '';
+
+    document.getElementById('fundHistoryTitle').textContent = `פרטי קופה ${fundCode}`;
+
+    const tbody = document.querySelector('#fundHistoryTable tbody');
+    if (!tbody) {
+        return;
+    }
+    tbody.innerHTML = '';
+
+    const details = [
+        { label: 'מספר קופה', value: fundCode },
+        { label: 'שם מסלול', value: fundName || 'לא זמין' },
+        { label: 'סוג מוצר', value: fundType || 'לא זמין' },
+        { label: 'יתרה נוכחית', value: amount ? `${Number(amount).toLocaleString('he-IL')} ₪` : '0 ₪' },
+        { label: 'תאריך נכונות', value: date ? formatIsoDateToDisplay(date) : 'לא זמין' },
+        { label: 'יצרן', value: source || 'לא זמין' }
+    ];
+
+    details.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${item.label}</td>
+            <td colspan="3" class="text-start">${item.value}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const modal = new bootstrap.Modal(document.getElementById('fundHistoryModal'));
+    modal.show();
+}
+
+// Initialize sparklines for each fund
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize sparklines for all funds
+    const fundElements = document.querySelectorAll('[id^="sparkline-"]');
+    fundElements.forEach(element => {
+        const fundNumber = element.id.replace('sparkline-', '');
+        initSparkline(fundNumber, clientData.id);
+    });
+
+    // Fetch and display last month's change
+    fetchLastMonthChange();
+
+    // Check for active client reminders
+    checkClientReminders();
+});
+
+// Initialize sparkline chart for a fund
+async function initSparkline(fundNumber, clientId) {
+    try {
+        const response = await fetch(`/api/history?client_id=${clientId}`);
+        const data = await response.json();
+        
+        if (data.history && data.history.length > 0) {
+            const ctx = document.getElementById(`sparkline-${fundNumber}`);
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.history.map(h => h.month),
+                        datasets: [{
+                            data: data.history.map(h => h.amount),
+                            borderColor: '#0d6efd',
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        },
+                        scales: {
+                            x: { display: false },
+                            y: { display: false }
+                        },
+                        elements: {
+                            point: { radius: 0, hoverRadius: 3 }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        }
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error loading sparkline data:', error);
+    }
+}
+
+// Show client history in modal
+async function showClientHistory() {
+    try {
+        const response = await fetch(`/api/history?client_id=${clientData.id}`);
+        const data = await response.json();
+        
+        const modal = new bootstrap.Modal(document.getElementById('historyModal'));
+        modal.show();
+        
+        // Create chart
+        const ctx = document.getElementById('historyChart');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.history.map(h => h.month),
+                datasets: [{
+                    label: 'סך נכסים (₪)',
+                    data: data.history.map(h => h.amount),
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('he-IL') + ' ₪';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading client history:', error);
+        alert('שגיאה בטעינת היסטוריית הלקוח');
+    }
+}
+
+// Fetch and display last month-over-month change in the header
+async function fetchLastMonthChange() {
+    const el = document.getElementById('last-month-change');
+    if (!el) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/history?client_id=${clientData.id}`);
+        const data = await response.json();
+
+        const history = Array.isArray(data.history) ? data.history : [];
+        if (history.length < 2) {
+            el.textContent = 'שינוי חודשי אחרון: אין מספיק נתונים';
+            return;
+        }
+
+        const last = history[history.length - 1];
+        const prev = history[history.length - 2];
+
+        const lastAmount = Number(last.amount || 0);
+        const prevAmount = Number(prev.amount || 0);
+        const change = lastAmount - prevAmount;
+
+        let text = 'שינוי חודשי אחרון: ';
+
+        const sign = change > 0 ? '+' : change < 0 ? '-' : '';
+        const absChange = Math.abs(change);
+        text += `${sign}${absChange.toLocaleString('he-IL')} ₪`;
+
+        if (prevAmount > 0) {
+            const pct = (change / prevAmount) * 100;
+            const pctSign = pct > 0 ? '+' : pct < 0 ? '-' : '';
+            const absPct = Math.abs(pct);
+            text += ` (${pctSign}${absPct.toFixed(1)}%)`;
+        }
+
+        el.textContent = text;
+    } catch (error) {
+        console.error('Error loading last month change:', error);
+    }
+}
+
+// Show fund history in modal (real data from API)
+async function showFundHistory(fundNumber, sourceDisplay) {
+    try {
+        document.getElementById('fundHistoryTitle').textContent = `היסטוריית קופה ${fundNumber}`;
+
+        const response = await fetch(`/api/fund_history?client_id=${clientData.id}&fund_number=${encodeURIComponent(fundNumber)}`);
+        const data = await response.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        const tbody = document.querySelector('#fundHistoryTable tbody');
+        if (!tbody) {
+            return;
+        }
+        tbody.innerHTML = '';
+
+        const history = Array.isArray(data.history) ? data.history : [];
+
+        // Build chart data
+        const labels = history.map(row => formatIsoDateToDisplay(row.date));
+        const values = history.map(row => Number(row.amount || 0));
+
+        const chartCtx = document.getElementById('fundHistoryChart');
+        if (chartCtx) {
+            if (fundHistoryChart) {
+                fundHistoryChart.destroy();
+            }
+            fundHistoryChart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'יתרה בקופה (₪)',
+                        data: values,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    if (!context || !context.length) {
+                                        return '';
+                                    }
+                                    const item = context[0];
+                                    const label = item.label || '';
+                                    return `תאריך: ${label}`;
+                                },
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    const point = history[idx] || {};
+                                    const amountNum = Number(point.amount || 0);
+                                    let line = `יתרה: ${amountNum.toLocaleString('he-IL')} ₪`;
+
+                                    if (typeof point.change === 'number') {
+                                        const sign = point.change > 0 ? '+' : point.change < 0 ? '-' : '';
+                                        const absVal = Math.abs(point.change);
+                                        line += ` (שינוי: ${sign}${absVal.toLocaleString('he-IL')} ₪)`;
+                                    }
+
+                                    if (point.source) {
+                                        line += ` | מקור: ${point.source}`;
+                                    }
+
+                                    return line;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('he-IL') + ' ₪';
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 0
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Build table rows
+        history.forEach(row => {
+            const displayDate = formatIsoDateToDisplay(row.date);
+            const tr = document.createElement('tr');
+            const changeVal = row.change;
+            let changeText = '';
+            let changeClass = 'text-muted';
+            if (typeof changeVal === 'number') {
+                const sign = changeVal > 0 ? '+' : changeVal < 0 ? '-' : '';
+                const absVal = Math.abs(changeVal);
+                changeText = `${sign}${absVal.toLocaleString('he-IL')} ₪`;
+                if (changeVal > 0) {
+                    changeClass = 'text-success';
+                } else if (changeVal < 0) {
+                    changeClass = 'text-danger';
+                }
+            } else {
+                changeText = '-';
+            }
+
+            tr.innerHTML = `
+                <td>${displayDate}</td>
+                <td class="text-end">${Number(row.amount || 0).toLocaleString('he-IL')} ₪</td>
+                <td><span class="badge bg-secondary">${row.source || sourceDisplay || ''}</span></td>
+                <td class="text-end ${changeClass}">${changeText}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        const modal = new bootstrap.Modal(document.getElementById('fundHistoryModal'));
+        modal.show();
+    } catch (error) {
+        console.error('Error loading fund history:', error);
+        alert('שגיאה בטעינת היסטוריית הקופה');
+    }
+}
+
+// Export client data - reuse existing CSV report endpoint
+function exportClientData() {
+    const csvLink = document.getElementById('csv-link');
+    if (csvLink && csvLink.href) {
+        window.location.href = csvLink.href;
+    } else {
+        alert('לא נמצא קישור לדוח הלקוח');
+    }
+}
+
+// Client Details Form Functions
+const cid = clientData.id_canon;
+
+// Load client details when details tab is shown
+document.addEventListener('DOMContentLoaded', function() {
+    // Load client details when tab is clicked
+    document.getElementById('details-tab').addEventListener('click', function() {
+        loadClientDetails();
+    });
+});
+
+function refreshData() {
+    location.reload();
+}
+
+function saveClientChanges() {
+    const form = document.getElementById('editClientForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    fetch(`/client/{{ client.id_canon }}/update`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.ok) {
+            // Show success toast
+            showToast('פרטי הלקוח עודכנו בהצלחה', 'success');
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('editClientModal')).hide();
+            // Refresh page to show updated data
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('שגיאה בעדכון פרטי הלקוח', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('שגיאה בעדכון פרטי הלקוח', 'error');
+    });
+}
+
+function showToast(message, type) {
+    // Create toast element
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    // Add to toast container or create one
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+    
+    // Remove toast element after it's hidden
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+function updateReportLinks(month) {
+    const links = ['csv-link', 'xlsx-link', 'pdf-link'];
+    links.forEach(linkId => {
+        const link = document.getElementById(linkId);
+        if (link) {
+            const baseUrl = link.href.split('?')[0];
+            link.href = month ? `${baseUrl}?month=${month}` : baseUrl;
+        }
+    });
+}
+
+// Handle form submission
+document.getElementById('client-details-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveClientDetails();
+});
+
+// Load client details from API
+function loadClientDetails() {
+    fetch(`/api/client/${cid}/details`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error loading client details:', data.error);
+                return;
+            }
+            populateForm(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('שגיאה בטעינת פרטי הלקוח', 'error');
+        });
+}
+
+// Populate form with client details
+function populateForm(data) {
+    const fieldMap = {
+        first_name: 'first_name',
+        last_name: 'last_name',
+        // API returns date_of_birth, form field name is birth_date
+        birth_date: 'date_of_birth',
+        email: 'email',
+        // API returns employer, form field name is employer_name
+        employer_name: 'employer'
+    };
+
+    Object.keys(fieldMap).forEach(formFieldName => {
+        const apiFieldName = fieldMap[formFieldName];
+        const element = document.querySelector(`[name=${formFieldName}]`);
+        if (element && apiFieldName in data) {
+            let value = data[apiFieldName] || '';
+            // Normalize date string for date input
+            if (formFieldName === 'birth_date' && value) {
+                // If value is DD/MM/YYYY, convert to YYYY-MM-DD
+                const legacyMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                if (legacyMatch) {
+                    value = `${legacyMatch[3]}-${legacyMatch[2]}-${legacyMatch[1]}`;
+                }
+            }
+            element.value = value;
+        }
+    });
+}
+
+// Save client details
+function saveClientDetails() {
+    const formData = new FormData(document.getElementById('client-details-form'));
+    const payload = Object.fromEntries(formData.entries());
+    
+    fetch(`/api/client/${cid}/details`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('פרטי הלקוח נשמרו בהצלחה', 'success');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('שגיאה בשמירת פרטי הלקוח', 'error');
+    });
+}
+
+// Delete client details with confirmation
+function deleteClientDetails() {
+    if (confirm('האם אתה בטוח שברצונך למחוק את פרטי הלקוח?')) {
+        fetch(`/api/client/${cid}/details`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error, 'error');
+            } else {
+                showToast('פרטי הלקוח נמחקו בהצלחה', 'success');
+                resetForm();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('שגיאה במחיקת פרטי הלקוח', 'error');
+        });
+    }
+}
+
+// Reset form to empty state
+function resetForm() {
+    document.getElementById('client-details-form').reset();
+}
+
+// Show toast notification
+function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Add to page
+    document.body.appendChild(toast);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
