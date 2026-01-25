@@ -149,9 +149,17 @@ def _create_snapshot_for_import(
     )
 
 
-def _read_excel_bytes_or_raise(file_bytes: bytes) -> pd.DataFrame:
-    buffer = BytesIO(file_bytes)
-    df_raw = pd.read_excel(buffer, dtype=str)
+def _read_excel_file_or_raise(file_source: bytes | str | Path) -> pd.DataFrame:
+    try:
+        if isinstance(file_source, bytes):
+            buffer = BytesIO(file_source)
+            df_raw = pd.read_excel(buffer, dtype=str)
+        else:
+            # It's a file path
+            df_raw = pd.read_excel(file_source, dtype=str)
+    except Exception as exc:
+        raise ValueError(f"Failed to read Excel file: {exc}") from exc
+
     if df_raw is None or df_raw.empty:
         raise ValueError("Excel file is empty")
     return df_raw

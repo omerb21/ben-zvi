@@ -137,8 +137,8 @@ def _create_snapshot_for_import(
     )
 
 
-def _read_excel_bytes_or_raise(file_bytes: bytes) -> pd.DataFrame:
-    return _helpers._read_excel_bytes_or_raise(file_bytes)
+def _read_excel_file_or_raise(file_source: bytes | str | Path) -> pd.DataFrame:
+    return _helpers._read_excel_file_or_raise(file_source)
 
 
 def _transform_legacy_crm_excel_or_raise(
@@ -165,11 +165,11 @@ def _aggregate_crm_balances_like_legacy(df: pd.DataFrame) -> pd.DataFrame:
 def import_crm_from_excel(
     db: Session,
     company_code: str,
-    file_bytes: bytes,
+    file_source: bytes | str | Path,
     snapshot_month: str | None = None,
     filename: str | None = None,
 ) -> Dict[str, int | str]:
-    df_raw = _read_excel_bytes_or_raise(file_bytes)
+    df_raw = _read_excel_file_or_raise(file_source)
 
     if not snapshot_month:
         raise ValueError("חסר תאריך סנפשוט")

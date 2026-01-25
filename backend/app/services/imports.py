@@ -13,7 +13,7 @@ from app.services.imports_saving_products import (
 def import_crm_from_excel(
     db: Session,
     company_code: str,
-    file_bytes: bytes,
+    file_source: bytes | str | Path,
     snapshot_month: str | None = None,
     filename: str | None = None,
 ) -> Dict[str, int | str]:
@@ -26,7 +26,7 @@ def import_crm_from_excel(
     return _import_crm_from_excel(
         db,
         company_code,
-        file_bytes,
+        file_source,
         snapshot_month,
         filename,
     )

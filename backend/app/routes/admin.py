@@ -48,7 +48,10 @@ from app.services.crm import (
 )
 from app.services.justification import clear_justification_data
 from app.utils.http_exceptions import raise_client_not_found as _raise_client_not_found
-from app.utils.uploads import read_upload_bytes as _read_upload_bytes
+from app.utils.uploads import (
+    read_upload_bytes as _read_upload_bytes,
+    save_upload_to_temp_file as _save_upload_to_temp_file,
+)
 
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -194,14 +197,21 @@ async def import_crm_excel(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> CrmExcelImportResult:
-    contents = await _read_upload_or_400(file, empty_detail="Empty Excel file uploaded")
+    # Instead of reading the whole file into RAM, we stream it to a temporary file.
+    # This prevents server crashes (OOM) on large files, which often manifest as CORS errors in the frontend.
+    temp_path = _save_upload_to_temp_file(file)
     try:
-        result = import_crm_from_excel(db, "", contents, snapshot_month, file.filename)
+        # Pass the path directly to the service layer
+        result = import_crm_from_excel(db, "", temp_path, snapshot_month, file.filename)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+    finally:
+        # Cleanup temp file
+        if temp_path.exists():
+            temp_path.unlink()
 
     return CrmExcelImportResult(**result)
 
