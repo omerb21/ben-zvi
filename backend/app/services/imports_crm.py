@@ -28,6 +28,13 @@ def _ensure_legacy_mini_crm_on_sys_path() -> None:
         candidates.append(Path(env_root))
 
     root = Path(__file__).resolve()
+    
+    # Check for local bundled mini_crm (in backend/mini_crm)
+    # backend/app/services/imports_crm.py -> backend/app/services -> backend/app -> backend
+    if len(root.parents) >= 3:
+        backend_dir = root.parents[2]
+        candidates.append(backend_dir / "mini_crm")
+
     # Safely try to find workspace dir (4 levels up from here)
     # backend/app/services/imports_crm.py -> backend/app/services -> backend/app -> backend -> root
     if len(root.parents) >= 5:
