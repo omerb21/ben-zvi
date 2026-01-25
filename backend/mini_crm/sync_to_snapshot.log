@@ -1,0 +1,37 @@
+[2025-08-20 18:53:22] CREATING CLIENT_POSITIONS_MONTHLY AND SYNCING TO SNAPSHOT
+[2025-08-20 18:53:22] ==================================================
+[2025-08-20 18:53:22] Creating client_positions_monthly table...
+[2025-08-20 18:53:22] Table client_positions_monthly created successfully
+[2025-08-20 18:53:22] Records in snapshot: 29
+[2025-08-20 18:53:22] Migrating data from snapshot to client_positions_monthly...
+[2025-08-20 18:53:22] Inserted 16 records into client_positions_monthly
+[2025-08-20 18:53:22] Records in client_positions_monthly: 16
+[2025-08-20 18:53:22] Records in snapshot before sync: 29
+[2025-08-20 18:53:22] Creating backup of snapshot table...
+[2025-08-20 18:53:22] Backup created with 29 records
+[2025-08-20 18:53:22] Clearing snapshot table...
+[2025-08-20 18:53:22] Inserting latest data from client_positions_monthly into snapshot...
+[2025-08-20 18:53:22] Common columns mapped: 10
+[2025-08-20 18:53:22] Records in snapshot after sync: 16
+[2025-08-20 18:53:22] Portfolio total from snapshot: 2500457.0
+[2025-08-20 18:53:22] Portfolio total from client_positions_monthly (latest): 2500457.0
+[2025-08-20 18:53:22] 
+Sync completed successfully!
+[2025-08-20 18:53:28] CREATING CLIENT_POSITIONS_MONTHLY AND SYNCING TO SNAPSHOT
+[2025-08-20 18:53:28] ==================================================
+[2025-08-20 18:53:28] Table client_positions_monthly already exists
+[2025-08-20 18:53:28] Records in snapshot: 16
+[2025-08-20 18:53:28] Migrating data from snapshot to client_positions_monthly...
+[2025-08-20 18:53:28] Inserted 0 records into client_positions_monthly
+[2025-08-20 18:53:28] Records in client_positions_monthly: 16
+[2025-08-20 18:53:28] Records in snapshot before sync: 16
+[2025-08-20 18:53:28] Creating backup of snapshot table...
+[2025-08-20 18:53:28] Backup created with 16 records
+[2025-08-20 18:53:28] Clearing snapshot table...
+[2025-08-20 18:53:28] Inserting latest data from client_positions_monthly into snapshot...
+[2025-08-20 18:53:28] Common columns mapped: 10
+[2025-08-20 18:53:28] Records in snapshot after sync: 16
+[2025-08-20 18:53:28] Portfolio total from snapshot: 2500457.0
+[2025-08-20 18:53:28] Portfolio total from client_positions_monthly (latest): 2500457.0
+[2025-08-20 18:53:28] 
+Sync completed successfully!
