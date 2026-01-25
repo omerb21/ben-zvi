@@ -28,13 +28,16 @@ def _ensure_legacy_mini_crm_on_sys_path() -> None:
         candidates.append(Path(env_root))
 
     root = Path(__file__).resolve()
-    workspace_dir = root.parents[4]
-    candidates.extend(
-        [
-            workspace_dir / "mini_crm",
-            workspace_dir / "גיבויים" / "mini_crm",
-        ]
-    )
+    # Safely try to find workspace dir (4 levels up from here)
+    # backend/app/services/imports_crm.py -> backend/app/services -> backend/app -> backend -> root
+    if len(root.parents) >= 5:
+         workspace_dir = root.parents[4]
+         candidates.extend(
+            [
+                workspace_dir / "mini_crm",
+                workspace_dir / "גיבויים" / "mini_crm",
+            ]
+        )
 
     for candidate in candidates:
         legacy_root = candidate.resolve()
