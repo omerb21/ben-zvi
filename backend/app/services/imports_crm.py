@@ -60,7 +60,15 @@ def _load_legacy_transformer():
     try:
         from services.upload_service import UploadProcessingError, transform_uploaded_file
     except Exception as exc:  # pragma: no cover - defensive
-        raise ValueError("Legacy CRM ingestion module is not available") from exc
+        # Debugging: print why it failed
+        print(f"Failed to import legacy transformer. Sys path: {sys.path}")
+        try:
+             import services
+             print(f"Successfully imported services: {services}")
+        except Exception as e:
+             print(f"Failed to import services: {e}")
+        
+        raise ValueError(f"Legacy CRM ingestion module is not available: {exc}") from exc
     return UploadProcessingError, transform_uploaded_file
 
 
