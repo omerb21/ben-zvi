@@ -189,6 +189,50 @@ def _aggregate_crm_balances_like_legacy(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _transform_harel_excel(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """Transform Harel Excel file to standard CRM format.
+    
+    Maps Harel columns:
+    - ת.ז → id_canon
+    - שם פרטי + שם משפחה → client_name
+    - מספר חשבון → fund_number (קוד קופה)
+    - שם קופה → fund_name
+    - תחום → fund_type (סוג קופה)
+    - יתרת צבירה לחשבון → accumulated_amount
+    """
+    # Check if this is a Harel file
+    harel_columns = {"ת.ז", "שם פרטי", "שם משפחה", "מספר חשבון", "שם קופה", "תחום", "יתרת צבירה לחשבון"}
+    if not harel_columns.issubset(set(df_raw.columns)):
+        return None
+    
+    df = pd.DataFrame()
+    
+    # Map ID number
+    df["id_canon"] = df_raw["ת.ז"].astype(str).str.strip()
+    
+    # Combine first and last name
+    first_name = df_raw["שם פרטי"].fillna("").astype(str).str.strip()
+    last_name = df_raw["שם משפחה"].fillna("").astype(str).str.strip()
+    df["client_name"] = (first_name + " " + last_name).str.strip()
+    
+    # Map fund information - מספר חשבון is the fund_number (קוד קופה)
+    df["fund_number"] = df_raw["מספר חשבון"].astype(str).str.strip()
+    df["fund_name"] = df_raw["שם קופה"].fillna("").astype(str).str.strip()
+    df["fund_type"] = df_raw["תחום"].fillna("").astype(str).str.strip()
+    
+    # Use fund_number as fund_code (will be canonicalized later)
+    df["fund_code"] = df["fund_number"]
+    
+    # Map amount
+    df["accumulated_amount"] = pd.to_numeric(df_raw["יתרת צבירה לחשבון"], errors="coerce").fillna(0)
+    
+    # Remove rows with invalid ID or zero amount
+    df = df[df["id_canon"].str.len() > 0]
+    df = df[df["accumulated_amount"] > 0]
+    
+    return df
+
+
 def _transform_fallback_crm_excel_or_raise(
     df_raw: pd.DataFrame,
     *,
@@ -198,9 +242,15 @@ def _transform_fallback_crm_excel_or_raise(
     """Fallback transformer when legacy mini_crm loader is unavailable.
 
     Accepts an Excel file that is already normalized to the columns expected by the
-    unified import pipeline.
+    unified import pipeline, or tries to detect and transform known formats like Harel.
     """
+    
+    # Try Harel transformer first
+    df_harel = _transform_harel_excel(df_raw)
+    if df_harel is not None:
+        return df_harel, "HAREL"
 
+    # Otherwise, expect pre-normalized format
     required = {"id_canon", "fund_number", "accumulated_amount"}
     missing = sorted(col for col in required if col not in df_raw.columns)
     if missing:

@@ -194,6 +194,7 @@ def import_crm_from_excel(
     # Mini-CRM loaders expect a full date string.
     normalized_snapshot_month = _normalize_snapshot_month(snapshot_month)
 
+
     UploadProcessingError = None
     transform_uploaded_file = None
     use_legacy_transformer = True
@@ -206,13 +207,26 @@ def import_crm_from_excel(
         # Let the legacy service choose the correct loader by filename and
         # perform all column mapping / cleaning per provider (FNX, AS, YL, MOR,
         # ANLST, DASH, NFTY).
-        df, file_type = _transform_legacy_crm_excel_or_raise(
-            df_raw,
-            filename=filename,
-            normalized_snapshot_month=normalized_snapshot_month,
-            transform_uploaded_file=transform_uploaded_file,
-            UploadProcessingError=UploadProcessingError,
-        )
+        try:
+            df, file_type = _transform_legacy_crm_excel_or_raise(
+                df_raw,
+                filename=filename,
+                normalized_snapshot_month=normalized_snapshot_month,
+                transform_uploaded_file=transform_uploaded_file,
+                UploadProcessingError=UploadProcessingError,
+            )
+        except ValueError as exc:
+            # If the legacy transformer doesn't recognize the file type,
+            # fall back to the new transformer (e.g., for Harel files)
+            if "סוג קובץ לא נתמך" in str(exc):
+                df, file_type = _helpers._transform_fallback_crm_excel_or_raise(
+                    df_raw,
+                    filename=filename,
+                    company_code=company_code,
+                )
+            else:
+                # Re-raise other errors
+                raise
     else:
         # Fallback: allow importing a normalized Excel file without depending on
         # the legacy mini_crm package.
@@ -221,6 +235,7 @@ def import_crm_from_excel(
             filename=filename,
             company_code=company_code,
         )
+
 
     # Aggregate by client + fund number exactly like legacy insert_rows.
     df = _aggregate_crm_balances_like_legacy(df)
