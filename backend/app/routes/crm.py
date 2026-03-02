@@ -58,6 +58,12 @@ def _ensure_note_or_404(note):
 
 
 def _pdf_attachment_response(pdf_bytes: bytes, filename: str) -> Response:
+    # Validate input
+    if not isinstance(pdf_bytes, bytes):
+        raise ValueError("PDF content must be bytes")
+    if not pdf_bytes:
+        raise ValueError("PDF content cannot be empty")
+    
     headers = _build_pdf_attachment_headers(filename)
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
