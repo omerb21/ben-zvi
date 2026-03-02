@@ -209,7 +209,36 @@ export function exportClientPdfAction({
     return;
   }
 
-  const baseUrl = (httpClient.defaults.baseURL || "").replace(/\/+$/, "");
-  const reportUrl = `${baseUrl}/api/v1/crm/clients/${selectedClient.id}/report.pdf`;
-  window.open(reportUrl, "_blank");
+  const newTab = window.open("", "_blank");
+
+  httpClient
+    .get(`/api/v1/crm/clients/${selectedClient.id}/report.pdf`, {
+      responseType: "blob",
+    })
+    .then((response) => {
+      const contentType = response.headers?.["content-type"];
+      const blob = new Blob([response.data], {
+        type: contentType || "application/pdf",
+      });
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (newTab) {
+        newTab.location.href = blobUrl;
+      } else {
+        window.open(blobUrl, "_blank");
+      }
+
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 60_000);
+    })
+    .catch((err) => {
+      try {
+        newTab?.close();
+      } catch {
+        // ignore
+      }
+      console.error(err);
+    });
 }
