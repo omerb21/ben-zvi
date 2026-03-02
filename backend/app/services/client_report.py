@@ -146,30 +146,29 @@ def render_client_report_html(
 def generate_client_report_pdf(
     html: str,
 ) -> Optional[bytes]:
-    """Best-effort PDF generation from HTML.
+    """Generate PDF from HTML using WeasyPrint.
 
-    Returns PDF bytes if pdfkit is available and succeeds, otherwise None.
+    Returns PDF bytes if WeasyPrint is available and succeeds, otherwise None.
     """
 
     try:
-        import pdfkit  # type: ignore
+        from weasyprint import HTML, CSS
+        from weasyprint.text.fonts import FontConfiguration
     except Exception:
         return None
 
-    options = {
-        "page-size": "A4",
-        "encoding": "UTF-8",
-        "quiet": "",
-        "load-error-handling": "ignore",
-    }
-
     try:
-        # CSS is embedded inline, no external CSS file needed
-        pdf_bytes = pdfkit.from_string(html, False, options=options)
+        # Use WeasyPrint for reliable PDF generation in containers
+        font_config = FontConfiguration()
+        html_obj = HTML(string=html, base_url=".")
+        css = CSS(string="""
+            @page { margin: 2cm; size: A4; }
+            body { font-family: Arial, sans-serif; direction: rtl; }
+        """, font_config=font_config)
+        pdf_bytes = html_obj.write_pdf(stylesheets=[css], font_config=font_config)
         return pdf_bytes
     except Exception as exc:
         import logging
         logger = logging.getLogger(__name__)
-        logger.warning("Failed to generate client report PDF: %s", exc)
-        logger.info("Generated HTML (first 1000 chars): %s", html[:1000])
+        logger.warning("Failed to generate client report PDF with WeasyPrint: %s", exc)
         return None

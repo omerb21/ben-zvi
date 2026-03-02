@@ -5,10 +5,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies including wkhtmltopdf
+# Install system dependencies for WeasyPrint
 RUN apt-get update \ 
     && apt-get install -y --no-install-recommends \
-    wkhtmltopdf \
+    libpango-1.0-0 \
+    libharfbuzz0b \
+    libpangoft2-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -21,6 +25,4 @@ COPY . .
 EXPOSE 8000
 
 # Start FastAPI with Uvicorn
-# Start FastAPI with Uvicorn (Run migration first)
-# CMD ["sh", "-c", "python scripts/migrate_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
