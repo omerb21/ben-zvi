@@ -153,19 +153,17 @@ def generate_client_report_pdf(
 
     try:
         from weasyprint import HTML, CSS
-        from weasyprint.text.fonts import FontConfiguration
     except Exception:
         return None
 
     try:
         # Use WeasyPrint for reliable PDF generation in containers
-        font_config = FontConfiguration()
         html_obj = HTML(string=html, base_url=".")
         css = CSS(string="""
             @page { margin: 2cm; size: A4; }
             body { font-family: Arial, sans-serif; direction: rtl; }
-        """, font_config=font_config)
-        pdf_bytes = html_obj.write_pdf(stylesheets=[css], font_config=font_config)
+        """)
+        pdf_bytes = html_obj.write_pdf(stylesheets=[css])
         return pdf_bytes
     except Exception as exc:
         import logging
