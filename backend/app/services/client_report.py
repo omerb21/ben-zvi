@@ -159,11 +159,8 @@ def generate_client_report_pdf(
     options = {
         "page-size": "A4",
         "encoding": "UTF-8",
-        "disable-smart-shrinking": "",
-        "no-outline": "",
-        "disable-local-file-access": "",
-        "disable-external-links": "",
-        "disable-javascript": "",
+        "quiet": "",
+        "load-error-handling": "ignore",
     }
 
     try:
