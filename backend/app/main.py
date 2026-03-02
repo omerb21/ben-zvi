@@ -121,7 +121,19 @@ async def password_protect_api(request: Request, call_next):
 
             return response
 
-    return await call_next(request)
+    response = await call_next(request)
+    
+    # Add CORS headers to any error response
+    if response.status_code >= 400:
+        origin = request.headers.get("origin")
+        if origin and origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Vary"] = "Origin"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
 
 
 app.include_router(crm_routes.router)
