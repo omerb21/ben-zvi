@@ -165,5 +165,8 @@ def generate_client_report_pdf(
         else:
             pdf_bytes = pdfkit.from_string(html, False, options=options)
         return pdf_bytes
-    except Exception:
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("Failed to generate client report PDF: %s", exc)
         return None

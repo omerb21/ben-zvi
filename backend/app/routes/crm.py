@@ -283,6 +283,9 @@ def download_client_report_pdf(
     )
 
     if pdf_bytes is None:
-        return Response(content=html, media_type="text/html; charset=utf-8")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to generate client report PDF. Please ensure wkhtmltopdf is installed and accessible."
+        )
 
     return _pdf_attachment_response(pdf_bytes, filename)
