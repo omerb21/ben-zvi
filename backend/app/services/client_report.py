@@ -161,6 +161,9 @@ def generate_client_report_pdf(
         "encoding": "UTF-8",
         "disable-smart-shrinking": "",
         "no-outline": "",
+        "disable-local-file-access": "",
+        "disable-external-links": "",
+        "disable-javascript": "",
     }
 
     try:
@@ -171,4 +174,5 @@ def generate_client_report_pdf(
         import logging
         logger = logging.getLogger(__name__)
         logger.warning("Failed to generate client report PDF: %s", exc)
+        logger.info("Generated HTML (first 1000 chars): %s", html[:1000])
         return None
