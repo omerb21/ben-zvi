@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap');
+/* Google Fonts removed to avoid network errors in container */
 
 body {
-    font-family: 'Heebo', Arial, sans-serif;
+    font-family: Arial, 'DejaVu Sans', sans-serif;
     direction: rtl;
     margin: 20px;
     font-size: 12px;
