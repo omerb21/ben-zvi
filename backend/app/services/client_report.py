@@ -124,7 +124,7 @@ def render_client_report_html(
     template = env.get_template("report_client_pdf.html")
 
     now = datetime.now()
-    return template.render(
+    html = template.render(
         client=client,
         rows=rows,
         total_amount=total_amount,
@@ -132,6 +132,15 @@ def render_client_report_html(
         current_date=now.strftime("%d/%m/%Y"),
         current_datetime=now.strftime("%d/%m/%Y %H:%M"),
     )
+    # Embed CSS inline to avoid external file/network issues
+    css_path = _get_base_dir() / "static" / "report_client_pdf.css"
+    try:
+        css_content = css_path.read_text(encoding="utf-8")
+    except Exception:
+        css_content = ""
+    if css_content:
+        html = f'<style>{css_content}</style>' + html
+    return html
 
 
 def generate_client_report_pdf(
@@ -147,23 +156,16 @@ def generate_client_report_pdf(
     except Exception:
         return None
 
-    css_path = _get_base_dir() / "static" / "report_client_pdf.css"
-
     options = {
         "page-size": "A4",
         "encoding": "UTF-8",
+        "disable-smart-shrinking": "",
+        "no-outline": "",
     }
 
     try:
-        if css_path.is_file():
-            pdf_bytes: bytes = pdfkit.from_string(
-                html,
-                False,
-                options=options,
-                css=str(css_path),
-            )
-        else:
-            pdf_bytes = pdfkit.from_string(html, False, options=options)
+        # CSS is embedded inline, no external CSS file needed
+        pdf_bytes = pdfkit.from_string(html, False, options=options)
         return pdf_bytes
     except Exception as exc:
         import logging
