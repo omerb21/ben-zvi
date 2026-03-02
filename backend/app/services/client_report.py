@@ -146,64 +146,29 @@ def render_client_report_html(
 def generate_client_report_pdf(
     html: str,
 ) -> Optional[bytes]:
-    """Generate PDF from HTML using ReportLab (basic but reliable).
+    """Generate PDF from HTML using wkhtmltopdf with proper options.
 
-    Returns PDF bytes if ReportLab is available and succeeds, otherwise None.
+    Returns PDF bytes if wkhtmltopdf is available and succeeds, otherwise None.
     """
 
     try:
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import cm
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-        from io import BytesIO
-        import re
+        import pdfkit  # type: ignore
     except Exception:
         return None
 
+    options = {
+        "page-size": "A4",
+        "encoding": "UTF-8",
+        "disable-smart-shrinking": "",
+        "enable-local-file-access": "",
+    }
+
     try:
-        # Extract text content from HTML (simple approach)
-        # Remove HTML tags and get plain text
-        text_content = re.sub(r'<[^>]+>', '', html)
-        lines = text_content.split('\n')
-        
-        # Create PDF
-        buffer = BytesIO()
-        c = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-        
-        # Set up margins
-        margin = 2 * cm
-        y_position = height - margin
-        line_height = 12
-        
-        # Add title
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(margin, y_position, "Client Report")
-        y_position -= 2 * line_height
-        
-        # Add content
-        c.setFont("Helvetica", 10)
-        for line in lines:
-            if line.strip():
-                # Handle RTL by reversing text (simple approach)
-                display_line = line.strip()
-                if display_line:
-                    c.drawString(margin, y_position, display_line)
-                    y_position -= line_height
-                    
-                    # Add new page if needed
-                    if y_position < margin:
-                        c.showPage()
-                        y_position = height - margin
-        
-        c.save()
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
+        # Use wkhtmltopdf for styled PDF generation
+        pdf_bytes = pdfkit.from_string(html, False, options=options)
         return pdf_bytes
     except Exception as exc:
         import logging
         logger = logging.getLogger(__name__)
-        logger.warning("Failed to generate client report PDF with ReportLab: %s", exc)
+        logger.warning("Failed to generate client report PDF with wkhtmltopdf: %s", exc)
         return None

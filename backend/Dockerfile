@@ -5,14 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies for WeasyPrint
+# Install system dependencies including wkhtmltopdf
 RUN apt-get update \ 
     && apt-get install -y --no-install-recommends \
-    libpango-1.0-0 \
-    libharfbuzz0b \
-    libpangoft2-1.0-0 \
-    libcairo2 \
-    libgdk-pixbuf2.0-0 \
+    wkhtmltopdf \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
