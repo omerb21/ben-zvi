@@ -169,10 +169,17 @@ def download_client_signed_packet_for_sign(
     signed_packet_path = export_dir / signed_filename
 
     if not signed_packet_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Signed client packet PDF not found",
-        )
+        # File not found in filesystem (common in ephemeral storage like Railway)
+        # Try to get it from database
+        if request_obj.packet_pdf_data:
+            pdf_bytes = request_obj.packet_pdf_data
+            ascii_filename = _build_packet_ascii_filename(client, signed=True)
+            return _inline_pdf_response(pdf_bytes, ascii_filename)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Signed client packet PDF not found in filesystem or database",
+            )
 
     pdf_bytes = justification_signing_service._try_read_bytes(signed_packet_path)
     if pdf_bytes is None:

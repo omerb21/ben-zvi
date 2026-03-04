@@ -186,6 +186,8 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
     request.signed_packet_filename = signed_packet_path.name
     request.status = "signed"
     request.signed_at = datetime.now(timezone.utc)
+    # Also save the signed PDF to database to prevent loss in ephemeral storage
+    request.packet_pdf_data = flattened_bytes
 
     _commit_and_refresh(db, request)
     elapsed = time.time() - start_time
