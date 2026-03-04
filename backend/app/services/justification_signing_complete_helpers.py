@@ -145,6 +145,13 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
 
     is_edited_packet = use_db_packet_bytes or packet_path != base_packet_path
 
+    reference_pdf_bytes = _try_get_reference_pdf_bytes(
+        db,
+        client,
+        base_packet_path,
+        is_edited_packet,
+    )
+
     if is_edited_packet:
         advice_path = justification_packet_service._get_advice_pdf_path(client)
         if advice_path.is_file():
@@ -153,21 +160,27 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
                 if advice_bytes is None:
                     raise ValueError("ADVICE_PDF_READ_FAILED")
                 advice_reader = PyPdfReader(io.BytesIO(advice_bytes))
-                advice_page_count = len(advice_reader.pages)
+                ref_advice_count = len(advice_reader.pages)
+                
+                edited_advice_count = ref_advice_count
+                if reference_pdf_bytes:
+                    try:
+                        source_reader = PyPdfReader(io.BytesIO(source_bytes))
+                        ref_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
+                        ref_forms_count = len(ref_reader.pages) - ref_advice_count
+                        # Forms are at the end, so edited advice pages = total pages - forms pages
+                        edited_advice_count = max(1, len(source_reader.pages) - ref_forms_count)
+                    except Exception:
+                        pass
+                        
                 source_bytes = _signing_overlay._add_signature_overlay_to_advice_pages(
                     source_bytes,
                     signature_data_url,
-                    advice_page_count,
+                    edited_advice_count,
                 )
-            except Exception:
+            except Exception as e:
+                logger.error(f"Failed to add advice signature overlay: {e}")
                 pass
-
-    reference_pdf_bytes = _try_get_reference_pdf_bytes(
-        db,
-        client,
-        base_packet_path,
-        is_edited_packet,
-    )
 
     signed_bytes = justification_forms_service.apply_signature_to_sig_fields(
         source_bytes,

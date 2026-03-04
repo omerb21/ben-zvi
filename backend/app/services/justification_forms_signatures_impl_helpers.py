@@ -131,10 +131,11 @@ def apply_signature_to_sig_fields(
             ref_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
             ref_sig_rects = _collect_all_sig_rects(ref_reader)
             for page_idx, rects in ref_sig_rects.items():
-                if page_idx >= len(base_reader.pages):
+                target_page_idx = page_idx + (len(base_reader.pages) - len(ref_reader.pages))
+                if target_page_idx < 0 or target_page_idx >= len(base_reader.pages):
                     continue
                 for rect in rects:
-                    _sig_utils._append_sig_rect(sig_rects_by_page, page_idx, rect, dedupe=True)
+                    _sig_utils._append_sig_rect(sig_rects_by_page, target_page_idx, rect, dedupe=True)
         except Exception:
             pass
 
