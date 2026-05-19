@@ -95,3 +95,11 @@ class DatabaseStatsResult(BaseModel):
     totalBeneficiaries: int
     totalSignatureRequests: int
     pendingSignatureRequests: int
+
+
+class DeleteAllDocumentsResult(BaseModel):
+    totalClients: int
+    deletedDirectories: int
+    totalFilesDeleted: int
+    totalBytesFreed: int
+    deletedClientNames: list[str]

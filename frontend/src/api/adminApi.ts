@@ -43,6 +43,14 @@ export type ClearJustificationDataResult = {
   deletedFormInstances: number;
 };
 
+export type DeleteAllDocumentsResult = {
+  totalClients: number;
+  deletedDirectories: number;
+  totalFilesDeleted: number;
+  totalBytesFreed: number;
+  deletedClientNames: string[];
+};
+
 export async function runMiniCrmMigration(): Promise<MiniCrmMigrationResult> {
   const response = await httpClient.post<MiniCrmMigrationResult>(
     "/api/v1/admin/migrate-mini-crm"
@@ -97,6 +105,13 @@ export async function clearCrmData(): Promise<ClearCrmDataResult> {
 export async function clearJustificationData(): Promise<ClearJustificationDataResult> {
   const response = await httpClient.delete<ClearJustificationDataResult>(
     "/api/v1/admin/clear-justification-data"
+  );
+  return response.data;
+}
+
+export async function deleteAllDocuments(): Promise<DeleteAllDocumentsResult> {
+  const response = await httpClient.delete<DeleteAllDocumentsResult>(
+    "/api/v1/admin/delete-all-documents"
   );
   return response.data;
 }

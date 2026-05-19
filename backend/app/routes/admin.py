@@ -27,6 +27,7 @@ from app.schemas.admin import (
     ClientCredentialsResetResult,
     ClientAccessDisableResult,
     DatabaseStatsResult,
+    DeleteAllDocumentsResult,
 )
 from app.schemas.justification import SavingProductCreate
 from app.models import (
@@ -47,6 +48,7 @@ from app.services.crm import (
     disable_client_access,
 )
 from app.services.justification import clear_justification_data
+from app.services.justification_documents_cleanup import delete_all_justification_documents
 from app.utils.http_exceptions import raise_client_not_found as _raise_client_not_found
 from app.utils.uploads import (
     read_upload_bytes as _read_upload_bytes,
@@ -242,6 +244,16 @@ def clear_justification_data_endpoint(
 
     result = clear_justification_data(db)
     return ClearJustificationDataResult(**result)
+
+
+@router.delete("/delete-all-documents", response_model=DeleteAllDocumentsResult)
+def delete_all_documents_endpoint(
+    db: Session = Depends(get_db),
+) -> DeleteAllDocumentsResult:
+    """Delete all justification PDF documents for all clients to free up disk space."""
+
+    result = delete_all_justification_documents(db)
+    return DeleteAllDocumentsResult(**result)
 
 
 @router.post("/clients/{client_id}/token", response_model=ClientTokenUpdateResult)

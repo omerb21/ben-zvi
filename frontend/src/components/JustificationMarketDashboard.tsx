@@ -13,9 +13,11 @@ type Props = {
   gemelFile: File | null;
   isGemelImporting: boolean;
   isJustificationClearing: boolean;
+  isDeletingDocuments: boolean;
   onGemelFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRunGemelImport: () => void;
   onClearJustificationData: () => void;
+  onDeleteAllDocuments: () => void;
 };
 
 interface CanonicalProduct {
@@ -35,9 +37,11 @@ function JustificationMarketDashboard({
   gemelFile,
   isGemelImporting,
   isJustificationClearing,
+  isDeletingDocuments,
   onGemelFileChange,
   onRunGemelImport,
   onClearJustificationData,
+  onDeleteAllDocuments,
 }: Props) {
   const [expandedFundCodes, setExpandedFundCodes] = useState<string[]>([]);
 
@@ -103,7 +107,7 @@ function JustificationMarketDashboard({
             type="button"
             className="admin-import-button"
             onClick={onRunGemelImport}
-            disabled={!gemelFile || isGemelImporting || isJustificationClearing}
+            disabled={!gemelFile || isGemelImporting || isJustificationClearing || isDeletingDocuments}
           >
             ייבוא גמל-נט (XML)
           </button>
@@ -111,9 +115,18 @@ function JustificationMarketDashboard({
             type="button"
             className="admin-import-button"
             onClick={onClearJustificationData}
-            disabled={isGemelImporting || isJustificationClearing}
+            disabled={isGemelImporting || isJustificationClearing || isDeletingDocuments}
           >
             מחיקת נתוני הנמקה
+          </button>
+          <button
+            type="button"
+            className="admin-import-button"
+            onClick={onDeleteAllDocuments}
+            disabled={isGemelImporting || isJustificationClearing || isDeletingDocuments}
+            style={{ backgroundColor: isDeletingDocuments ? "#ccc" : "#d32f2f" }}
+          >
+            מחיקת כל המסמכים (PDF)
           </button>
         </div>
       </div>

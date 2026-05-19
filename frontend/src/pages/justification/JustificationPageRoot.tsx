@@ -39,11 +39,13 @@ function JustificationPageRoot({
     gemelFile,
     isGemelImporting,
     isJustificationClearing,
+    isDeletingDocuments,
     importStatus,
     importError,
     handleGemelFileChange,
     handleRunGemelImport,
     handleClearJustificationData,
+    handleDeleteAllDocuments,
   } = useJustificationGemel(onGemelNetImportCompleted);
 
   const {
@@ -245,9 +247,11 @@ function JustificationPageRoot({
             gemelFile={gemelFile}
             isGemelImporting={isGemelImporting}
             isJustificationClearing={isJustificationClearing}
+            isDeletingDocuments={isDeletingDocuments}
             onGemelFileChange={handleGemelFileChange}
             onRunGemelImport={handleRunGemelImport}
             onClearJustificationData={handleClearJustificationData}
+            onDeleteAllDocuments={handleDeleteAllDocuments}
           />
         </div>
       </div>
