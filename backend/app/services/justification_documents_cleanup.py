@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-from pathlib import Path
 from typing import Dict, List
 
 from sqlalchemy.orm import Session
@@ -18,11 +17,11 @@ def delete_all_justification_documents(db: Session) -> Dict[str, int | List[str]
     """Delete all justification PDF documents for all clients.
     
     Returns a report with:
-    - total_clients: number of clients processed
-    - deleted_directories: number of client export directories deleted
-    - total_files_deleted: total number of files deleted
-    - total_bytes_freed: total disk space freed in bytes
-    - deleted_client_names: list of client names whose documents were deleted
+    - totalClients: number of clients processed
+    - deletedDirectories: number of client export directories deleted
+    - totalFilesDeleted: total number of files deleted
+    - totalBytesFreed: total disk space freed in bytes
+    - deletedClientNames: list of client names whose documents were deleted
     """
     
     total_clients = 0
@@ -107,9 +106,9 @@ def delete_all_justification_documents(db: Session) -> Dict[str, int | List[str]
     )
     
     return {
-        "total_clients": total_clients,
-        "deleted_directories": deleted_directories,
-        "total_files_deleted": total_files_deleted,
-        "total_bytes_freed": total_bytes_freed,
-        "deleted_client_names": deleted_client_names,
+        "totalClients": total_clients,
+        "deletedDirectories": deleted_directories,
+        "totalFilesDeleted": total_files_deleted,
+        "totalBytesFreed": total_bytes_freed,
+        "deletedClientNames": deleted_client_names,
     }
