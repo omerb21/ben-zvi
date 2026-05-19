@@ -79,8 +79,17 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "benzvi5090")
 
 @app.middleware("http")
 async def password_protect_api(request: Request, call_next):
+    # Handle CORS preflight requests immediately with proper headers
     if request.method == "OPTIONS":
-        return await call_next(request)
+        origin = request.headers.get("origin")
+        response = JSONResponse(status_code=200, content={})
+        if origin and origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*, x-app-password, x-client-token, content-type, authorization"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Max-Age"] = "3600"
+        return response
 
     path = request.url.path
     if path == "/health" or path.startswith("/static"):
