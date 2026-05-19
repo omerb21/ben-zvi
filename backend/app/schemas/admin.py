@@ -103,3 +103,13 @@ class DeleteAllDocumentsResult(BaseModel):
     totalFilesDeleted: int
     totalBytesFreed: int
     deletedClientNames: list[str]
+
+
+class VerifyDeletionResult(BaseModel):
+    totalClients: int
+    clientsWithFiles: int
+    orphanedDirectories: int
+    totalRemainingFiles: int
+    totalRemainingBytes: int
+    remainingClientDirs: list[str]
+    remainingOrphanedDirs: list[str]

@@ -28,6 +28,7 @@ from app.schemas.admin import (
     ClientAccessDisableResult,
     DatabaseStatsResult,
     DeleteAllDocumentsResult,
+    VerifyDeletionResult,
 )
 from app.schemas.justification import SavingProductCreate
 from app.models import (
@@ -49,6 +50,7 @@ from app.services.crm import (
 )
 from app.services.justification import clear_justification_data
 from app.services.justification_documents_cleanup import delete_all_justification_documents
+from app.services.verify_deletion import check_remaining_documents
 from app.utils.http_exceptions import raise_client_not_found as _raise_client_not_found
 from app.utils.uploads import (
     read_upload_bytes as _read_upload_bytes,
@@ -254,6 +256,16 @@ def delete_all_documents_endpoint(
 
     result = delete_all_justification_documents(db)
     return DeleteAllDocumentsResult(**result)
+
+
+@router.get("/verify-deletion", response_model=VerifyDeletionResult)
+def verify_deletion_endpoint(
+    db: Session = Depends(get_db),
+) -> VerifyDeletionResult:
+    """Check how many justification documents remain on the server after deletion."""
+
+    result = check_remaining_documents(db)
+    return VerifyDeletionResult(**result)
 
 
 @router.post("/clients/{client_id}/token", response_model=ClientTokenUpdateResult)
