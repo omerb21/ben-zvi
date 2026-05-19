@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.models import Client, ExistingProduct, NewProduct
-from app.services.justification_advice_tables_rows import _is_normalized_gemel
+from app.services.justification_advice_tables_rows import _is_normalized_gemel, has_replacement
 
 
 def _no_coverage_fields() -> Dict[str, Any]:
@@ -96,7 +96,8 @@ def build_coverage_table_rows(
         if new.fund_type == "גמל" and add_alternatives:
             _append_static_coverage_alternatives(rows)
     elif existing is not None:
-        rows.append(_build_coverage_table_row(existing, "להשאיר" if not new else "להצטרף"))
+        existing_recommendation = "לבטל" if has_replacement(existing) else "להשאיר"
+        rows.append(_build_coverage_table_row(existing, existing_recommendation))
         if new:
             rows.append(_build_coverage_table_row(new, "להצטרף"))
         if _is_normalized_gemel(existing.fund_type) and add_alternatives:
