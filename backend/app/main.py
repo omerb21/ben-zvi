@@ -49,6 +49,8 @@ if static_dir:
 
 frontend_dist_dir = None
 for candidate in (
+    Path("frontend_dist"),
+    Path("/app/frontend_dist"),
     Path("frontend/dist"),
     Path("/app/frontend/dist"),
 ):
