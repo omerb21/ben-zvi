@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const runtimePort = (globalThis as { process?: { env?: { PORT?: string } } }).process?.env?.PORT;
+const previewPort = Number(runtimePort || 4173);
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -16,6 +19,9 @@ export default defineConfig({
     },
   },
   preview: {
+    host: true,
+    port: Number.isFinite(previewPort) ? previewPort : 4173,
+    strictPort: true,
     allowedHosts: true,
   },
 });
