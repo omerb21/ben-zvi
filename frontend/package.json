@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node node_modules/vite/bin/vite.js build",
-    "preview": "npm run build && node scripts/start-preview.cjs",
+    "preview": "npm run build && node scripts/serve-dist.cjs",
     "start": "npm run preview"
   },
   "dependencies": {
