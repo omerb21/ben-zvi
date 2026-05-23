@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import os
 from dotenv import load_dotenv
@@ -8,6 +9,7 @@ load_dotenv(override=True)
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import JSONResponse
 
@@ -43,6 +45,19 @@ for candidate in ("app/static", "backend/app/static"):
 
 if static_dir:
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+frontend_dist_dir = None
+for candidate in (
+    Path("frontend/dist"),
+    Path("/app/frontend/dist"),
+):
+    if candidate.is_dir() and (candidate / "index.html").is_file():
+        frontend_dist_dir = candidate
+        break
+
+if frontend_dist_dir and (frontend_dist_dir / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=frontend_dist_dir / "assets"), name="frontend-assets")
 
 
 cors_origins_env = os.getenv("CORS_ALLOW_ORIGINS")
@@ -144,3 +159,22 @@ app.include_router(admin_routes.router)
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    if frontend_dist_dir and (frontend_dist_dir / "favicon.ico").is_file():
+        return FileResponse(frontend_dist_dir / "favicon.ico")
+    return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def frontend_app(full_path: str):
+    if not frontend_dist_dir:
+        return JSONResponse(status_code=404, content={"detail": "Frontend not available"})
+
+    requested_path = frontend_dist_dir / full_path
+    if full_path and requested_path.is_file():
+        return FileResponse(requested_path)
+
+    return FileResponse(frontend_dist_dir / "index.html")
