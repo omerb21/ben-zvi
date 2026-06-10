@@ -77,6 +77,8 @@ type Props = {
   editPhone: string;
   editBirthDate: string;
   editAddressStreet: string;
+  editAddressHouseNumber: string;
+  editAddressApartment: string;
   editAddressCity: string;
   editAddressPostalCode: string;
   editGender: string;
@@ -116,6 +118,8 @@ type Props = {
   onEditEmailChange: (value: string) => void;
   onEditBirthDateChange: (value: string) => void;
   onEditAddressStreetChange: (value: string) => void;
+  onEditAddressHouseNumberChange: (value: string) => void;
+  onEditAddressApartmentChange: (value: string) => void;
   onEditAddressCityChange: (value: string) => void;
   onEditAddressPostalCodeChange: (value: string) => void;
   onEditGenderChange: (value: string) => void;
@@ -211,6 +215,8 @@ function CrmPageLayout({
   editPhone,
   editBirthDate,
   editAddressStreet,
+  editAddressHouseNumber,
+  editAddressApartment,
   editAddressCity,
   editAddressPostalCode,
   editGender,
@@ -250,6 +256,8 @@ function CrmPageLayout({
   onEditEmailChange,
   onEditBirthDateChange,
   onEditAddressStreetChange,
+  onEditAddressHouseNumberChange,
+  onEditAddressApartmentChange,
   onEditAddressCityChange,
   onEditAddressPostalCodeChange,
   onEditGenderChange,
@@ -378,6 +386,8 @@ function CrmPageLayout({
             onEditEmailChange={onEditEmailChange}
             onEditBirthDateChange={onEditBirthDateChange}
             onEditAddressStreetChange={onEditAddressStreetChange}
+            onEditAddressHouseNumberChange={onEditAddressHouseNumberChange}
+            onEditAddressApartmentChange={onEditAddressApartmentChange}
             onEditAddressCityChange={onEditAddressCityChange}
             onEditAddressPostalCodeChange={onEditAddressPostalCodeChange}
             onEditGenderChange={onEditGenderChange}
@@ -392,6 +402,8 @@ function CrmPageLayout({
             editEmail={editEmail}
             editBirthDate={editBirthDate}
             editAddressStreet={editAddressStreet}
+            editAddressHouseNumber={editAddressHouseNumber}
+            editAddressApartment={editAddressApartment}
             editAddressCity={editAddressCity}
             editAddressPostalCode={editAddressPostalCode}
             editGender={editGender}

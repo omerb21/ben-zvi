@@ -57,6 +57,8 @@ function CrmPageRoot({ onOpenJustification }: Props) {
   const [editPhone, setEditPhone] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editAddressStreet, setEditAddressStreet] = useState("");
+  const [editAddressHouseNumber, setEditAddressHouseNumber] = useState("");
+  const [editAddressApartment, setEditAddressApartment] = useState("");
   const [editAddressCity, setEditAddressCity] = useState("");
   const [editAddressPostalCode, setEditAddressPostalCode] = useState("");
   const [editGender, setEditGender] = useState("");
@@ -271,6 +273,8 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       setEditPhone,
       setEditBirthDate,
       setEditAddressStreet,
+      setEditAddressHouseNumber,
+      setEditAddressApartment,
       setEditAddressCity,
       setEditAddressPostalCode,
       setEditGender,
@@ -324,6 +328,8 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       editPhone,
       editBirthDate,
       editAddressStreet,
+      editAddressHouseNumber,
+      editAddressApartment,
       editAddressCity,
       editAddressPostalCode,
       editGender,
@@ -454,6 +460,8 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       editPhone={editPhone}
       editBirthDate={editBirthDate}
       editAddressStreet={editAddressStreet}
+      editAddressHouseNumber={editAddressHouseNumber}
+      editAddressApartment={editAddressApartment}
       editAddressCity={editAddressCity}
       editAddressPostalCode={editAddressPostalCode}
       editGender={editGender}
@@ -493,6 +501,8 @@ function CrmPageRoot({ onOpenJustification }: Props) {
       onEditEmailChange={setEditEmail}
       onEditBirthDateChange={setEditBirthDate}
       onEditAddressStreetChange={setEditAddressStreet}
+      onEditAddressHouseNumberChange={setEditAddressHouseNumber}
+      onEditAddressApartmentChange={setEditAddressApartment}
       onEditAddressCityChange={setEditAddressCity}
       onEditAddressPostalCodeChange={setEditAddressPostalCode}
       onEditGenderChange={setEditGender}

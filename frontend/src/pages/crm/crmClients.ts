@@ -41,6 +41,8 @@ export type LoadClientDetailsArgs = {
   setEditPhone: Dispatch<SetStateAction<string>>;
   setEditBirthDate: Dispatch<SetStateAction<string>>;
   setEditAddressStreet: Dispatch<SetStateAction<string>>;
+  setEditAddressHouseNumber: Dispatch<SetStateAction<string>>;
+  setEditAddressApartment: Dispatch<SetStateAction<string>>;
   setEditAddressCity: Dispatch<SetStateAction<string>>;
   setEditAddressPostalCode: Dispatch<SetStateAction<string>>;
   setEditGender: Dispatch<SetStateAction<string>>;
@@ -70,6 +72,8 @@ export function loadClientDetailsAction({
   setEditPhone,
   setEditBirthDate,
   setEditAddressStreet,
+  setEditAddressHouseNumber,
+  setEditAddressApartment,
   setEditAddressCity,
   setEditAddressPostalCode,
   setEditGender,
@@ -107,6 +111,8 @@ export function loadClientDetailsAction({
       setEditPhone(details.phone || "");
       setEditBirthDate(details.birthDate || "");
       setEditAddressStreet(details.addressStreet || "");
+      setEditAddressHouseNumber(details.addressHouseNumber || "");
+      setEditAddressApartment(details.addressApartment || "");
       setEditAddressCity(details.addressCity || "");
       setEditAddressPostalCode(details.addressPostalCode || "");
       setEditGender(details.gender || "");
@@ -296,6 +302,8 @@ export type SaveClientDetailsArgs = {
   editPhone: string;
   editBirthDate: string;
   editAddressStreet: string;
+  editAddressHouseNumber: string;
+  editAddressApartment: string;
   editAddressCity: string;
   editAddressPostalCode: string;
   editGender: string;
@@ -320,6 +328,8 @@ export function saveClientDetailsAction({
   editPhone,
   editBirthDate,
   editAddressStreet,
+  editAddressHouseNumber,
+  editAddressApartment,
   editAddressCity,
   editAddressPostalCode,
   editGender,
@@ -355,6 +365,8 @@ export function saveClientDetailsAction({
   if (editAddressStreet.trim()) {
     payload.addressStreet = editAddressStreet.trim();
   }
+  payload.addressHouseNumber = editAddressHouseNumber.trim();
+  payload.addressApartment = editAddressApartment.trim();
   if (editAddressCity.trim()) {
     payload.addressCity = editAddressCity.trim();
   }
