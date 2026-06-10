@@ -8,6 +8,7 @@ from pypdf import PdfReader as PyPdfReader
 from sqlalchemy.orm import Session
 
 from app.models import Client, ClientSignatureRequest
+from app.services import crm_notes
 from app.services import justification_advice as justification_advice_service
 from app.services import justification_forms as justification_forms_service
 from app.services import justification_packet as justification_packet_service
@@ -203,6 +204,24 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
     request.packet_pdf_data = flattened_bytes
 
     _commit_and_refresh(db, request)
+    try:
+        _create_signature_notification(db, client, request)
+    except Exception:
+        logger.exception("Failed to create CRM signature notification for client_id=%s", client.id)
     elapsed = time.time() - start_time
     logger.info(f"[PDF-TIMING] Signing completed in {elapsed:.2f}s for client_id={client.id}")
     return request
+
+
+def _create_signature_notification(
+    db: Session,
+    client: Client,
+    request: ClientSignatureRequest,
+) -> None:
+    signed_date = request.signed_at.date().isoformat() if request.signed_at else None
+    crm_notes.create_client_note(
+        db,
+        client.id,
+        "הלקוח חתם על חבילת המסמכים",
+        signed_date,
+    )

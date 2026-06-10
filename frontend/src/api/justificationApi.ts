@@ -138,6 +138,12 @@ export type PacketSignRequestResponse = {
   url: string;
 };
 
+export type PacketSignStatus = {
+  status: "not_sent" | "pending" | "signed" | string;
+  createdAt?: string | null;
+  signedAt?: string | null;
+};
+
 export async function createPacketSignRequest(
   clientId: number
 ): Promise<PacketSignRequestResponse & { fullUrl: string }> {
@@ -153,6 +159,13 @@ export async function createPacketSignRequest(
   const fullUrl = backendFullUrl || fallbackFullUrl;
 
   return { ...response.data, fullUrl };
+}
+
+export async function fetchPacketSignStatus(clientId: number): Promise<PacketSignStatus> {
+  const response = await httpClient.get<PacketSignStatus>(
+    `/api/v1/justification/clients/${clientId}/packet-sign-status`
+  );
+  return response.data;
 }
 
 export async function uploadPacketPdf(

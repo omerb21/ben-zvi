@@ -1,5 +1,5 @@
 import { useEffect, useState, ChangeEvent } from "react";
-import type { NewProduct } from "../../api/justificationApi";
+import type { NewProduct, PacketSignStatus } from "../../api/justificationApi";
 import httpClient from "../../api/httpClient";
 import {
   buildAdvicePdfUrl,
@@ -8,6 +8,7 @@ import {
   buildPacketPdfUrl,
   buildSignedClientPacketPdfUrl,
   createPacketSignRequest,
+  fetchPacketSignStatus,
   uploadPacketPdf,
   trimPacketPdf,
   deleteClientExports,
@@ -19,6 +20,7 @@ export type JustificationPdfAndPacketsState = {
   pdfGenerationIsError: boolean;
   packetSignLink: string | null;
   packetSignError: string | null;
+  packetSignStatus: PacketSignStatus | null;
   isPacketSignLoading: boolean;
   packetTrimInput: string;
   packetTrimStatus: string | null;
@@ -52,6 +54,7 @@ export function useJustificationPdfAndPackets(
   const [pdfGenerationIsError, setPdfGenerationIsError] = useState(false);
   const [packetSignLink, setPacketSignLink] = useState<string | null>(null);
   const [packetSignError, setPacketSignError] = useState<string | null>(null);
+  const [packetSignStatus, setPacketSignStatus] = useState<PacketSignStatus | null>(null);
   const [isPacketSignLoading, setIsPacketSignLoading] = useState(false);
   const [packetTrimInput, setPacketTrimInput] = useState("");
   const [packetTrimStatus, setPacketTrimStatus] = useState<string | null>(null);
@@ -138,6 +141,35 @@ export function useJustificationPdfAndPackets(
     setClientExportsStatus(null);
     setClientExportsIsError(false);
     setIsDeletingClientExports(false);
+  }, [selectedClient]);
+
+  useEffect(() => {
+    if (!selectedClient) {
+      setPacketSignStatus(null);
+      return;
+    }
+
+    let active = true;
+    const refreshStatus = async () => {
+      try {
+        const status = await fetchPacketSignStatus(selectedClient.id);
+        if (active) {
+          setPacketSignStatus(status);
+        }
+      } catch {
+        // Status polling must not interrupt the rest of the justification screen.
+      }
+    };
+
+    void refreshStatus();
+    const intervalId = window.setInterval(() => {
+      void refreshStatus();
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, [selectedClient]);
 
   const handleOpenAdviceHtml = async () => {
@@ -433,6 +465,11 @@ export function useJustificationPdfAndPackets(
       const result = await createPacketSignRequest(selectedClient.id);
       const link = result.fullUrl || result.url;
       setPacketSignLink(link);
+      setPacketSignStatus({
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        signedAt: null,
+      });
     } catch (error: any) {
       const detail = error?.response?.data?.detail || error?.message;
       setPacketSignError(detail || "שגיאה ביצירת קישור לחתימת הלקוח");
@@ -446,6 +483,7 @@ export function useJustificationPdfAndPackets(
     pdfGenerationIsError,
     packetSignLink,
     packetSignError,
+    packetSignStatus,
     isPacketSignLoading,
     packetTrimInput,
     packetTrimStatus,

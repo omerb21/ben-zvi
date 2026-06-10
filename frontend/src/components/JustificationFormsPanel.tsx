@@ -1,5 +1,7 @@
 import type { ChangeEvent } from "react";
 import type { ClientSummary } from "../api/crmApi";
+import type { PacketSignStatus } from "../api/justificationApi";
+import { isoToDmy } from "../utils/dateFormat";
 
 type Props = {
   selectedClient: ClientSummary | null;
@@ -11,6 +13,7 @@ type Props = {
   pdfGenerationIsError: boolean;
   packetSignLink: string | null;
   packetSignError: string | null;
+  packetSignStatus: PacketSignStatus | null;
   packetTrimStatus: string | null;
   packetTrimIsError: boolean;
   packetUploadStatus: string | null;
@@ -38,6 +41,7 @@ function JustificationFormsPanel({
   pdfGenerationIsError,
   packetSignLink,
   packetSignError,
+  packetSignStatus,
   packetTrimStatus,
   packetTrimIsError,
   packetUploadStatus,
@@ -156,6 +160,17 @@ function JustificationFormsPanel({
           <a href={packetSignLink} target="_blank" rel="noreferrer">
             {packetSignLink}
           </a>
+        </div>
+      )}
+      {packetSignStatus && (
+        <div className="status-text">
+          {packetSignStatus.status === "signed"
+            ? `סטטוס חתימה: הלקוח חתם${
+                packetSignStatus.signedAt ? ` בתאריך ${isoToDmy(packetSignStatus.signedAt)}` : ""
+              }`
+            : packetSignStatus.status === "pending"
+              ? "סטטוס חתימה: ממתין לחתימת הלקוח"
+              : "סטטוס חתימה: טרם נשלח ללקוח"}
         </div>
       )}
       {packetTrimStatus && (

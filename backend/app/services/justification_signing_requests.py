@@ -86,3 +86,15 @@ def get_request_and_client_for_token(db: Session, token: str) -> Tuple[ClientSig
     client = _get_request_client_or_raise(db, request)
 
     return request, client
+
+
+def get_latest_request_for_client(
+    db: Session,
+    client_id: int,
+) -> ClientSignatureRequest | None:
+    return (
+        db.query(ClientSignatureRequest)
+        .filter(ClientSignatureRequest.client_id == client_id)
+        .order_by(ClientSignatureRequest.created_at.desc(), ClientSignatureRequest.id.desc())
+        .first()
+    )

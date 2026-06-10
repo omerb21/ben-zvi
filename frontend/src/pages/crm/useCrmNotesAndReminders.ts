@@ -1,5 +1,6 @@
-import { useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
 import type { ClientSummary, ClientNote, Reminder } from "../../api/crmApi";
+import { fetchReminders } from "../../api/crmApi";
 import {
   dismissNoteAction,
   clearNoteReminderAction,
@@ -22,6 +23,29 @@ export function useCrmNotesAndReminders({
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [newNoteText, setNewNoteText] = useState("");
   const [newNoteReminder, setNewNoteReminder] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const refreshReminders = async () => {
+      try {
+        const nextReminders = await fetchReminders();
+        if (active) {
+          setReminders(nextReminders);
+        }
+      } catch {
+        // Background refresh failures should not interrupt CRM work.
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void refreshReminders();
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const handleDismissNote = (noteId: number) => {
     dismissNoteAction({

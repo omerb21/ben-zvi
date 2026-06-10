@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, List
 
 from pydantic import BaseModel, ConfigDict
@@ -131,6 +132,12 @@ class FormOverlayPayload(BaseModel):
 
 class ClientSignatureSubmitPayload(BaseModel):
     signatureDataUrl: str
+
+
+class PacketSignatureStatusRead(BaseModel):
+    status: str
+    createdAt: Optional[datetime] = None
+    signedAt: Optional[datetime] = None
 
 
 class PacketTrimPayload(BaseModel):

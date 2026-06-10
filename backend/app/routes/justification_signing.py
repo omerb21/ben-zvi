@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.justification import ClientSignatureSubmitPayload
+from app.schemas.justification import ClientSignatureSubmitPayload, PacketSignatureStatusRead
 from app.services import crm as crm_service
 from app.services import justification_advice as justification_advice_service
 from app.services import justification_b1 as justification_b1_service
@@ -110,6 +110,22 @@ def create_client_packet_sign_request(
     full_url = f"{external_base}{url_path}" if external_base else ""
 
     return {"token": request_obj.token, "url": url_path, "fullUrl": full_url}
+
+
+@router.get("/clients/{client_id}/packet-sign-status", response_model=PacketSignatureStatusRead)
+def get_client_packet_sign_status(
+    client_id: int,
+    db: Session = Depends(get_db),
+):
+    _get_client_or_404(db, client_id)
+    request_obj = justification_signing_service.get_latest_request_for_client(db, client_id)
+    if request_obj is None:
+        return PacketSignatureStatusRead(status="not_sent")
+    return PacketSignatureStatusRead(
+        status=request_obj.status,
+        createdAt=request_obj.created_at,
+        signedAt=request_obj.signed_at,
+    )
 
 
 @router.get("/client-sign/{token}")

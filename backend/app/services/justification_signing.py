@@ -137,5 +137,9 @@ def get_request_and_client_for_token(db: Session, token: str) -> Tuple[ClientSig
     return _signing_requests.get_request_and_client_for_token(db, token)
 
 
+def get_latest_request_for_client(db: Session, client_id: int) -> ClientSignatureRequest | None:
+    return _signing_requests.get_latest_request_for_client(db, client_id)
+
+
 def complete_packet_signature(db: Session, token: str, signature_data_url: str) -> ClientSignatureRequest:
     return _signing_complete.complete_packet_signature(db, token, signature_data_url)

@@ -1,4 +1,8 @@
 import pytest
+from datetime import datetime, timezone
+
+from app.models import Client, ClientSignatureRequest
+from app.services.justification_signing_complete_helpers import _create_signature_notification
 
 
 pytestmark = pytest.mark.anyio
@@ -146,6 +150,59 @@ class TestJustificationSyncCrm:
 
 
 class TestJustificationSigning:
+    async def test_signature_status_tracks_latest_request(self, client, test_db):
+        client_id = await _create_crm_client(client)
+
+        empty_response = await client.get(
+            f"/api/v1/justification/clients/{client_id}/packet-sign-status"
+        )
+        assert empty_response.status_code == 200
+        assert empty_response.json() == {
+            "status": "not_sent",
+            "createdAt": None,
+            "signedAt": None,
+        }
+
+        signed_at = datetime(2026, 6, 10, 9, 30, tzinfo=timezone.utc)
+        request = ClientSignatureRequest(
+            client_id=client_id,
+            token="status-test-token",
+            packet_filename="packet.pdf",
+            signed_packet_filename="packet_signed.pdf",
+            status="signed",
+            signed_at=signed_at,
+        )
+        test_db.add(request)
+        test_db.commit()
+
+        status_response = await client.get(
+            f"/api/v1/justification/clients/{client_id}/packet-sign-status"
+        )
+        assert status_response.status_code == 200
+        status_data = status_response.json()
+        assert status_data["status"] == "signed"
+        assert status_data["signedAt"].startswith("2026-06-10T09:30:00")
+
+    async def test_signature_notification_appears_in_crm_reminders(self, client, test_db):
+        client_id = await _create_crm_client(client)
+        client_model = test_db.get(Client, client_id)
+        request = ClientSignatureRequest(
+            client_id=client_id,
+            token="notification-test-token",
+            packet_filename="packet.pdf",
+            status="signed",
+            signed_at=datetime.now(timezone.utc),
+        )
+
+        _create_signature_notification(test_db, client_model, request)
+
+        reminders_response = await client.get("/api/v1/crm/reminders")
+        assert reminders_response.status_code == 200
+        reminders = reminders_response.json()
+        assert len(reminders) == 1
+        assert reminders[0]["clientId"] == client_id
+        assert reminders[0]["note"] == "הלקוח חתם על חבילת המסמכים"
+
     async def test_create_sign_request_client_not_found(self, client):
         response = await client.post("/api/v1/justification/clients/9999/packet-sign-request")
         assert response.status_code == 404

@@ -82,6 +82,7 @@ function JustificationPageRoot({
     pdfGenerationIsError,
     packetSignLink,
     packetSignError,
+    packetSignStatus,
     isPacketSignLoading,
     packetTrimInput,
     packetTrimStatus,
@@ -284,6 +285,7 @@ function JustificationPageRoot({
                 pdfGenerationIsError={pdfGenerationIsError}
                 packetSignLink={packetSignLink}
                 packetSignError={packetSignError}
+                packetSignStatus={packetSignStatus}
                 packetTrimStatus={packetTrimStatus}
                 packetTrimIsError={packetTrimIsError}
                 packetUploadStatus={packetUploadStatus}
