@@ -106,7 +106,7 @@ def _load_kit_generation_context_or_raise(
 ) -> Tuple[Client, NewProduct, ExistingProduct, Path]:
     client, new_fund = _get_client_and_new_fund_or_raise(db, client_id, new_product_id)
     old_fund = _get_old_fund_or_placeholder(db, client, new_fund)
-    template_path_obj = _templates._get_template_path_or_raise(new_fund)
+    template_path_obj = _templates._get_template_path_or_raise(new_fund, client)
     return client, new_fund, old_fund, template_path_obj
 
 

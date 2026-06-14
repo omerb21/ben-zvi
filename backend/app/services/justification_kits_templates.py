@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Dict, Optional
 
-from app.models import NewProduct
+from app.models import Client, NewProduct
 from app.services.justification_b1 import _get_base_dir
 
 
@@ -17,6 +18,8 @@ FUND_TYPE_TEMPLATES: Dict[str, str] = {
     "השתלמות": "הצטרפות השתלמות קיט עצמאי מלא מוכן למערכת.pdf",
 }
 
+MOR_MINOR_INVESTMENT_TEMPLATE = "הצטרפות השתלמות קטין קיט עצמאי מלא מוכן למערכת.pdf"
+
 COMPANY_FOLDER_MAP: Dict[str, str] = {
     "הפניקס": "fnx",
     "אנליסט": "anlyst",
@@ -25,6 +28,7 @@ COMPANY_FOLDER_MAP: Dict[str, str] = {
     "מיטב דש": "ds",
     "מיטב": "ds",
     "מור": "mor",
+    "MOR": "mor",
     "אינפיניטי": "nfty",
     "ילין לפידות": "yl",
     "הראל": "harel",
@@ -59,20 +63,22 @@ def _kit_folder_for_company(company_name: str) -> Optional[Path]:
     if not company_name:
         return None
 
-    normalized_company = _normalize_company_name(company_name)
+    folder_name = _folder_name_for_company(company_name)
+    if folder_name is None:
+        return None
 
-    for heb_name, folder_name in COMPANY_FOLDER_MAP.items():
-        if not heb_name:
-            continue
-        normalized_key = _normalize_company_name(heb_name)
+    candidate = KIT_ROOT / folder_name
+    if candidate.is_dir():
+        return candidate
+    return _resolve_case_insensitive_dir(KIT_ROOT, folder_name)
+
+
+def _folder_name_for_company(company_name: str) -> Optional[str]:
+    normalized_company = _normalize_company_name(company_name).casefold()
+    for company_key, folder_name in COMPANY_FOLDER_MAP.items():
+        normalized_key = _normalize_company_name(company_key).casefold()
         if normalized_key and normalized_key in normalized_company:
-            candidate = KIT_ROOT / folder_name
-            if candidate.is_dir():
-                return candidate
-            resolved = _resolve_case_insensitive_dir(KIT_ROOT, folder_name)
-            if resolved is not None:
-                return resolved
-
+            return folder_name
     return None
 
 
@@ -84,12 +90,42 @@ def _kit_dir_for_product(np: NewProduct) -> Path:
     return KIT_ROOT
 
 
-def _select_template_for_product(np: NewProduct) -> Optional[Path]:
+def _is_minor(client: Client, today: date | None = None) -> bool:
+    birth_date = getattr(client, "birth_date", None)
+    if birth_date is None:
+        return False
+
+    reference_date = today or date.today()
+    age = reference_date.year - birth_date.year
+    if (reference_date.month, reference_date.day) < (birth_date.month, birth_date.day):
+        age -= 1
+    return age < 18
+
+
+def _template_name_for_product(np: NewProduct, client: Client | None = None) -> Optional[str]:
     fund_type = (getattr(np, "fund_type", "") or "").strip()
     if fund_type not in SUPPORTED_AUTO_FUND_TYPES:
         return None
 
-    template_name = FUND_TYPE_TEMPLATES.get(fund_type)
+    company_name = (getattr(np, "company_name", "") or "").strip()
+    company_folder_name = _folder_name_for_company(company_name)
+    if (
+        client is not None
+        and fund_type == "גמל להשקעה"
+        and company_folder_name == "mor"
+        and _is_minor(client)
+    ):
+        return MOR_MINOR_INVESTMENT_TEMPLATE
+
+    return FUND_TYPE_TEMPLATES.get(fund_type)
+
+
+def _select_template_for_product(np: NewProduct, client: Client | None = None) -> Optional[Path]:
+    fund_type = (getattr(np, "fund_type", "") or "").strip()
+    if fund_type not in SUPPORTED_AUTO_FUND_TYPES:
+        return None
+
+    template_name = _template_name_for_product(np, client)
     if not template_name:
         return None
 
@@ -106,8 +142,8 @@ def _select_template_for_product(np: NewProduct) -> Optional[Path]:
     return None
 
 
-def _get_template_path_or_raise(new_fund: NewProduct) -> Path:
-    template_path_obj = _select_template_for_product(new_fund)
+def _get_template_path_or_raise(new_fund: NewProduct, client: Client | None = None) -> Path:
+    template_path_obj = _select_template_for_product(new_fund, client)
     kit_dir = _kit_dir_for_product(new_fund)
     if not template_path_obj or not template_path_obj.is_file():
         raise ValueError(

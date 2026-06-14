@@ -59,8 +59,8 @@ def _kit_dir_for_product(np: NewProduct) -> Path:
     return _kits_templates._kit_dir_for_product(np)
 
 
-def _select_template_for_product(np: NewProduct) -> Optional[Path]:
-    return _kits_templates._select_template_for_product(np)
+def _select_template_for_product(np: NewProduct, client: Client | None = None) -> Optional[Path]:
+    return _kits_templates._select_template_for_product(np, client)
 
 
 def sanitize_filename(filename: str) -> str:
@@ -119,8 +119,8 @@ def _get_old_fund_or_placeholder(
     return _kits_generate._get_old_fund_or_placeholder(db, client, new_fund)
 
 
-def _get_template_path_or_raise(new_fund: NewProduct) -> Path:
-    return _kits_templates._get_template_path_or_raise(new_fund)
+def _get_template_path_or_raise(new_fund: NewProduct, client: Client | None = None) -> Path:
+    return _kits_templates._get_template_path_or_raise(new_fund, client)
 
 
 def _fill_pdf_to_bytes(
