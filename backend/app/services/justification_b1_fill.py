@@ -103,7 +103,7 @@ def fill_b1_pdf(client: Client, template_path: Path, output_dir: Path) -> Path:
                 continue
             value = field_values[field_name]
             if field_name in hebrew_fields:
-                value = value[::-1]
+                value = _text._prepare_hebrew_for_pdf_drawing(value)
             tw = pdfmetrics.stringWidth(value, font_name, 11)
             c.drawString(x_right - tw - 2, y_bottom + 2, value)
 
@@ -125,13 +125,13 @@ def fill_b1_pdf(client: Client, template_path: Path, output_dir: Path) -> Path:
         c.drawString(page_width - 100, page_height - 50, today)
 
         full_name = f"{client.first_name or ''} {client.last_name or ''}".strip()
-        reversed_name = full_name[::-1]
-        c.drawString(page_width / 2, page_height - 100, reversed_name)
+        visual_name = _text._prepare_hebrew_for_pdf_drawing(full_name)
+        c.drawString(page_width / 2, page_height - 100, visual_name)
 
         c.drawString(page_width / 2, page_height - 130, client.id_number or "")
 
-        reversed_address = full_address[::-1]
-        c.drawString(page_width / 2, page_height - 160, reversed_address)
+        visual_address = _text._prepare_hebrew_for_pdf_drawing(full_address)
+        c.drawString(page_width / 2, page_height - 160, visual_address)
 
         c.save()
         buf.seek(0)
@@ -160,7 +160,10 @@ def fill_b1_pdf(client: Client, template_path: Path, output_dir: Path) -> Path:
 def generate_b1_pdf_for_client(client: Client) -> Tuple[bytes, str]:
     template_path, export_dir, filename = _paths._get_b1_generation_inputs(client)
 
-    pdf_path = fill_b1_pdf_acroform(client, template_path, export_dir)
+    # Flatten B1 values into the page with an embedded Hebrew font. Live
+    # AcroForm appearances are rendered left-to-right by some browser PDF
+    # viewers, which reverses Hebrew in the signing/printing module.
+    pdf_path = fill_b1_pdf(client, template_path, export_dir)
     final_path = export_dir / filename
     if pdf_path != final_path:
         if final_path.exists():
@@ -172,8 +175,4 @@ def generate_b1_pdf_for_client(client: Client) -> Tuple[bytes, str]:
 
 
 def generate_b1_pdf_for_client_overlay(client: Client) -> Tuple[bytes, str]:
-    template_path, export_dir, filename = _paths._get_b1_generation_inputs(client)
-
-    pdf_path = fill_b1_pdf(client, template_path, export_dir)
-    data = Path(pdf_path).read_bytes()
-    return data, filename
+    return generate_b1_pdf_for_client(client)

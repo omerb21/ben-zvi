@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import datetime
 
+from bidi.algorithm import get_display
+
 from app.models import Client
 
 
@@ -16,6 +18,13 @@ def _normalize_hebrew_value(value: str) -> str:
     if not isinstance(value, str):
         return value
     return value
+
+
+def _prepare_hebrew_for_pdf_drawing(value: str) -> str:
+    """Convert logical Hebrew to visual order for ReportLab text drawing."""
+    if not isinstance(value, str) or not _contains_hebrew(value):
+        return value
+    return get_display(value, base_dir="R")
 
 
 def _build_client_address(client: Client) -> str:

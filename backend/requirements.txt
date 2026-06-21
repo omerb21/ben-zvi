@@ -14,6 +14,7 @@ pdfkit==1.0.0
 pdfrw
 reportlab
 pypdf
+python-bidi
 pytz
 psycopg2-binary
 pytest==7.4.3
