@@ -48,6 +48,7 @@ def create_packet_signature_request(db: Session, client_id: int) -> ClientSignat
         packet_pdf_data = _try_read_bytes(edited_packet_path)
     elif base_packet_path.is_file():
         packet_path = base_packet_path
+        packet_pdf_data = _try_read_bytes(base_packet_path)
     else:
         raise ValueError("CLIENT_PACKET_PDF_NOT_FOUND")
 

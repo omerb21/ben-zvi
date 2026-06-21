@@ -90,7 +90,7 @@ def create_client_packet_sign_request(
             # PDF missing (probably due to migration). Regenerate it and retry.
             try:
                 justification_packet_service.generate_client_packet_pdf(
-                    db, db.get(crm_service.Client, client_id), generate_missing=True
+                    db, db.get(crm_service.Client, client_id), generate_missing=False
                 )
                 # Retry creating the request
                 request_obj = justification_signing_service.create_packet_signature_request(db, client_id)
@@ -246,7 +246,7 @@ def download_client_packet_for_sign(
             # In that case we try to regenerate a fresh base packet so that existing signing links remain usable.
             try:
                 pdf_bytes, new_filename = justification_packet_service.generate_client_packet_pdf(
-                    db, client, generate_missing=True
+                    db, client, generate_missing=False
                 )
             except ValueError as exc:
                 _raise_client_packet_generation_error(str(exc))

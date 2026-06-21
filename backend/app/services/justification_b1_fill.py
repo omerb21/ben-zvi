@@ -4,7 +4,7 @@ import io
 from pathlib import Path
 from typing import Tuple
 
-from pdfrw import PdfName, PageMerge, PdfReader, PdfWriter
+from pdfrw import PageMerge, PdfReader, PdfWriter
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -141,13 +141,24 @@ def fill_b1_pdf(client: Client, template_path: Path, output_dir: Path) -> Path:
 
     output_path = _paths._build_b1_temp_output_path(client, output_dir)
 
+    # Keep only signature widgets. Text values are flattened into the page so
+    # Hebrew stays visually correct, while the signing workflow still needs
+    # the two B1 signature rectangles to place the client's signature.
     for page in template_pdf.pages:
-        if getattr(page, "Annots", None):
-            page.Annots = []
+        annotations = getattr(page, "Annots", None) or []
+        signature_annotations = []
+        for annotation in annotations:
+            field_type = getattr(annotation, "FT", None)
+            if field_type is None and getattr(annotation, "Parent", None):
+                field_type = getattr(annotation.Parent, "FT", None)
+            if str(field_type) == "/Sig":
+                signature_annotations.append(annotation)
+        page.Annots = signature_annotations
 
-    acro = PdfName("AcroForm")
-    if acro in template_pdf.Root:
-        del template_pdf.Root[acro]
+    acroform = getattr(template_pdf.Root, "AcroForm", None)
+    if acroform is not None:
+        fields = getattr(acroform, "Fields", None) or []
+        acroform.Fields = [field for field in fields if str(getattr(field, "FT", None)) == "/Sig"]
 
     writer = PdfWriter()
     for page in template_pdf.pages:

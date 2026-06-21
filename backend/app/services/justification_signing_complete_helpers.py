@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def _try_generate_base_packet(db: Session, client: Client) -> None:
     try:
-        justification_packet_service.generate_client_packet_pdf(db, client, generate_missing=True)
+        justification_packet_service.generate_client_packet_pdf(db, client, generate_missing=False)
     except Exception:
         pass
 
@@ -53,8 +53,6 @@ def _select_packet_path_for_signature(
     request: ClientSignatureRequest,
     use_db_packet_bytes: bool,
 ):
-    if use_db_packet_bytes:
-        return edited_packet_path
     if request.packet_filename:
         return export_dir / request.packet_filename
     if edited_packet_path.is_file():
@@ -69,7 +67,7 @@ def _try_regenerate_base_packet_if_needed(
     packet_path,
     base_packet_path,
 ) -> None:
-    if use_db_packet_bytes or packet_path != base_packet_path:
+    if use_db_packet_bytes or packet_path != base_packet_path or packet_path.is_file():
         return
 
     _try_generate_base_packet(db, client)
@@ -106,6 +104,23 @@ def _try_get_reference_pdf_bytes(
     return None
 
 
+def _packet_starts_with_advice(source_bytes: bytes, advice_bytes: bytes) -> bool:
+    try:
+        source_reader = PyPdfReader(io.BytesIO(source_bytes))
+        advice_reader = PyPdfReader(io.BytesIO(advice_bytes))
+        if not advice_reader.pages or len(source_reader.pages) < len(advice_reader.pages):
+            return False
+
+        for page_index, advice_page in enumerate(advice_reader.pages):
+            source_text = "".join((source_reader.pages[page_index].extract_text() or "").split())
+            advice_text = "".join((advice_page.extract_text() or "").split())
+            if source_text != advice_text:
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def complete_packet_signature(db: Session, token: str, signature_data_url: str) -> ClientSignatureRequest:
     start_time = time.time()
     request = _signing_requests._get_signature_request_or_raise(db, token)
@@ -117,8 +132,6 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
     export_dir, base_packet_path, edited_packet_path, signed_packet_path = _signing_requests._get_packet_paths_for_client(client)
 
     _try_persist_client_signature_png(export_dir, signature_data_url)
-
-    _try_regenerate_advice_pdf(db, client)
 
     use_db_packet_bytes = bool(getattr(request, "packet_pdf_data", None))
 
@@ -144,7 +157,7 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
         packet_path,
     )
 
-    is_edited_packet = use_db_packet_bytes or packet_path != base_packet_path
+    is_edited_packet = packet_path != base_packet_path
 
     reference_pdf_bytes = _try_get_reference_pdf_bytes(
         db,
@@ -153,35 +166,34 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
         is_edited_packet,
     )
 
-    if is_edited_packet:
-        advice_path = justification_packet_service._get_advice_pdf_path(client)
-        if advice_path.is_file():
-            try:
-                advice_bytes = _try_read_bytes(advice_path)
-                if advice_bytes is None:
-                    raise ValueError("ADVICE_PDF_READ_FAILED")
-                advice_reader = PyPdfReader(io.BytesIO(advice_bytes))
-                ref_advice_count = len(advice_reader.pages)
-                
-                edited_advice_count = ref_advice_count
+    advice_path = justification_packet_service._get_advice_pdf_path(client)
+    if advice_path.is_file():
+        try:
+            advice_bytes = _try_read_bytes(advice_path)
+            if advice_bytes is None:
+                raise ValueError("ADVICE_PDF_READ_FAILED")
+            advice_reader = PyPdfReader(io.BytesIO(advice_bytes))
+            advice_page_count = 0
+
+            if is_edited_packet:
+                advice_page_count = len(advice_reader.pages)
                 if reference_pdf_bytes:
-                    try:
-                        source_reader = PyPdfReader(io.BytesIO(source_bytes))
-                        ref_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
-                        ref_forms_count = len(ref_reader.pages) - ref_advice_count
-                        # Forms are at the end, so edited advice pages = total pages - forms pages
-                        edited_advice_count = max(1, len(source_reader.pages) - ref_forms_count)
-                    except Exception:
-                        pass
-                        
+                    source_reader = PyPdfReader(io.BytesIO(source_bytes))
+                    ref_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
+                    ref_forms_count = len(ref_reader.pages) - len(advice_reader.pages)
+                    # Forms are at the end, so edited advice pages = total pages - forms pages.
+                    advice_page_count = max(0, len(source_reader.pages) - ref_forms_count)
+            elif _packet_starts_with_advice(source_bytes, advice_bytes):
+                advice_page_count = len(advice_reader.pages)
+
+            if advice_page_count > 0:
                 source_bytes = _signing_overlay._add_signature_overlay_to_advice_pages(
                     source_bytes,
                     signature_data_url,
-                    edited_advice_count,
+                    advice_page_count,
                 )
-            except Exception as e:
-                logger.error(f"Failed to add advice signature overlay: {e}")
-                pass
+        except Exception as e:
+            logger.error(f"Failed to add advice signature overlay: {e}")
 
     signed_bytes = justification_forms_service.apply_signature_to_sig_fields(
         source_bytes,
