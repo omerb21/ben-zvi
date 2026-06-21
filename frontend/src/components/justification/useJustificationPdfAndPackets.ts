@@ -8,6 +8,7 @@ import {
   buildPacketPdfUrl,
   buildSignedClientPacketPdfUrl,
   createPacketSignRequest,
+  createExternalDocumentSignRequest,
   fetchPacketSignStatus,
   uploadPacketPdf,
   trimPacketPdf,
@@ -42,6 +43,7 @@ export type JustificationPdfAndPacketsState = {
   handleTrimPacketPages: () => Promise<void>;
   handlePacketUploadFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   handleUploadPacketPdf: () => Promise<void>;
+  handleCreateExternalDocumentSignLink: () => Promise<void>;
   handleDeleteClientExports: () => Promise<void>;
   setPacketTrimInput: (value: string) => void;
 };
@@ -422,6 +424,38 @@ export function useJustificationPdfAndPackets(
     }
   };
 
+  const handleCreateExternalDocumentSignLink = async () => {
+    if (!selectedClient || !packetUploadFile) {
+      return;
+    }
+
+    setIsPacketSignLoading(true);
+    setPacketSignLink(null);
+    setPacketSignError(null);
+    try {
+      const result = await createExternalDocumentSignRequest(
+        selectedClient.id,
+        packetUploadFile
+      );
+      setPacketSignLink(result.fullUrl || result.url);
+      setPacketSignStatus({
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        signedAt: null,
+      });
+      setPacketUploadIsError(false);
+      setPacketUploadStatus(
+        `המסמך החיצוני מוכן לחתימה. נמצאו ${result.signatureFieldCount} שדות חתימה.`
+      );
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail || error?.message;
+      setPacketUploadIsError(true);
+      setPacketUploadStatus(detail || "שגיאה בהכנת המסמך החיצוני לחתימה");
+    } finally {
+      setIsPacketSignLoading(false);
+    }
+  };
+
   const handleDeleteClientExports = async () => {
     if (!selectedClient) {
       return;
@@ -505,6 +539,7 @@ export function useJustificationPdfAndPackets(
     handleTrimPacketPages,
     handlePacketUploadFileChange,
     handleUploadPacketPdf,
+    handleCreateExternalDocumentSignLink,
     handleDeleteClientExports,
     setPacketTrimInput,
   };

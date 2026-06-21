@@ -19,6 +19,10 @@ def _collect_all_sig_rects(reader) -> dict:
     return _helpers._collect_all_sig_rects(reader)
 
 
+def count_signature_fields(source_pdf_bytes: bytes) -> int:
+    return _helpers.count_signature_fields(source_pdf_bytes)
+
+
 def apply_signature_to_sig_fields(
     source_pdf_bytes: bytes,
     signature_image_data: str,

@@ -180,6 +180,22 @@ export async function uploadPacketPdf(
   );
 }
 
+export async function createExternalDocumentSignRequest(
+  clientId: number,
+  file: File
+): Promise<PacketSignRequestResponse & { fullUrl: string; signatureFieldCount: number }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await httpClient.post<
+    PacketSignRequestResponse & { fullUrl?: string; signatureFieldCount: number }
+  >(`/api/v1/justification/clients/${clientId}/external-document-sign-request`, formData);
+
+  const rawBase = httpClient.defaults.baseURL || "";
+  const baseUrl = rawBase.replace(/\/+$/, "");
+  const fullUrl = response.data.fullUrl || `${baseUrl}${response.data.url}`;
+  return { ...response.data, fullUrl };
+}
+
 export async function trimPacketPdf(
   clientId: number,
   pagesToRemove: number[]

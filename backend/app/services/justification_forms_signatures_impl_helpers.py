@@ -102,6 +102,18 @@ def _collect_all_sig_rects(reader) -> dict:
     return sig_rects_by_page
 
 
+def count_signature_fields(source_pdf_bytes: bytes) -> int:
+    try:
+        reader = PyPdfReader(io.BytesIO(source_pdf_bytes))
+    except Exception as exc:
+        raise ValueError("INVALID_PDF") from exc
+
+    if not reader.pages:
+        raise ValueError("PDF_HAS_NO_PAGES")
+
+    return sum(len(rects) for rects in _collect_all_sig_rects(reader).values())
+
+
 def apply_signature_to_sig_fields(
     source_pdf_bytes: bytes,
     signature_image_data: str,

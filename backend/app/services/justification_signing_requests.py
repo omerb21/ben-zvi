@@ -72,6 +72,33 @@ def create_packet_signature_request(db: Session, client_id: int) -> ClientSignat
     return request
 
 
+def create_external_document_signature_request(
+    db: Session,
+    client_id: int,
+    pdf_bytes: bytes,
+) -> ClientSignatureRequest:
+    client = db.get(Client, client_id)
+    if not client:
+        raise ValueError("CLIENT_NOT_FOUND")
+
+    db.query(ClientSignatureRequest).filter(
+        ClientSignatureRequest.client_id == client_id,
+        ClientSignatureRequest.status == "pending",
+    ).delete()
+
+    request = ClientSignatureRequest(
+        client_id=client.id,
+        token=secrets.token_urlsafe(32),
+        packet_filename=f"external_document_{client.id}.pdf",
+        signed_packet_filename=None,
+        status="pending",
+        packet_pdf_data=pdf_bytes,
+    )
+    db.add(request)
+    _commit_and_refresh(db, request)
+    return request
+
+
 def get_active_request_for_token(db: Session, token: str) -> Tuple[ClientSignatureRequest, Client]:
     request = _get_signature_request_or_raise(db, token)
     if request.status != "pending":

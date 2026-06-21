@@ -74,6 +74,11 @@ def _collect_all_sig_rects(reader) -> dict:
     return _sig_impl._collect_all_sig_rects(reader)
 
 
+def count_signature_fields(source_pdf_bytes: bytes) -> int:
+    """Return the number of dedicated signature rectangles in a PDF."""
+    return _sig_impl.count_signature_fields(source_pdf_bytes)
+
+
 def apply_signature_to_sig_fields(
     source_pdf_bytes: bytes,
     signature_image_data: str,

@@ -28,6 +28,7 @@ type Props = {
   onTrimPacketPages: () => void;
   onPacketUploadFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onUploadPacketPdf: () => void;
+  onCreateExternalDocumentSignLink: () => void;
   onDeleteClientExports: () => void;
 };
 
@@ -56,6 +57,7 @@ function JustificationFormsPanel({
   onTrimPacketPages,
   onPacketUploadFileChange,
   onUploadPacketPdf,
+  onCreateExternalDocumentSignLink,
   onDeleteClientExports,
 }: Props) {
   return (
@@ -125,6 +127,14 @@ function JustificationFormsPanel({
                   className="client-pdf-input"
                   onChange={onPacketUploadFileChange}
                 />
+                <button
+                  type="button"
+                  className="client-pdf-button"
+                  onClick={onCreateExternalDocumentSignLink}
+                  disabled={!packetUploadFile || isPacketSignLoading}
+                >
+                  יצירת קישור חתימה למסמך חיצוני
+                </button>
                 <button
                   type="button"
                   className="client-pdf-button"

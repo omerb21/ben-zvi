@@ -123,6 +123,18 @@ def create_packet_signature_request(db: Session, client_id: int) -> ClientSignat
     return _signing_requests.create_packet_signature_request(db, client_id)
 
 
+def create_external_document_signature_request(
+    db: Session,
+    client_id: int,
+    pdf_bytes: bytes,
+) -> ClientSignatureRequest:
+    return _signing_requests.create_external_document_signature_request(
+        db,
+        client_id,
+        pdf_bytes,
+    )
+
+
 def get_active_request_for_token(db: Session, token: str) -> Tuple[ClientSignatureRequest, Client]:
     return _signing_requests.get_active_request_for_token(db, token)
 

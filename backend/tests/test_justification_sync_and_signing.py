@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pypdf import PdfReader
+from reportlab.pdfgen import canvas
 
 from app.models import Client, ClientSignatureRequest
 from app.routes import justification_pdfs
@@ -27,6 +28,22 @@ async def _create_crm_client(client) -> int:
     )
     assert response.status_code == 201
     return response.json()["id"]
+
+
+def _build_external_pdf(field_name: str | None = None) -> bytes:
+    output = io.BytesIO()
+    pdf = canvas.Canvas(output, pagesize=(595, 842))
+    pdf.drawString(72, 780, "External document")
+    if field_name:
+        pdf.acroForm.textfield(
+            name=field_name,
+            x=300,
+            y=120,
+            width=180,
+            height=40,
+        )
+    pdf.save()
+    return output.getvalue()
 
 
 class TestJustificationSyncCrm:
@@ -157,6 +174,37 @@ class TestJustificationSyncCrm:
 
 
 class TestJustificationSigning:
+    async def test_external_document_creates_sign_request_for_named_signature_field(
+        self, client, test_db
+    ):
+        client_id = await _create_crm_client(client)
+        pdf_bytes = _build_external_pdf("CLIENT_SIGNATURE")
+
+        response = await client.post(
+            f"/api/v1/justification/clients/{client_id}/external-document-sign-request",
+            files={"file": ("external.pdf", pdf_bytes, "application/pdf")},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["signatureFieldCount"] == 1
+        request = test_db.query(ClientSignatureRequest).filter_by(client_id=client_id).one()
+        assert request.packet_filename == f"external_document_{client_id}.pdf"
+        assert request.packet_pdf_data == pdf_bytes
+
+    async def test_external_document_without_signature_fields_is_rejected(
+        self, client, test_db
+    ):
+        client_id = await _create_crm_client(client)
+
+        response = await client.post(
+            f"/api/v1/justification/clients/{client_id}/external-document-sign-request",
+            files={"file": ("external.pdf", _build_external_pdf(), "application/pdf")},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "PDF contains no dedicated signature fields"
+        assert test_db.query(ClientSignatureRequest).count() == 0
+
     async def test_signature_request_snapshots_base_packet(self, client, test_db):
         client_id = await _create_crm_client(client)
         client_model = test_db.get(Client, client_id)

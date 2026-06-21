@@ -137,6 +137,7 @@ function JustificationPage({
     handleTrimPacketPages,
     handlePacketUploadFileChange,
     handleUploadPacketPdf,
+    handleCreateExternalDocumentSignLink,
     handleDeleteClientExports,
     setPacketTrimInput,
   } = useJustificationPdfAndPackets(selectedClient, newProducts);
@@ -781,6 +782,7 @@ function JustificationPage({
                 onTrimPacketPages={handleTrimPacketPages}
                 onPacketUploadFileChange={handlePacketUploadFileChange}
                 onUploadPacketPdf={handleUploadPacketPdf}
+                onCreateExternalDocumentSignLink={handleCreateExternalDocumentSignLink}
                 onDeleteClientExports={handleDeleteClientExports}
               />
             )}

@@ -11,6 +11,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from app.utils.paths import get_app_base_dir as _get_app_base_dir
+from app.services import justification_forms_signatures as _forms_signatures
 from app.services.justification_forms_signatures import _decode_data_url as _decode_data_url_impl
 from app.services.justification_forms_signatures import _load_signature_image as _load_signature_image
 from app.services import justification_forms_overlay as _forms_overlay
@@ -177,6 +178,10 @@ def apply_signature_to_sig_fields(
         reference_pdf_bytes,
         overlay_fallback=apply_overlay_to_pdf,
     )
+
+
+def count_signature_fields(source_pdf_bytes: bytes) -> int:
+    return _forms_signatures.count_signature_fields(source_pdf_bytes)
 
 
 def flatten_form_fields(source_pdf_bytes: bytes) -> bytes:

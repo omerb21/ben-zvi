@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.schemas.justification import ClientSignatureSubmitPayload, PacketSignat
 from app.services import crm as crm_service
 from app.services import justification_advice as justification_advice_service
 from app.services import justification_b1 as justification_b1_service
+from app.services import justification_forms as justification_forms_service
 from app.services import justification_packet as justification_packet_service
 from app.services import justification_signing as justification_signing_service
 from app.utils.db import commit_and_refresh as _commit_and_refresh
@@ -22,6 +23,7 @@ from app.utils.http_exceptions import raise_client_packet_generation_failed as _
 from app.utils.http_exceptions import raise_internal_server_error as _raise_internal_server_error
 from app.utils.http_exceptions import raise_not_found as _raise_not_found
 from app.routes.client_helpers import get_client_or_404 as _get_client_or_404
+from app.utils.uploads import read_upload_bytes as _read_upload_bytes
 
 
 router = APIRouter(tags=["justification"])
@@ -46,6 +48,13 @@ def _get_no_cache_headers() -> dict[str, str]:
         "Pragma": "no-cache",
         "Expires": "0",
     }
+
+
+def _build_sign_request_response(request_obj) -> dict:
+    url_path = f"/api/v1/justification/client-sign/{request_obj.token}"
+    external_base = (os.environ.get("PUBLIC_BASE_URL") or "").rstrip("/")
+    full_url = f"{external_base}{url_path}" if external_base else ""
+    return {"token": request_obj.token, "url": url_path, "fullUrl": full_url}
 
 
 def _get_request_and_client_or_http_exc(db: Session, token: str, *, error_detail: str):
@@ -103,13 +112,50 @@ def create_client_packet_sign_request(
                 detail="Failed to create client packet signature request",
             )
 
-    url_path = f"/api/v1/justification/client-sign/{request_obj.token}"
+    return _build_sign_request_response(request_obj)
 
-    external_base = os.environ.get("PUBLIC_BASE_URL") or ""
-    external_base = external_base.rstrip("/")
-    full_url = f"{external_base}{url_path}" if external_base else ""
 
-    return {"token": request_obj.token, "url": url_path, "fullUrl": full_url}
+@router.post("/clients/{client_id}/external-document-sign-request")
+async def create_external_document_sign_request(
+    client_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    _get_client_or_404(db, client_id)
+    if file.content_type not in {"application/pdf", "application/octet-stream"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be a PDF",
+        )
+
+    try:
+        pdf_bytes = await _read_upload_bytes(file)
+        signature_field_count = justification_forms_service.count_signature_fields(pdf_bytes)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is not a valid PDF",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to inspect uploaded PDF",
+        ) from exc
+
+    if signature_field_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PDF contains no dedicated signature fields",
+        )
+
+    request_obj = justification_signing_service.create_external_document_signature_request(
+        db,
+        client_id,
+        pdf_bytes,
+    )
+    response = _build_sign_request_response(request_obj)
+    response["signatureFieldCount"] = signature_field_count
+    return response
 
 
 @router.get("/clients/{client_id}/packet-sign-status", response_model=PacketSignatureStatusRead)

@@ -157,7 +157,7 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
         packet_path,
     )
 
-    is_edited_packet = packet_path != base_packet_path
+    is_edited_packet = packet_path.name.endswith("_edited.pdf")
 
     reference_pdf_bytes = _try_get_reference_pdf_bytes(
         db,
