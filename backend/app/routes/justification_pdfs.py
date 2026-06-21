@@ -414,7 +414,7 @@ def download_client_packet_pdf(
 
     try:
         pdf_bytes, _filename = justification_packet_service.generate_client_packet_pdf(
-            db, client, generate_missing=True
+            db, client, generate_missing=False
         )
     except ValueError as exc:
         _raise_packet_generation_error(str(exc))

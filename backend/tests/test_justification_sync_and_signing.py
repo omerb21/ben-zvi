@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime, timezone
 
 from app.models import Client, ClientSignatureRequest
+from app.routes import justification_pdfs
 from app.services.justification_signing_complete_helpers import _create_signature_notification
 
 
@@ -150,6 +151,29 @@ class TestJustificationSyncCrm:
 
 
 class TestJustificationSigning:
+    async def test_packet_generation_does_not_generate_missing_individual_pdfs(
+        self, client, monkeypatch
+    ):
+        client_id = await _create_crm_client(client)
+        generate_missing_values = []
+
+        def fake_generate_client_packet_pdf(db, client_model, generate_missing=True):
+            generate_missing_values.append(generate_missing)
+            return b"%PDF-1.4\n%%EOF\n", f"packet_{client_model.id}.pdf"
+
+        monkeypatch.setattr(
+            justification_pdfs.justification_packet_service,
+            "generate_client_packet_pdf",
+            fake_generate_client_packet_pdf,
+        )
+
+        response = await client.get(
+            f"/api/v1/justification/clients/{client_id}/packet.pdf?generate=1"
+        )
+
+        assert response.status_code == 200
+        assert generate_missing_values == [False]
+
     async def test_signature_status_tracks_latest_request(self, client, test_db):
         client_id = await _create_crm_client(client)
 
