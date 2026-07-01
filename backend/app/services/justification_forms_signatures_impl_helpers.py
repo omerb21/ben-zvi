@@ -114,6 +114,45 @@ def count_signature_fields(source_pdf_bytes: bytes) -> int:
     return sum(len(rects) for rects in _collect_all_sig_rects(reader).values())
 
 
+def _page_content_fingerprint(page) -> tuple:
+    content_bytes = []
+    contents = page.get("/Contents")
+    if contents:
+        content_items = contents if isinstance(contents, list) else [contents]
+        for item in content_items:
+            try:
+                obj = _sig_utils._pdf_deref(item)
+                if hasattr(obj, "get_data"):
+                    content_bytes.append(obj.get_data())
+                else:
+                    content_bytes.append(repr(obj).encode("utf-8", errors="ignore"))
+            except Exception:
+                content_bytes.append(repr(item).encode("utf-8", errors="ignore"))
+
+    return (
+        str(page.mediabox),
+        str(page.get("/Rotate") or 0),
+        b"\n".join(content_bytes),
+    )
+
+
+def _map_reference_pages_to_source(source_reader, reference_reader) -> dict[int, int]:
+    reference_pages_by_fingerprint: dict[tuple, list[int]] = {}
+    for ref_idx, page in enumerate(reference_reader.pages):
+        fingerprint = _page_content_fingerprint(page)
+        reference_pages_by_fingerprint.setdefault(fingerprint, []).append(ref_idx)
+
+    ref_to_source: dict[int, int] = {}
+    for source_idx, page in enumerate(source_reader.pages):
+        fingerprint = _page_content_fingerprint(page)
+        matches = reference_pages_by_fingerprint.get(fingerprint) or []
+        if not matches:
+            continue
+        ref_to_source[matches.pop(0)] = source_idx
+
+    return ref_to_source
+
+
 def apply_signature_to_sig_fields(
     source_pdf_bytes: bytes,
     signature_image_data: str,
@@ -142,10 +181,16 @@ def apply_signature_to_sig_fields(
         try:
             ref_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
             ref_sig_rects = _collect_all_sig_rects(ref_reader)
+            ref_to_source_page = _map_reference_pages_to_source(base_reader, ref_reader)
             for page_idx, rects in ref_sig_rects.items():
-                target_page_idx = page_idx + (len(base_reader.pages) - len(ref_reader.pages))
-                if target_page_idx < 0 or target_page_idx >= len(base_reader.pages):
-                    continue
+                if ref_to_source_page:
+                    target_page_idx = ref_to_source_page.get(page_idx)
+                    if target_page_idx is None:
+                        continue
+                else:
+                    target_page_idx = page_idx + (len(base_reader.pages) - len(ref_reader.pages))
+                    if target_page_idx < 0 or target_page_idx >= len(base_reader.pages):
+                        continue
                 for rect in rects:
                     _sig_utils._append_sig_rect(sig_rects_by_page, target_page_idx, rect, dedupe=True)
         except Exception:

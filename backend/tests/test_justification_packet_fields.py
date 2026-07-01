@@ -1,9 +1,12 @@
+import base64
 import io
+from pathlib import Path
 
 from pypdf import PdfReader
 from pypdf import PdfWriter
 from reportlab.pdfgen import canvas
 
+from app.services.justification_forms_signatures import apply_signature_to_sig_fields
 from app.services.justification_forms_signatures import count_signature_fields
 from app.services.justification_forms_signatures import flatten_form_fields
 from app.services.justification_packet_parts_helpers import _append_parts_to_writer
@@ -23,6 +26,42 @@ def _build_pdf_with_signature_named_text_field() -> bytes:
     )
     pdf.save()
     return output.getvalue()
+
+
+def _build_reference_pdf_with_offset_sensitive_signature_fields() -> bytes:
+    output = io.BytesIO()
+    pdf = canvas.Canvas(output, pagesize=(595, 842))
+    for page_label, x, y in [
+        ("keep-first", 50, 110),
+        ("remove-middle", 300, 110),
+        ("keep-last", 50, 610),
+    ]:
+        pdf.drawString(72, 780, page_label)
+        pdf.acroForm.textfield(
+            name=f"{page_label}_Signature",
+            x=x,
+            y=y,
+            width=120,
+            height=35,
+        )
+        pdf.showPage()
+    pdf.save()
+    return output.getvalue()
+
+
+def _build_source_pdf_without_signature_fields() -> bytes:
+    output = io.BytesIO()
+    pdf = canvas.Canvas(output, pagesize=(595, 842))
+    for page_label in ["keep-first", "keep-last"]:
+        pdf.drawString(72, 780, page_label)
+        pdf.showPage()
+    pdf.save()
+    return output.getvalue()
+
+
+def _signature_data_url() -> str:
+    signature_path = Path(__file__).resolve().parents[1] / "app" / "static" / "signature.jpg"
+    return "data:image/jpeg;base64," + base64.b64encode(signature_path.read_bytes()).decode("ascii")
 
 
 def test_kit_signature_fields_are_prefixed_before_packet_merge():
@@ -63,6 +102,20 @@ def test_flatten_removes_signature_widgets_from_page_annotations():
 
     assert count_signature_fields(source) == 1
     assert count_signature_fields(flattened) == 0
+
+
+def test_reference_signature_rects_follow_matching_pages_after_middle_pages_removed():
+    signed = apply_signature_to_sig_fields(
+        _build_source_pdf_without_signature_fields(),
+        _signature_data_url(),
+        reference_pdf_bytes=_build_reference_pdf_with_offset_sensitive_signature_fields(),
+    )
+
+    reader = PdfReader(io.BytesIO(signed))
+    first_page_content = reader.pages[0].get_contents().get_data().decode("latin-1")
+
+    assert "76.08247 110 cm" in first_page_content
+    assert "326.08247 110 cm" not in first_page_content
 
 
 def _write_reader(reader: PdfReader) -> bytes:
