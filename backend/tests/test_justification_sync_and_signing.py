@@ -4,12 +4,17 @@ import io
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 
 from app.models import Client, ClientSignatureRequest
 from app.routes import justification_pdfs
-from app.services import justification_b1, justification_b1_fill, justification_signing_complete_helpers
+from app.services import (
+    justification_b1,
+    justification_b1_fill,
+    justification_signing_complete_helpers,
+    justification_signing_requests,
+)
 from app.services.justification_signing_complete_helpers import _create_signature_notification
 
 
@@ -42,6 +47,23 @@ def _build_external_pdf(field_name: str | None = None) -> bytes:
             width=180,
             height=40,
         )
+    pdf.save()
+    return output.getvalue()
+
+
+def _build_packet_pdf_with_signature_fields() -> bytes:
+    output = io.BytesIO()
+    pdf = canvas.Canvas(output, pagesize=(595, 842))
+    for label in ("keep-first", "remove-middle", "keep-last"):
+        pdf.drawString(72, 780, label)
+        pdf.acroForm.textfield(
+            name=f"{label}_Signature",
+            x=300,
+            y=120,
+            width=180,
+            height=40,
+        )
+        pdf.showPage()
     pdf.save()
     return output.getvalue()
 
@@ -223,6 +245,48 @@ class TestJustificationSigning:
             assert request.packet_pdf_data == packet_bytes
         finally:
             packet_path.unlink(missing_ok=True)
+
+    async def test_signature_request_refreshes_stale_edited_packet_when_base_missing(
+        self, client, test_db, monkeypatch
+    ):
+        client_id = await _create_crm_client(client)
+        client_model = test_db.get(Client, client_id)
+        export_dir = justification_b1._get_client_export_dir(client_model)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        base_path = export_dir / f"packet_{client_id}.pdf"
+        edited_path = export_dir / f"packet_{client_id}_edited.pdf"
+
+        base_pdf = _build_packet_pdf_with_signature_fields()
+        base_reader = PdfReader(io.BytesIO(base_pdf))
+        stale_writer = PdfWriter()
+        stale_writer.add_page(base_reader.pages[0])
+        stale_writer.add_page(base_reader.pages[2])
+        with edited_path.open("wb") as f:
+            stale_writer.write(f)
+
+        def regenerate_base_packet(db, client, generate_missing=True):
+            base_path.write_bytes(base_pdf)
+            return base_pdf, base_path.name
+
+        monkeypatch.setattr(
+            justification_signing_requests.justification_packet_generate_service,
+            "generate_client_packet_pdf",
+            regenerate_base_packet,
+        )
+
+        try:
+            response = await client.post(
+                f"/api/v1/justification/clients/{client_id}/packet-sign-request"
+            )
+
+            assert response.status_code == 200
+            request = test_db.query(ClientSignatureRequest).filter_by(client_id=client_id).one()
+            fields = PdfReader(io.BytesIO(request.packet_pdf_data)).get_fields() or {}
+            assert "keep-first_Signature" in fields
+            assert "keep-last_Signature" in fields
+        finally:
+            base_path.unlink(missing_ok=True)
+            edited_path.unlink(missing_ok=True)
 
     def test_base_packet_recovery_never_generates_missing_documents(self, monkeypatch):
         generate_missing_values = []

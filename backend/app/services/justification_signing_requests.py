@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Client, ClientSignatureRequest
 from app.services import justification_b1 as justification_b1_service
+from app.services import justification_packet_generate as justification_packet_generate_service
 from app.services import justification_packet_trim as justification_packet_trim_service
 from app.utils.db import commit_and_refresh as _commit_and_refresh
 from app.utils.fs import try_read_bytes as _try_read_bytes
@@ -45,6 +46,15 @@ def create_packet_signature_request(db: Session, client_id: int) -> ClientSignat
     packet_pdf_data = None
 
     if edited_packet_path.is_file():
+        if not base_packet_path.is_file():
+            try:
+                justification_packet_generate_service.generate_client_packet_pdf(
+                    db,
+                    client,
+                    generate_missing=False,
+                )
+            except Exception:
+                pass
         justification_packet_trim_service.refresh_edited_packet_from_base_if_possible(
             base_packet_path,
             edited_packet_path,
