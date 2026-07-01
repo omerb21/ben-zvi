@@ -11,6 +11,7 @@ from app.services import justification_b1 as justification_b1_service
 from app.services import justification_kits as justification_kits_service
 from app.services import justification_forms as justification_forms_service
 from app.services import justification_packet as justification_packet_service
+from app.services import justification_signing as justification_signing_service
 from app.utils.filepaths import get_client_justification_filename
 from app.utils.filepaths import get_ascii_id_part as _get_ascii_id_part
 from app.utils.filepaths import build_packet_ascii_filename as _build_packet_ascii_filename
@@ -499,6 +500,15 @@ def download_client_signed_packet_pdf(
     db: Session = Depends(get_db),
 ):
     client = _get_client_or_404(db, client_id)
+
+    latest_request = justification_signing_service.get_latest_request_for_client(db, client_id)
+    if (
+        latest_request is not None
+        and latest_request.status == "signed"
+        and latest_request.packet_pdf_data
+    ):
+        ascii_filename = _build_packet_ascii_filename(client, client_id, signed=True)
+        return _pdf_response(latest_request.packet_pdf_data, ascii_filename, inline=True)
 
     export_dir = _get_export_dir(client)
     signed_packet_path = export_dir / f"packet_{client.id}_signed_client.pdf"

@@ -406,6 +406,36 @@ class TestJustificationSigning:
         assert status_data["status"] == "signed"
         assert status_data["signedAt"].startswith("2026-06-10T09:30:00")
 
+    async def test_admin_signed_packet_download_prefers_latest_signed_request_data(
+        self, client, test_db
+    ):
+        client_id = await _create_crm_client(client)
+        client_model = test_db.get(Client, client_id)
+        export_dir = justification_b1._get_client_export_dir(client_model)
+        stale_signed_path = export_dir / f"packet_{client_id}_signed_client.pdf"
+        stale_signed_path.write_bytes(_build_external_pdf("stale_signature"))
+        latest_pdf_bytes = _build_external_pdf("latest_signature")
+
+        request = ClientSignatureRequest(
+            client_id=client_id,
+            token="latest-signed-admin-download-token",
+            packet_filename=f"packet_{client_id}.pdf",
+            signed_packet_filename=stale_signed_path.name,
+            status="signed",
+            signed_at=datetime(2026, 6, 10, 9, 30, tzinfo=timezone.utc),
+            packet_pdf_data=latest_pdf_bytes,
+        )
+        test_db.add(request)
+        test_db.commit()
+
+        response = await client.get(
+            f"/api/v1/justification/clients/{client_id}/packet-signed-client.pdf"
+        )
+
+        assert response.status_code == 200
+        assert response.content == latest_pdf_bytes
+        assert response.content != stale_signed_path.read_bytes()
+
     async def test_signature_notification_appears_in_crm_reminders(self, client, test_db):
         client_id = await _create_crm_client(client)
         client_model = test_db.get(Client, client_id)
