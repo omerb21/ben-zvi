@@ -22,6 +22,7 @@ class ClientSignatureRequest(Base):
     packet_filename = Column(String(255), nullable=False)
     signed_packet_filename = Column(String(255), nullable=True)
     packet_pdf_data = Column(LargeBinary, nullable=True)
+    reference_pdf_data = Column(LargeBinary, nullable=True)
 
     status = Column(String(32), nullable=False, default="pending")
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

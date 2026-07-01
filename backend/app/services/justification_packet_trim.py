@@ -32,21 +32,55 @@ def _page_content_fingerprint(page) -> tuple:
     )
 
 
-def _match_pages_by_content(source_reader: PdfReader, reference_reader: PdfReader) -> list[int] | None:
+def _page_text_fingerprint(page) -> tuple | None:
+    try:
+        text = page.extract_text() or ""
+    except Exception:
+        text = ""
+    normalized_text = " ".join(text.split())
+    if not normalized_text:
+        return None
+    return (
+        str(page.mediabox),
+        str(page.get("/Rotate") or 0),
+        normalized_text,
+    )
+
+
+def _match_pages_by_fingerprint(source_reader: PdfReader, reference_reader: PdfReader, fingerprint_func) -> list[int] | None:
     reference_pages_by_fingerprint: dict[tuple, list[int]] = {}
     for ref_idx, page in enumerate(reference_reader.pages):
-        fingerprint = _page_content_fingerprint(page)
+        fingerprint = fingerprint_func(page)
+        if fingerprint is None:
+            return None
         reference_pages_by_fingerprint.setdefault(fingerprint, []).append(ref_idx)
 
     matched_pages: list[int] = []
     for page in source_reader.pages:
-        fingerprint = _page_content_fingerprint(page)
+        fingerprint = fingerprint_func(page)
+        if fingerprint is None:
+            return None
         matches = reference_pages_by_fingerprint.get(fingerprint) or []
         if not matches:
             return None
         matched_pages.append(matches.pop(0))
 
     return matched_pages
+
+
+def _match_pages_by_content(source_reader: PdfReader, reference_reader: PdfReader) -> list[int] | None:
+    matched_pages = _match_pages_by_fingerprint(
+        source_reader,
+        reference_reader,
+        _page_content_fingerprint,
+    )
+    if matched_pages is not None:
+        return matched_pages
+    return _match_pages_by_fingerprint(
+        source_reader,
+        reference_reader,
+        _page_text_fingerprint,
+    )
 
 
 def _write_selected_reference_pages(reference_reader: PdfReader, page_indices: list[int], out_path: Path) -> None:

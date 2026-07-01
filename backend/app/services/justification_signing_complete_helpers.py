@@ -88,11 +88,15 @@ def _read_packet_bytes_or_raise(
 def _try_get_reference_pdf_bytes(
     db: Session,
     client: Client,
+    request: ClientSignatureRequest,
     base_packet_path,
     is_edited_packet: bool,
 ) -> bytes | None:
     if not is_edited_packet:
         return None
+
+    if getattr(request, "reference_pdf_data", None):
+        return request.reference_pdf_data
 
     if not base_packet_path.is_file():
         _try_generate_base_packet(db, client)
@@ -162,6 +166,7 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
     reference_pdf_bytes = _try_get_reference_pdf_bytes(
         db,
         client,
+        request,
         base_packet_path,
         is_edited_packet,
     )

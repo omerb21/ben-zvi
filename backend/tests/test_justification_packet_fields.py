@@ -177,6 +177,23 @@ def test_stale_edited_packet_is_refreshed_from_base_with_form_fields(tmp_path):
     assert count_signature_fields(edited_path.read_bytes()) == 2
 
 
+def test_stale_edited_packet_refresh_falls_back_to_text_matching(tmp_path):
+    base_path = tmp_path / "packet.pdf"
+    edited_path = tmp_path / "packet_edited.pdf"
+    base_path.write_bytes(_build_reference_pdf_with_offset_sensitive_signature_fields())
+
+    edited_path.write_bytes(_add_content_overlay_to_first_page(_build_source_pdf_without_signature_fields()))
+
+    assert PdfReader(str(edited_path)).get_fields() in (None, {})
+
+    assert refresh_edited_packet_from_base_if_possible(base_path, edited_path) is True
+
+    fields = PdfReader(str(edited_path)).get_fields() or {}
+    assert "keep-first_Signature" in fields
+    assert "keep-last_Signature" in fields
+    assert count_signature_fields(edited_path.read_bytes()) == 2
+
+
 def _write_reader(reader: PdfReader) -> bytes:
     output = io.BytesIO()
     writer = PdfWriter()

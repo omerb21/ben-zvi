@@ -41,6 +41,16 @@ def ensure_schema_up_to_date(engine: Engine) -> None:
     if "client_pin_hash" not in existing_cols:
         ddl_statements.append("ALTER TABLE client ADD COLUMN client_pin_hash TEXT")
 
+    if "client_signature_request" in tables:
+        signature_request_cols = {
+            col["name"]
+            for col in inspector.get_columns("client_signature_request")
+        }
+        if "reference_pdf_data" not in signature_request_cols:
+            ddl_statements.append(
+                "ALTER TABLE client_signature_request ADD COLUMN reference_pdf_data BYTEA"
+            )
+
     if not ddl_statements:
         return
 

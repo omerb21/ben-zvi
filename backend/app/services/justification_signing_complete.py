@@ -78,12 +78,14 @@ def _read_packet_bytes_or_raise(
 def _try_get_reference_pdf_bytes(
     db: Session,
     client: Client,
+    request: ClientSignatureRequest,
     base_packet_path,
     is_edited_packet: bool,
 ) -> bytes | None:
     return _helpers._try_get_reference_pdf_bytes(
         db,
         client,
+        request,
         base_packet_path,
         is_edited_packet,
     )

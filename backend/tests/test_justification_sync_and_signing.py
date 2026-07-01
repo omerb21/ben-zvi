@@ -68,6 +68,28 @@ def _build_packet_pdf_with_signature_fields() -> bytes:
     return output.getvalue()
 
 
+def _build_packet_pdf_without_signature_fields() -> bytes:
+    output = io.BytesIO()
+    pdf = canvas.Canvas(output, pagesize=(595, 842))
+    for label in ("keep-first", "keep-last"):
+        pdf.drawString(72, 780, label)
+        pdf.showPage()
+    pdf.save()
+    return output.getvalue()
+
+
+def _count_page_xobject_draws(pdf_bytes: bytes) -> list[int]:
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    counts = []
+    for page in reader.pages:
+        try:
+            content = page.get_contents().get_data().decode("latin-1", errors="ignore")
+        except Exception:
+            content = ""
+        counts.append(content.count(" Do"))
+    return counts
+
+
 class TestJustificationSyncCrm:
     async def test_sync_crm_uses_latest_snapshot_and_creates_existing_product(self, client):
         client_id = await _create_crm_client(client)
@@ -284,9 +306,56 @@ class TestJustificationSigning:
             fields = PdfReader(io.BytesIO(request.packet_pdf_data)).get_fields() or {}
             assert "keep-first_Signature" in fields
             assert "keep-last_Signature" in fields
+            assert request.reference_pdf_data == base_pdf
         finally:
             base_path.unlink(missing_ok=True)
             edited_path.unlink(missing_ok=True)
+
+    async def test_signing_edited_packet_uses_stored_reference_when_base_file_is_missing(
+        self, client, test_db, monkeypatch
+    ):
+        client_id = await _create_crm_client(client)
+        client_model = test_db.get(Client, client_id)
+        export_dir = justification_b1._get_client_export_dir(client_model)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        base_path = export_dir / f"packet_{client_id}.pdf"
+        edited_filename = f"packet_{client_id}_edited.pdf"
+        signature_path = Path(__file__).resolve().parents[1] / "app" / "static" / "signature.jpg"
+        signature_data = "data:image/jpeg;base64," + base64.b64encode(
+            signature_path.read_bytes()
+        ).decode("ascii")
+        source_pdf = _build_packet_pdf_without_signature_fields()
+        reference_pdf = _build_packet_pdf_with_signature_fields()
+        request = ClientSignatureRequest(
+            client_id=client_id,
+            token="stored-reference-signing-token",
+            packet_filename=edited_filename,
+            status="pending",
+            packet_pdf_data=source_pdf,
+            reference_pdf_data=reference_pdf,
+        )
+        test_db.add(request)
+        test_db.commit()
+
+        def fail_if_base_is_regenerated(*args, **kwargs):
+            raise AssertionError("Stored reference_pdf_data should be used without regenerating base")
+
+        monkeypatch.setattr(
+            justification_signing_complete_helpers,
+            "_try_generate_base_packet",
+            fail_if_base_is_regenerated,
+        )
+        base_path.unlink(missing_ok=True)
+
+        completed = justification_signing_complete_helpers.complete_packet_signature(
+            test_db,
+            request.token,
+            signature_data,
+        )
+
+        assert completed.status == "signed"
+        assert _count_page_xobject_draws(source_pdf) == [0, 0]
+        assert _count_page_xobject_draws(completed.packet_pdf_data) == [1, 1]
 
     def test_base_packet_recovery_never_generates_missing_documents(self, monkeypatch):
         generate_missing_values = []
