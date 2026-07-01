@@ -207,6 +207,17 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
     )
 
     flattened_bytes = justification_forms_service.flatten_form_fields(signed_bytes)
+    if (
+        is_edited_packet
+        and reference_pdf_bytes
+        and justification_forms_service.has_missing_signature_draws(flattened_bytes, reference_pdf_bytes)
+    ):
+        completed_signed_bytes = justification_forms_service.apply_signature_to_sig_fields(
+            flattened_bytes,
+            signature_image_data=signature_data_url,
+            reference_pdf_bytes=reference_pdf_bytes,
+        )
+        flattened_bytes = justification_forms_service.flatten_form_fields(completed_signed_bytes)
 
     justification_packet_service._ensure_dir(signed_packet_path.parent)
 

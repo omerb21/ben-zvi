@@ -110,3 +110,7 @@ def flatten_form_fields(source_pdf_bytes: bytes) -> bytes:
     חתימה אינטראקטיבי "ריק" יסתיר אותה בחלק מהצופים (Chrome/Adobe).
     """
     return _sig_impl.flatten_form_fields(source_pdf_bytes)
+
+
+def has_missing_signature_draws(source_pdf_bytes: bytes, reference_pdf_bytes: bytes) -> bool:
+    return _sig_impl.has_missing_signature_draws(source_pdf_bytes, reference_pdf_bytes)

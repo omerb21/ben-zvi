@@ -357,6 +357,51 @@ class TestJustificationSigning:
         assert _count_page_xobject_draws(source_pdf) == [0, 0]
         assert _count_page_xobject_draws(completed.packet_pdf_data) == [1, 1]
 
+    async def test_signing_edited_packet_runs_second_signature_completion_pass(
+        self, client, test_db, monkeypatch
+    ):
+        client_id = await _create_crm_client(client)
+        signature_path = Path(__file__).resolve().parents[1] / "app" / "static" / "signature.jpg"
+        signature_data = "data:image/jpeg;base64," + base64.b64encode(
+            signature_path.read_bytes()
+        ).decode("ascii")
+        source_pdf = _build_packet_pdf_without_signature_fields()
+        reference_pdf = _build_packet_pdf_with_signature_fields()
+        request = ClientSignatureRequest(
+            client_id=client_id,
+            token="second-pass-signing-token",
+            packet_filename=f"packet_{client_id}_edited.pdf",
+            status="pending",
+            packet_pdf_data=source_pdf,
+            reference_pdf_data=reference_pdf,
+        )
+        test_db.add(request)
+        test_db.commit()
+
+        real_apply = justification_signing_complete_helpers.justification_forms_service.apply_signature_to_sig_fields
+        calls = []
+
+        def flaky_first_signature_pass(source_bytes, *args, **kwargs):
+            calls.append(source_bytes)
+            if len(calls) == 1:
+                return source_bytes
+            return real_apply(source_bytes, *args, **kwargs)
+
+        monkeypatch.setattr(
+            justification_signing_complete_helpers.justification_forms_service,
+            "apply_signature_to_sig_fields",
+            flaky_first_signature_pass,
+        )
+
+        completed = justification_signing_complete_helpers.complete_packet_signature(
+            test_db,
+            request.token,
+            signature_data,
+        )
+
+        assert len(calls) == 2
+        assert _count_page_xobject_draws(completed.packet_pdf_data) == [1, 1]
+
     def test_base_packet_recovery_never_generates_missing_documents(self, monkeypatch):
         generate_missing_values = []
 

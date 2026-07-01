@@ -267,10 +267,11 @@ def _count_existing_signature_image_draws(page) -> int:
             image = _sig_utils._pdf_deref(obj)
         except Exception:
             continue
-        if image.get("/Subtype") != "/Image":
-            continue
+        subtype = image.get("/Subtype")
         dimensions = (image.get("/Width"), image.get("/Height"))
-        if dimensions in {(602, 202), (188, 97)}:
+        if dimensions in {(602, 202), (188, 97)} or (
+            subtype == "/Form" and str(name).startswith("/FormXob.")
+        ):
             signature_image_names.add(str(name))
 
     if not signature_image_names:
@@ -282,6 +283,33 @@ def _count_existing_signature_image_draws(page) -> int:
         return 0
 
     return sum(content.count(f"{name} Do") for name in signature_image_names)
+
+
+def has_missing_signature_draws(source_pdf_bytes: bytes, reference_pdf_bytes: bytes) -> bool:
+    try:
+        source_reader = PyPdfReader(io.BytesIO(source_pdf_bytes))
+        reference_reader = PyPdfReader(io.BytesIO(reference_pdf_bytes))
+    except Exception:
+        return False
+
+    sig_rects_by_page = {}
+    ref_sig_rects = _collect_all_sig_rects(reference_reader)
+    ref_to_source_page = _map_reference_pages_to_source(source_reader, reference_reader)
+    for page_idx, rects in ref_sig_rects.items():
+        target_page_idx = ref_to_source_page.get(page_idx)
+        if target_page_idx is None:
+            continue
+        for rect in rects:
+            _sig_utils._append_sig_rect(sig_rects_by_page, target_page_idx, rect, dedupe=True)
+
+    _augment_phoenix_repeated_signature5_rects(sig_rects_by_page, source_reader)
+
+    for page_idx, rects in sig_rects_by_page.items():
+        if page_idx >= len(source_reader.pages):
+            continue
+        if _count_existing_signature_image_draws(source_reader.pages[page_idx]) < len(rects):
+            return True
+    return False
 
 
 def apply_signature_to_sig_fields(

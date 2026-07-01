@@ -40,3 +40,7 @@ def apply_signature_to_sig_fields(
 
 def flatten_form_fields(source_pdf_bytes: bytes) -> bytes:
     return _helpers.flatten_form_fields(source_pdf_bytes)
+
+
+def has_missing_signature_draws(source_pdf_bytes: bytes, reference_pdf_bytes: bytes) -> bool:
+    return _helpers.has_missing_signature_draws(source_pdf_bytes, reference_pdf_bytes)
