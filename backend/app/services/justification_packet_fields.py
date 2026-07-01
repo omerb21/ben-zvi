@@ -61,6 +61,11 @@ KIT_SPLIT_FIELD_NAMES_LOWER = {
 }
 
 
+def _is_signature_field_name(name: str) -> bool:
+    name_lower = name.lower()
+    return "sig" in name_lower or "sign" in name_lower or "חתימ" in name_lower
+
+
 def get_acroform_fields(reader: PdfReader):
     root = reader.trailer.get("/Root")
     if root is None:
@@ -95,7 +100,7 @@ def rename_kit_specific_fields(reader: PdfReader, prefix: str) -> None:
         name_obj = field.get("/T")
         if name_obj is not None:
             name_str = str(name_obj)
-            if name_str.lower() in KIT_SPLIT_FIELD_NAMES_LOWER:
+            if name_str.lower() in KIT_SPLIT_FIELD_NAMES_LOWER or _is_signature_field_name(name_str):
                 new_name = TextStringObject(f"{prefix}{name_str}")
                 field.update({NameObject("/T"): new_name})
 
