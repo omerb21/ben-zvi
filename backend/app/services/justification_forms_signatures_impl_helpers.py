@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 
 from pypdf import PdfReader as PyPdfReader, PdfWriter as PyPdfWriter
-from pypdf.generic import NameObject
+from pypdf.generic import ArrayObject, NameObject
 from reportlab.pdfgen import canvas
 
 from app.services import justification_forms_signatures_sigfields as _sigfields
@@ -232,7 +232,7 @@ def flatten_form_fields(source_pdf_bytes: bytes) -> bytes:
                 new_annots.append(annot_ref)
 
             if new_annots:
-                page[NameObject("/Annots")] = new_annots
+                page[NameObject("/Annots")] = ArrayObject(new_annots)
             else:
                 if "/Annots" in page:
                     del page[NameObject("/Annots")]

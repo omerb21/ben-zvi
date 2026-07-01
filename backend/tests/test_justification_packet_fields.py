@@ -5,6 +5,7 @@ from pypdf import PdfWriter
 from reportlab.pdfgen import canvas
 
 from app.services.justification_forms_signatures import count_signature_fields
+from app.services.justification_forms_signatures import flatten_form_fields
 from app.services.justification_packet_parts_helpers import _append_parts_to_writer
 from app.services.justification_packet_fields import rename_kit_specific_fields
 
@@ -53,6 +54,15 @@ def test_packet_merge_preserves_duplicate_kit_signature_fields(tmp_path):
     assert "kit1_Signature1" in fields
     assert "kit2_Signature1" in fields
     assert count_signature_fields(merged) == 2
+
+
+def test_flatten_removes_signature_widgets_from_page_annotations():
+    source = _build_pdf_with_signature_named_text_field()
+
+    flattened = flatten_form_fields(source)
+
+    assert count_signature_fields(source) == 1
+    assert count_signature_fields(flattened) == 0
 
 
 def _write_reader(reader: PdfReader) -> bytes:
