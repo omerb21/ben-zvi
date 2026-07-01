@@ -9,6 +9,7 @@ from reportlab.pdfgen import canvas
 from app.services.justification_forms_signatures import apply_signature_to_sig_fields
 from app.services.justification_forms_signatures import count_signature_fields
 from app.services.justification_forms_signatures import flatten_form_fields
+from app.services.justification_packet_trim import refresh_edited_packet_from_base_if_possible
 from app.services.justification_packet_parts_helpers import _append_parts_to_writer
 from app.services.justification_packet_fields import rename_kit_specific_fields
 
@@ -116,6 +117,28 @@ def test_reference_signature_rects_follow_matching_pages_after_middle_pages_remo
 
     assert "76.08247 110 cm" in first_page_content
     assert "326.08247 110 cm" not in first_page_content
+
+
+def test_stale_edited_packet_is_refreshed_from_base_with_form_fields(tmp_path):
+    base_path = tmp_path / "packet.pdf"
+    edited_path = tmp_path / "packet_edited.pdf"
+    base_path.write_bytes(_build_reference_pdf_with_offset_sensitive_signature_fields())
+
+    base_reader = PdfReader(str(base_path))
+    stale_writer = PdfWriter()
+    stale_writer.add_page(base_reader.pages[0])
+    stale_writer.add_page(base_reader.pages[2])
+    with edited_path.open("wb") as f:
+        stale_writer.write(f)
+
+    assert PdfReader(str(edited_path)).get_fields() in (None, {})
+
+    assert refresh_edited_packet_from_base_if_possible(base_path, edited_path) is True
+
+    fields = PdfReader(str(edited_path)).get_fields() or {}
+    assert "keep-first_Signature" in fields
+    assert "keep-last_Signature" in fields
+    assert count_signature_fields(edited_path.read_bytes()) == 2
 
 
 def _write_reader(reader: PdfReader) -> bytes:
