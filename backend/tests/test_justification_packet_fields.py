@@ -60,6 +60,27 @@ def _build_source_pdf_without_signature_fields() -> bytes:
     return output.getvalue()
 
 
+def _build_phoenix_like_pdf(signature_offsets: set[int] | None = None) -> bytes:
+    signature_offsets = signature_offsets or set()
+    output = io.BytesIO()
+    pdf = canvas.Canvas(output, pagesize=(595, 842))
+    for page_index in range(12):
+        pdf.drawString(72, 780, f"FNX.CO.IL phoenix kit page {page_index + 1}")
+        if page_index in signature_offsets:
+            field_count = 2 if page_index in {0, 3} else 1
+            for field_index in range(field_count):
+                pdf.acroForm.textfield(
+                    name=f"Signature{page_index + 1}_{field_index + 1}",
+                    x=300 - (field_index * 220),
+                    y=120,
+                    width=180,
+                    height=40,
+                )
+        pdf.showPage()
+    pdf.save()
+    return output.getvalue()
+
+
 def _add_content_overlay_to_first_page(source_pdf_bytes: bytes) -> bytes:
     reader = PdfReader(io.BytesIO(source_pdf_bytes))
     writer = PdfWriter()
@@ -153,6 +174,28 @@ def test_reference_signature_rects_follow_text_matched_pages_when_content_stream
 
     assert "76.08247 110 cm" in first_page_content
     assert "326.08247 110 cm" not in first_page_content
+
+
+def test_phoenix_repeated_signature5_rects_are_restored_when_widgets_are_missing():
+    signed = apply_signature_to_sig_fields(
+        _build_phoenix_like_pdf(),
+        _signature_data_url(),
+        reference_pdf_bytes=_build_phoenix_like_pdf({0, 3, 4}),
+    )
+
+    reader = PdfReader(io.BytesIO(signed))
+
+    for page_index, expected_draws in {
+        0: 2,
+        3: 2,
+        4: 1,
+        5: 1,
+        7: 2,
+        8: 1,
+        11: 2,
+    }.items():
+        content = reader.pages[page_index].get_contents().get_data().decode("latin-1")
+        assert content.count(" Do") == expected_draws
 
 
 def test_stale_edited_packet_is_refreshed_from_base_with_form_fields(tmp_path):

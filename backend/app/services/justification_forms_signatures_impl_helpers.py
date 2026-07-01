@@ -213,6 +213,77 @@ def _map_reference_pages_to_source(source_reader, reference_reader) -> dict[int,
     return ref_to_source
 
 
+def _page_looks_like_phoenix_kit(page) -> bool:
+    try:
+        text = (page.extract_text() or "").upper()
+    except Exception:
+        return False
+    return "FNX" in text or "PHOENIX" in text
+
+
+def _augment_phoenix_repeated_signature5_rects(sig_rects_by_page: dict, reader) -> None:
+    repeated_signature5_rects_by_offset = {
+        5: [(27.200132, 430.31897, 149.209106, 452.243164)],
+        7: [
+            (53.74279, 87.417015, 176.871384, 111.207108),
+            (53.369576, 39.650208, 176.124954, 63.067123),
+        ],
+        8: [(23.512465, 514.706055, 143.655365, 531.405762)],
+        11: [
+            (23.512482, 612.10553, 149.253586, 639.254211),
+            (409.788757, 730.776184, 534.410217, 753.073547),
+        ],
+    }
+
+    page_count = len(reader.pages)
+    for start_idx in range(page_count):
+        if len(sig_rects_by_page.get(start_idx, [])) < 2:
+            continue
+        if len(sig_rects_by_page.get(start_idx + 3, [])) < 2:
+            continue
+        if len(sig_rects_by_page.get(start_idx + 4, [])) < 1:
+            continue
+        if not _page_looks_like_phoenix_kit(reader.pages[start_idx]):
+            continue
+
+        for offset, rects in repeated_signature5_rects_by_offset.items():
+            page_idx = start_idx + offset
+            if page_idx >= page_count:
+                continue
+            if not _page_looks_like_phoenix_kit(reader.pages[page_idx]):
+                continue
+            if len(sig_rects_by_page.get(page_idx, [])) >= len(rects):
+                continue
+            for rect in rects:
+                _sig_utils._append_sig_rect(sig_rects_by_page, page_idx, rect, dedupe=True)
+
+
+def _count_existing_signature_image_draws(page) -> int:
+    resources = page.get("/Resources") or {}
+    xobjects = resources.get("/XObject") or {}
+    signature_image_names = set()
+    for name, obj in xobjects.items():
+        try:
+            image = _sig_utils._pdf_deref(obj)
+        except Exception:
+            continue
+        if image.get("/Subtype") != "/Image":
+            continue
+        dimensions = (image.get("/Width"), image.get("/Height"))
+        if dimensions in {(602, 202), (188, 97)}:
+            signature_image_names.add(str(name))
+
+    if not signature_image_names:
+        return 0
+
+    try:
+        content = page.get_contents().get_data().decode("latin-1", errors="ignore")
+    except Exception:
+        return 0
+
+    return sum(content.count(f"{name} Do") for name in signature_image_names)
+
+
 def apply_signature_to_sig_fields(
     source_pdf_bytes: bytes,
     signature_image_data: str,
@@ -256,6 +327,8 @@ def apply_signature_to_sig_fields(
         except Exception:
             pass
 
+    _augment_phoenix_repeated_signature5_rects(sig_rects_by_page, base_reader)
+
     any_signature_drawn = False
 
     pages_with_sigs = [(idx, sig_rects_by_page[idx]) for idx in sig_rects_by_page if sig_rects_by_page[idx]]
@@ -264,8 +337,11 @@ def apply_signature_to_sig_fields(
         if page_index >= len(writer.pages):
             continue
 
-        any_signature_drawn = True
         page = writer.pages[page_index]
+        if _count_existing_signature_image_draws(page) >= len(sig_rects):
+            continue
+
+        any_signature_drawn = True
         page_width = float(page.mediabox.width)
         page_height = float(page.mediabox.height)
 
