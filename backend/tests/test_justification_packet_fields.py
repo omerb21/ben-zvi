@@ -60,6 +60,26 @@ def _build_source_pdf_without_signature_fields() -> bytes:
     return output.getvalue()
 
 
+def _add_content_overlay_to_first_page(source_pdf_bytes: bytes) -> bytes:
+    reader = PdfReader(io.BytesIO(source_pdf_bytes))
+    writer = PdfWriter()
+    writer.clone_document_from_reader(reader)
+
+    overlay_bytes = io.BytesIO()
+    overlay = canvas.Canvas(overlay_bytes, pagesize=(595, 842))
+    overlay.setLineWidth(0.5)
+    overlay.rect(40, 40, 20, 20)
+    overlay.save()
+    overlay_bytes.seek(0)
+
+    overlay_reader = PdfReader(overlay_bytes)
+    writer.pages[0].merge_page(overlay_reader.pages[0])
+
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
 def _signature_data_url() -> str:
     signature_path = Path(__file__).resolve().parents[1] / "app" / "static" / "signature.jpg"
     return "data:image/jpeg;base64," + base64.b64encode(signature_path.read_bytes()).decode("ascii")
@@ -108,6 +128,22 @@ def test_flatten_removes_signature_widgets_from_page_annotations():
 def test_reference_signature_rects_follow_matching_pages_after_middle_pages_removed():
     signed = apply_signature_to_sig_fields(
         _build_source_pdf_without_signature_fields(),
+        _signature_data_url(),
+        reference_pdf_bytes=_build_reference_pdf_with_offset_sensitive_signature_fields(),
+    )
+
+    reader = PdfReader(io.BytesIO(signed))
+    first_page_content = reader.pages[0].get_contents().get_data().decode("latin-1")
+
+    assert "76.08247 110 cm" in first_page_content
+    assert "326.08247 110 cm" not in first_page_content
+
+
+def test_reference_signature_rects_follow_text_matched_pages_when_content_stream_changed():
+    source = _add_content_overlay_to_first_page(_build_source_pdf_without_signature_fields())
+
+    signed = apply_signature_to_sig_fields(
+        source,
         _signature_data_url(),
         reference_pdf_bytes=_build_reference_pdf_with_offset_sensitive_signature_fields(),
     )

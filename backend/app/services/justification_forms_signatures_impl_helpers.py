@@ -136,19 +136,79 @@ def _page_content_fingerprint(page) -> tuple:
     )
 
 
-def _map_reference_pages_to_source(source_reader, reference_reader) -> dict[int, int]:
-    reference_pages_by_fingerprint: dict[tuple, list[int]] = {}
-    for ref_idx, page in enumerate(reference_reader.pages):
-        fingerprint = _page_content_fingerprint(page)
-        reference_pages_by_fingerprint.setdefault(fingerprint, []).append(ref_idx)
+def _page_text_fingerprint(page) -> tuple:
+    try:
+        text = page.extract_text() or ""
+    except Exception:
+        text = ""
+    normalized_text = " ".join(text.split())
+    if not normalized_text:
+        return None
+    return (
+        str(page.mediabox),
+        str(page.get("/Rotate") or 0),
+        normalized_text,
+    )
+
+
+def _map_reference_pages_by_fingerprint(
+    source_reader,
+    reference_reader,
+    fingerprint_func,
+    *,
+    used_source_pages: set[int] | None = None,
+    used_reference_pages: set[int] | None = None,
+) -> dict[int, int]:
+    used_source_pages = used_source_pages or set()
+    used_reference_pages = used_reference_pages or set()
+
+    source_pages_by_fingerprint: dict[tuple, list[int]] = {}
+    for source_idx, page in enumerate(source_reader.pages):
+        if source_idx in used_source_pages:
+            continue
+        fingerprint = fingerprint_func(page)
+        if fingerprint is None:
+            continue
+        source_pages_by_fingerprint.setdefault(fingerprint, []).append(source_idx)
 
     ref_to_source: dict[int, int] = {}
-    for source_idx, page in enumerate(source_reader.pages):
-        fingerprint = _page_content_fingerprint(page)
-        matches = reference_pages_by_fingerprint.get(fingerprint) or []
+    for ref_idx, page in enumerate(reference_reader.pages):
+        if ref_idx in used_reference_pages:
+            continue
+        fingerprint = fingerprint_func(page)
+        if fingerprint is None:
+            continue
+        matches = source_pages_by_fingerprint.get(fingerprint) or []
         if not matches:
             continue
-        ref_to_source[matches.pop(0)] = source_idx
+        source_idx = matches.pop(0)
+        ref_to_source[ref_idx] = source_idx
+        used_source_pages.add(source_idx)
+        used_reference_pages.add(ref_idx)
+
+    return ref_to_source
+
+
+def _map_reference_pages_to_source(source_reader, reference_reader) -> dict[int, int]:
+    used_source_pages: set[int] = set()
+    used_reference_pages: set[int] = set()
+
+    ref_to_source = _map_reference_pages_by_fingerprint(
+        source_reader,
+        reference_reader,
+        _page_content_fingerprint,
+        used_source_pages=used_source_pages,
+        used_reference_pages=used_reference_pages,
+    )
+
+    text_matches = _map_reference_pages_by_fingerprint(
+        source_reader,
+        reference_reader,
+        _page_text_fingerprint,
+        used_source_pages=used_source_pages,
+        used_reference_pages=used_reference_pages,
+    )
+    ref_to_source.update(text_matches)
 
     return ref_to_source
 
