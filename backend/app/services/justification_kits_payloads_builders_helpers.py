@@ -9,6 +9,22 @@ from app.models import Client, ExistingProduct, NewProduct
 from app.services import justification_kits_payloads_utils as _utils
 
 
+REPLACEMENT_FUND_FIELD_PREFIX_BY_TYPE = {
+    "גמל": "mekabeletg",
+    "גמל להשקעה": "mekabeletgh",
+    "השתלמות": "mekabeleth",
+}
+
+
+def _add_replacement_fund_fields(payload: Dict[str, Any], new_fund: NewProduct) -> None:
+    prefix = REPLACEMENT_FUND_FIELD_PREFIX_BY_TYPE.get((new_fund.fund_type or "").strip())
+    if not prefix:
+        return
+
+    payload[f"{prefix}_name"] = new_fund.fund_name
+    payload[f"{prefix}_number"] = new_fund.fund_code
+
+
 def build_common_fields(client: Client) -> Dict[str, Any]:
     tz = pytz.timezone("Asia/Jerusalem")
 
@@ -199,8 +215,6 @@ def build_fund_fields(new_fund: NewProduct, old_fund: Optional[ExistingProduct] 
             "new_fund_company": new_fund.company_name,
             "new_fund_name": new_fund.fund_name,
             "new_fund_code": new_fund.fund_code,
-            "mekabelet_name": new_fund.fund_name,
-            "mekabelet_number": new_fund.fund_code,
             "new_personal_number": new_fund.personal_number,
             "yield_1yr": new_fund.yield_1yr,
             "yield_3yr": new_fund.yield_3yr,
@@ -209,6 +223,7 @@ def build_fund_fields(new_fund: NewProduct, old_fund: Optional[ExistingProduct] 
             "ProductCode": new_fund.fund_code,
         }
     )
+    _add_replacement_fund_fields(payload, new_fund)
 
     if old_fund:
         payload.update(
