@@ -199,6 +199,8 @@ def build_fund_fields(new_fund: NewProduct, old_fund: Optional[ExistingProduct] 
             "new_fund_company": new_fund.company_name,
             "new_fund_name": new_fund.fund_name,
             "new_fund_code": new_fund.fund_code,
+            "mekabelet_name": new_fund.fund_name,
+            "mekabelet_number": new_fund.fund_code,
             "new_personal_number": new_fund.personal_number,
             "yield_1yr": new_fund.yield_1yr,
             "yield_3yr": new_fund.yield_3yr,
