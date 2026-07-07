@@ -14,6 +14,7 @@ REPLACEMENT_FUND_FIELD_PREFIX_BY_TYPE = {
     "גמל להשקעה": "mekabeletgh",
     "השתלמות": "mekabeleth",
 }
+DEPOSIT_CHECKBOX_YES_VALUE = "/Yes_yyfg"
 
 
 def _add_replacement_fund_fields(payload: Dict[str, Any], new_fund: NewProduct) -> None:
@@ -23,6 +24,35 @@ def _add_replacement_fund_fields(payload: Dict[str, Any], new_fund: NewProduct) 
 
     payload[f"{prefix}_name"] = new_fund.fund_name
     payload[f"{prefix}_number"] = new_fund.fund_code
+
+
+def _regular_contributions_value(
+    new_fund: NewProduct,
+    old_fund: Optional[ExistingProduct],
+) -> Optional[bool]:
+    new_value = getattr(new_fund, "has_regular_contributions", None)
+    if new_value is not None:
+        return bool(new_value)
+
+    old_value = getattr(old_fund, "has_regular_contributions", None) if old_fund else None
+    if old_value is not None:
+        return bool(old_value)
+
+    return None
+
+
+def _add_regular_contributions_fields(
+    payload: Dict[str, Any],
+    new_fund: NewProduct,
+    old_fund: Optional[ExistingProduct],
+) -> None:
+    has_regular_contributions = _regular_contributions_value(new_fund, old_fund)
+    if has_regular_contributions is None:
+        return
+
+    dep_field = "depyes" if has_regular_contributions else "depno"
+    for cb in {"depyes", "depno"}:
+        payload[cb] = DEPOSIT_CHECKBOX_YES_VALUE if cb == dep_field else "/Off"
 
 
 def build_common_fields(client: Client) -> Dict[str, Any]:
@@ -224,6 +254,7 @@ def build_fund_fields(new_fund: NewProduct, old_fund: Optional[ExistingProduct] 
         }
     )
     _add_replacement_fund_fields(payload, new_fund)
+    _add_regular_contributions_fields(payload, new_fund, old_fund)
 
     if old_fund:
         payload.update(
@@ -241,11 +272,6 @@ def build_fund_fields(new_fund: NewProduct, old_fund: Optional[ExistingProduct] 
                 "existing_management_fee": getattr(old_fund, "management_fee_balance", ""),
             }
         )
-
-        if hasattr(old_fund, "has_regular_contributions"):
-            dep_field = "depyes" if old_fund.has_regular_contributions else "depno"
-            for cb in {"depyes", "depno"}:
-                payload[cb] = "/Yes" if cb == dep_field else "/Off"
 
     deposit_status = getattr(new_fund, "deposit_status", "")
     if deposit_status:
