@@ -464,6 +464,46 @@ class TestJustificationSigning:
         assert len(signed_reader.pages) == 3
         assert completed.status == "signed"
 
+    async def test_signing_commits_status_when_local_signed_pdf_write_fails(
+        self, client, test_db, monkeypatch
+    ):
+        client_id = await _create_crm_client(client)
+        packet_bytes = _build_packet_pdf_with_signature_fields()
+        request = ClientSignatureRequest(
+            client_id=client_id,
+            token="unwritable-filesystem-signing-token",
+            packet_filename=f"external_document_{client_id}.pdf",
+            status="pending",
+            packet_pdf_data=packet_bytes,
+        )
+        test_db.add(request)
+        test_db.commit()
+
+        def fail_local_write(*args, **kwargs):
+            raise OSError("filesystem is read-only")
+
+        monkeypatch.setattr(Path, "write_bytes", fail_local_write)
+        signature_path = Path(__file__).resolve().parents[1] / "app" / "static" / "signature.jpg"
+        signature_data = "data:image/jpeg;base64," + base64.b64encode(
+            signature_path.read_bytes()
+        ).decode("ascii")
+
+        completed = justification_signing_complete_helpers.complete_packet_signature(
+            test_db,
+            request.token,
+            signature_data,
+        )
+
+        assert completed.status == "signed"
+        assert completed.signed_at is not None
+        assert completed.packet_pdf_data != packet_bytes
+
+        status_response = await client.get(
+            f"/api/v1/justification/clients/{client_id}/packet-sign-status"
+        )
+        assert status_response.status_code == 200
+        assert status_response.json()["status"] == "signed"
+
     async def test_packet_generation_does_not_generate_missing_individual_pdfs(
         self, client, monkeypatch
     ):
@@ -519,6 +559,7 @@ class TestJustificationSigning:
         status_data = status_response.json()
         assert status_data["status"] == "signed"
         assert status_data["signedAt"].startswith("2026-06-10T09:30:00")
+        assert status_response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
 
     async def test_admin_signed_packet_download_prefers_latest_signed_request_data(
         self, client, test_db
@@ -548,6 +589,37 @@ class TestJustificationSigning:
 
         assert response.status_code == 200
         assert response.content == latest_pdf_bytes
+        assert response.content != stale_signed_path.read_bytes()
+
+    async def test_client_sign_download_prefers_request_pdf_over_stale_local_file(
+        self, client, test_db
+    ):
+        client_id = await _create_crm_client(client)
+        client_model = test_db.get(Client, client_id)
+        export_dir = justification_b1._get_client_export_dir(client_model)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        stale_signed_path = export_dir / f"packet_{client_id}_signed_client.pdf"
+        stale_signed_path.write_bytes(_build_external_pdf("stale_signature"))
+        request_pdf_bytes = _build_external_pdf("current_request_signature")
+
+        request = ClientSignatureRequest(
+            client_id=client_id,
+            token="request-specific-signed-download-token",
+            packet_filename=f"packet_{client_id}.pdf",
+            signed_packet_filename=stale_signed_path.name,
+            status="signed",
+            signed_at=datetime.now(timezone.utc),
+            packet_pdf_data=request_pdf_bytes,
+        )
+        test_db.add(request)
+        test_db.commit()
+
+        response = await client.get(
+            f"/api/v1/justification/client-sign/{request.token}/packet-signed-client.pdf"
+        )
+
+        assert response.status_code == 200
+        assert response.content == request_pdf_bytes
         assert response.content != stale_signed_path.read_bytes()
 
     async def test_signature_notification_appears_in_crm_reminders(self, client, test_db):

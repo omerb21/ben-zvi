@@ -219,9 +219,12 @@ def complete_packet_signature(db: Session, token: str, signature_data_url: str) 
         )
         flattened_bytes = justification_forms_service.flatten_form_fields(completed_signed_bytes)
 
-    justification_packet_service._ensure_dir(signed_packet_path.parent)
-
-    signed_packet_path.write_bytes(flattened_bytes)
+    # The signed PDF is persisted in the database below and is therefore not
+    # allowed to depend on the instance's local filesystem.  Hosted instances
+    # can have ephemeral or temporarily unwritable storage; a direct write here
+    # used to abort the request before status/signed_at were committed, leaving
+    # a successfully submitted signing link stuck in ``pending``.
+    _try_write_bytes(signed_packet_path, flattened_bytes)
 
     from datetime import datetime, timezone
 

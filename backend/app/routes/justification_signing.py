@@ -161,8 +161,10 @@ async def create_external_document_sign_request(
 @router.get("/clients/{client_id}/packet-sign-status", response_model=PacketSignatureStatusRead)
 def get_client_packet_sign_status(
     client_id: int,
+    response: Response,
     db: Session = Depends(get_db),
 ):
+    response.headers.update(_get_no_cache_headers())
     _get_client_or_404(db, client_id)
     request_obj = justification_signing_service.get_latest_request_for_client(db, client_id)
     if request_obj is None:
@@ -225,6 +227,13 @@ def download_client_signed_packet_for_sign(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Signed client packet PDF not available yet",
         )
+
+    # Each request stores its own signed PDF snapshot.  Prefer it over the
+    # shared client filesystem path, which may be missing on ephemeral storage
+    # or may still contain a file from an older signing request.
+    if request_obj.packet_pdf_data:
+        ascii_filename = _build_packet_ascii_filename(client, signed=True)
+        return _inline_pdf_response(request_obj.packet_pdf_data, ascii_filename)
 
     export_dir = justification_b1_service._get_client_export_dir(client)
     signed_filename = request_obj.signed_packet_filename or f"packet_{client.id}_signed_client.pdf"
